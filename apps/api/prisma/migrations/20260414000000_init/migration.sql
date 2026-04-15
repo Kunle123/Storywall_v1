@@ -1,0 +1,2 @@
+-- Baseline migration (empty schema). Editorial tables follow migration plan phases.
+-- https://github.com/storywall — see docs/storywall_database_migration_plan_actual_stack.md

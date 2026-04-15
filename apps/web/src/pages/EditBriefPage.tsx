@@ -1,0 +1,168 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import type { CreatorWorkflowState } from "@storywall/shared";
+import { ApiRequestError, extractConflictBrief, patchStoryBrief } from "../api/creatorClient";
+import type { StoryBriefResponse } from "../api/types";
+import { useAuth } from "../auth/AuthProvider";
+import { BriefIntakeFields } from "../components/BriefIntakeFields";
+import { cacheBriefWorkspace, loadBriefCache } from "../lib/briefCache";
+import { briefResponseToForm, diffPatch, type BriefFormValues } from "../lib/briefFormModel";
+
+type SaveUi = "idle" | "saving" | "saved" | "error" | "conflict";
+
+const DEBOUNCE_MS = 900;
+
+export function EditBriefPage() {
+  const { storyId } = useParams<{ storyId: string }>();
+  const location = useLocation();
+  const { token, creator, logout } = useAuth();
+
+  const navState = location.state as { story_brief?: StoryBriefResponse; story_state?: CreatorWorkflowState } | null;
+
+  const [serverBrief, setServerBrief] = useState<StoryBriefResponse | null>(() => {
+    if (!storyId) return null;
+    return navState?.story_brief ?? loadBriefCache(storyId)?.story_brief ?? null;
+  });
+
+  const [storyState, setStoryState] = useState<CreatorWorkflowState | null>(() => {
+    if (!storyId) return null;
+    return navState?.story_state ?? loadBriefCache(storyId)?.story_state ?? null;
+  });
+
+  const [form, setForm] = useState<BriefFormValues | null>(() => {
+    const sb = navState?.story_brief ?? (storyId ? loadBriefCache(storyId)?.story_brief : null);
+    return sb ? briefResponseToForm(sb) : null;
+  });
+
+  const [saveUi, setSaveUi] = useState<SaveUi>("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const serverRef = useRef(serverBrief);
+  serverRef.current = serverBrief;
+
+  function mergeForm(patch: Partial<BriefFormValues>) {
+    setForm((f) => (f ? { ...f, ...patch } : f));
+  }
+
+  useEffect(() => {
+    if (!token || !storyId || !form) return;
+    const s = serverRef.current;
+    if (!s) return;
+
+    const timer = setTimeout(() => {
+      const baseline = serverRef.current;
+      if (!baseline) return;
+      const patch = diffPatch(baseline, form);
+      if (Object.keys(patch).length === 0) return;
+
+      setSaveUi("saving");
+      setSaveMessage(null);
+
+      void (async () => {
+        try {
+          const res = await patchStoryBrief(token, storyId, baseline.updated_at, patch);
+          const next = res.data.story_brief;
+          const st = res.data.story_state;
+          setServerBrief(next);
+          serverRef.current = next;
+          setStoryState(st);
+          setForm(briefResponseToForm(next));
+          cacheBriefWorkspace(storyId, {
+            story_brief: next,
+            story_state: st,
+            cached_at: new Date().toISOString(),
+          });
+          setLastSavedAt(res.meta?.saved_at ?? next.updated_at);
+          setSaveUi("saved");
+        } catch (err) {
+          if (err instanceof ApiRequestError && err.status === 409) {
+            const latest = extractConflictBrief(err.body);
+            if (latest) {
+              setServerBrief(latest);
+              serverRef.current = latest;
+              setForm(briefResponseToForm(latest));
+              cacheBriefWorkspace(storyId, {
+                story_brief: latest,
+                story_state: loadBriefCache(storyId)?.story_state ?? "drafting_brief",
+                cached_at: new Date().toISOString(),
+              });
+              setSaveUi("conflict");
+              setSaveMessage(
+                "Another version was saved first. The form now shows the latest brief from the server. Continue editing from here.",
+              );
+              return;
+            }
+          }
+          setSaveUi("error");
+          setSaveMessage(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Save failed.");
+        }
+      })();
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [form, token, storyId]);
+
+  if (!storyId || !serverBrief || !form) {
+    return (
+      <div className="page narrow">
+        <h1 className="page-title">Brief not loaded</h1>
+        <p className="page-lead">
+          This screen needs a brief snapshot from creating a story or from cached data on this device. The workspace read
+          API is not part of M1-T07/M1-T08.
+        </p>
+        <p>
+          <Link to="/creator/stories/new" className="btn primary inline">
+            Start a new Storywall
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  const stateLabel = storyState ?? "—";
+
+  return (
+    <div className="page">
+      <header className="creator-header">
+        <div>
+          <h1 className="page-title">Brief intake</h1>
+          <p className="page-lead muted">
+            Story <code className="inline-code">{storyId}</code> — workflow: <strong>{stateLabel}</strong>
+          </p>
+        </div>
+        <div className="creator-header-actions">
+          <span className="muted small">{creator?.email}</span>
+          <button type="button" className="btn ghost" onClick={() => logout()}>
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <div className={`save-bar ${saveUi}`} role="status" aria-live="polite">
+        <span className="save-bar-label">Autosave</span>
+        {saveUi === "idle" ? <span className="muted">Edits save shortly after you pause typing.</span> : null}
+        {saveUi === "saving" ? <span>Saving...</span> : null}
+        {saveUi === "saved" ? (
+          <span>Saved{lastSavedAt ? ` (${new Date(lastSavedAt).toLocaleString()})` : ""}</span>
+        ) : null}
+        {saveUi === "conflict" ? <span className="warn">Conflict resolved from server</span> : null}
+        {saveUi === "error" ? <span className="error">Save error</span> : null}
+      </div>
+      {saveMessage ? <div className="banner warn">{saveMessage}</div> : null}
+
+      <div className="card brief-card">
+        <BriefIntakeFields value={form} onChange={mergeForm} />
+        <p className="hint footnote">
+          Patches use <code className="inline-code">If-Match</code> with the last{" "}
+          <code className="inline-code">story_brief.updated_at</code> (mutation contract §6). Stale saves return 409; the
+          UI loads the latest brief from <code className="inline-code">error.details.story_brief</code>.
+        </p>
+      </div>
+
+      <p className="muted" style={{ marginTop: "1.5rem" }}>
+        <Link to="/creator/stories/new">+ New Storywall</Link>
+      </p>
+    </div>
+  );
+}

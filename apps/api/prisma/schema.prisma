@@ -1,0 +1,697 @@
+// Prisma schema — storywall_database_migration_plan_actual_stack.md
+// M1-T02: `stories`. M1-T03: brief + framing. M1-T04: `story_draft`, `revision_entry`. M1-T05: section/event/source/image draft tables. M1-T06: `creator` + FK on ownership only (`stories` / `story_brief`); audit actors are plain UUIDs.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Shared / core enums ---
+
+enum SubjectType {
+  person
+  organization
+  event
+  topic
+  place
+  movement
+  conflict
+  other
+}
+
+/// Authenticated creator account — mutation API §4; M1-T06 (password optional for legacy backfill rows).
+/// Generic audit/actor UUIDs on drafts (`last_edited_by`, revision `created_by`, source `added_by`) are NOT FKs here:
+/// actors may be creator, system job, or future reviewer — resolved in app layer or a later principal table.
+model Creator {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  email         String    @unique
+  passwordHash  String?   @map("password_hash") @db.Text
+  displayName   String?   @map("display_name")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stories     Story[]
+  storyBriefs StoryBrief[]
+
+  @@map("creator")
+}
+
+enum StoryLifecycleStatus {
+  draft
+  review
+  published
+  archived
+}
+
+enum StoryVisibility {
+  public
+  unlisted
+  private
+}
+
+enum CreatorWorkflowState {
+  drafting_brief
+  awaiting_framing_choice
+  researching
+  assembling_draft
+  ready_for_edit
+  needs_validation
+  blocked
+  ready_to_publish
+  published
+}
+
+// --- M1-T03 brief & framing (storywall_editor_cms_input_model.md §7–9) ---
+
+enum BriefStoryType {
+  biography
+  issue_history
+  influence
+  controversy
+  movement_history
+  relationship_impact
+  custom
+}
+
+enum TimeScopeMode {
+  entire_history
+  bounded_range
+  open_recent
+  custom
+}
+
+enum BriefAudience {
+  general
+  fan
+  student
+  specialist
+  custom
+}
+
+enum NarrativeIntent {
+  documentary
+  explanatory
+  analytical
+  commemorative
+  comparative
+}
+
+enum BriefImageryMode {
+  selective_editorial
+  minimal
+  sourced_only
+  no_imagery
+}
+
+enum WritingStylePreference {
+  neutral
+  analytical
+  concise
+  documentary
+}
+
+enum CreationMode {
+  ai_first
+  hybrid
+  manual_heavy
+}
+
+enum BriefRecordStatus {
+  draft
+  submitted
+  normalized
+}
+
+enum NormalizationStatus {
+  pending
+  complete
+  needs_creator_attention
+}
+
+enum FrameDraftStatus {
+  proposed
+  selected
+  discarded
+  superseded
+}
+
+enum FrameSelectionSource {
+  ai_proposed
+  creator_edited
+  creator_written
+}
+
+/// Story-level trust summary — API enum registry + framing `confidence_summary_initial` (editor §9.1)
+enum ConfidenceSummary {
+  verified
+  mostly_verified
+  mixed
+  emerging
+  disputed
+}
+
+// --- M1-T04 story draft & revision (storywall_editor_cms_input_model.md §10.1, §17) ---
+
+enum DiscoveryMode {
+  editorial
+  recent
+  trending
+  featured
+}
+
+enum DraftGenerationMode {
+  manual
+  ai_draft
+  ai_assisted
+  manual_after_ai
+}
+
+enum EditorialReviewStatus {
+  unreviewed
+  reviewed
+  approved
+  revised
+}
+
+enum AutosaveStatus {
+  saved
+  saving
+  conflict
+  error
+}
+
+enum RevisionType {
+  autosave
+  manual_edit
+  ai_regeneration
+  review_resolution
+  publish_promotion
+}
+
+enum ChangedObjectType {
+  story
+  section
+  event
+  source
+  image
+  validation
+  publish
+}
+
+// --- M1-T05 timeline + evidence draft layer (editor §11–14) ---
+
+enum SectionDraftStatus {
+  draft
+  approved
+  removed
+}
+
+/// Editor §11 `source` (section provenance)
+enum SectionOrigin {
+  ai_generated
+  creator_added
+  creator_edited
+}
+
+enum EventDraftKind {
+  standard
+  turning_point
+  context_note
+  synthesis
+  chatter
+  corroboration_cluster
+}
+
+enum SignificanceLevel {
+  minor
+  standard
+  major
+  critical
+}
+
+enum EventDatePrecision {
+  year
+  month
+  day
+  time
+  approximate
+  unknown
+}
+
+enum EventMediaKind {
+  image
+  video
+  document
+  map
+  none
+}
+
+enum EventSourceDensity {
+  none
+  low
+  medium
+  high
+}
+
+/// Event-card confidence — editor §12.1; aligns with shared `ConfidenceState`
+enum EventConfidenceState {
+  verified
+  mostly_verified
+  emerging
+  disputed
+  retracted
+}
+
+enum ClaimRiskLevel {
+  low
+  medium
+  high
+}
+
+/// Per-event moderation — editor §12.1 (distinct from reviewer `ModerationState` overlay)
+enum EventModerationStatus {
+  pending
+  approved
+  flagged
+  rejected
+}
+
+/// Lifecycle of an `event_draft` row — editor §12.1 `status`
+enum EventDraftRowStatus {
+  draft
+  ready
+  removed
+  published
+}
+
+enum SourceRecordType {
+  article
+  report
+  document
+  video
+  audio
+  archive
+  social_post
+  dataset
+  other
+}
+
+enum ReliabilityTier {
+  high
+  medium
+  low
+  unrated
+}
+
+enum SourceVerificationStatus {
+  verified
+  partially_verified
+  unreviewed
+  contested
+  rejected
+}
+
+enum SourceExtractionMethod {
+  manual
+  ai_extracted
+  imported
+}
+
+enum SourceRecordStatus {
+  draft
+  approved
+  rejected
+}
+
+enum ImageProposalTargetType {
+  story_cover
+  story_share
+  event
+  section
+}
+
+/// Editor §14 `proposal_source`
+enum ImageProposalAssetSource {
+  ai_generated
+  licensed
+  archival
+  manual_upload
+}
+
+enum ImageStyleMode {
+  editorial
+  archival
+  illustrative
+  minimal
+}
+
+enum ImageApprovalStatus {
+  proposed
+  approved
+  rejected
+  superseded
+}
+
+/// Primary editorial unit + public header fields (migration plan Phase 1 §7.1 `stories`).
+model Story {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug String @unique
+
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  title      String
+  subtitle   String?
+  summary    String  @default("") @db.Text
+  lens       String? @db.Text
+  conclusion String? @db.Text
+
+  subjectType       SubjectType @map("subject_type")
+  categoryPrimary   String      @map("category_primary")
+  categorySecondary String?     @map("category_secondary")
+
+  timeStart   DateTime? @map("time_start") @db.Timestamptz(6)
+  timeEnd     DateTime? @map("time_end") @db.Timestamptz(6)
+  timeDisplay String?   @map("time_display")
+
+  workflowState CreatorWorkflowState @default(drafting_brief) @map("workflow_state")
+  storyStatus   StoryLifecycleStatus @default(draft) @map("story_status")
+  visibility    StoryVisibility      @default(private)
+  leadPriority  Int?                 @map("lead_priority")
+
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  shareUrl         String? @map("share_url")
+  shareTitle       String? @map("share_title")
+  shareDescription String? @map("share_description") @db.Text
+
+  coverImage Json? @map("cover_image")
+
+  storyBrief StoryBrief?
+
+  @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
+  @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
+  @@index([categoryPrimary, publishedAt(sort: Desc)], map: "stories_category_primary_published_at_idx")
+  @@map("stories")
+}
+
+/// `story_brief` — editor §7 + normalization overlay §8. One row per story workspace.
+model StoryBrief {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyId   String @unique @map("story_id") @db.Uuid
+  story     Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  subject              String         @db.Text
+  subjectTypeInput     SubjectType?   @map("subject_type_input")
+  storyType            BriefStoryType @map("story_type")
+  researchBrief        String         @map("research_brief") @db.Text
+  desiredAngle         String         @map("desired_angle") @db.Text
+  timeScopeMode        TimeScopeMode  @map("time_scope_mode")
+  timeScopeStart       DateTime?      @map("time_scope_start") @db.Date
+  timeScopeEnd         DateTime?      @map("time_scope_end") @db.Date
+  audience             BriefAudience?
+  narrativeIntent      NarrativeIntent @map("narrative_intent")
+  imageryMode          BriefImageryMode @map("imagery_mode")
+  sourceInputs         Json?          @map("source_inputs")
+  writingStylePreference WritingStylePreference? @map("writing_style_preference")
+  creationMode         CreationMode   @map("creation_mode")
+  status               BriefRecordStatus @default(draft)
+
+  normalizedSubject       String?       @map("normalized_subject") @db.Text
+  subjectTypeNormalized   SubjectType?  @map("subject_type_normalized")
+  suggestedTimeScope        String?       @map("suggested_time_scope") @db.Text
+  storyAngleCandidates      Json?         @map("story_angle_candidates")
+  promptRisks               Json?         @map("prompt_risks")
+  recommendedCreationMode   CreationMode? @map("recommended_creation_mode")
+  normalizationStatus     NormalizationStatus @default(pending) @map("normalization_status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  frameDrafts StoryFrameDraft[]
+  storyDraft  StoryDraft?
+
+  @@index([creatorId], map: "story_brief_creator_id_idx")
+  @@map("story_brief")
+}
+
+/// Framing candidates / selection — editor §9. Selection is `is_selected` + `status` (mutation contract §10).
+model StoryFrameDraft {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyBriefId String     @map("story_brief_id") @db.Uuid
+  storyBrief   StoryBrief @relation(fields: [storyBriefId], references: [id], onDelete: Cascade)
+
+  titleCandidate    String  @map("title_candidate")
+  subtitleCandidate String? @map("subtitle_candidate")
+  summaryCandidate  String  @map("summary_candidate") @db.Text
+  lensCandidate     String  @map("lens_candidate") @db.Text
+  scopeRationale    String  @map("scope_rationale") @db.Text
+  coverageImplications Json  @default("[]") @map("coverage_implications")
+  balanceNote       String? @map("balance_note") @db.Text
+  sectionCandidates Json?   @map("section_candidates")
+
+  confidenceSummaryInitial ConfidenceSummary @map("confidence_summary_initial")
+  candidateRank            Int                 @map("candidate_rank")
+  isSelected               Boolean             @default(false) @map("is_selected")
+  selectionSource          FrameSelectionSource @map("selection_source")
+  status                   FrameDraftStatus    @map("status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  selectedByDrafts StoryDraft[] @relation("StoryDraftSelectedFrame")
+
+  @@index([storyBriefId], map: "story_frame_draft_brief_id_idx")
+  @@index([storyBriefId, candidateRank], map: "story_frame_draft_brief_rank_idx")
+  @@map("story_frame_draft")
+}
+
+/// Primary editable story workspace — editor §10.1. One row per brief (1:1 with `story_brief`).
+model StoryDraft {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyBriefId String     @unique @map("story_brief_id") @db.Uuid
+  storyBrief   StoryBrief @relation(fields: [storyBriefId], references: [id], onDelete: Cascade)
+
+  selectedFrameId String          @map("selected_frame_id") @db.Uuid
+  selectedFrame   StoryFrameDraft @relation("StoryDraftSelectedFrame", fields: [selectedFrameId], references: [id], onDelete: Restrict)
+
+  title      String
+  subtitle   String?
+  summary    String  @db.Text
+  lens       String  @db.Text
+  conclusion String? @db.Text
+
+  subjectType       SubjectType @map("subject_type")
+  categoryPrimary   String      @map("category_primary")
+  categorySecondary String?     @map("category_secondary")
+
+  timeStart   DateTime? @map("time_start") @db.Timestamptz(6)
+  timeEnd     DateTime? @map("time_end") @db.Timestamptz(6)
+  timeDisplay String?   @map("time_display")
+
+  storyStatus        StoryLifecycleStatus @map("story_status")
+  visibilityTarget   StoryVisibility      @map("visibility_target")
+  leadPriority       Int?                 @map("lead_priority")
+  discoveryMode      DiscoveryMode?       @map("discovery_mode")
+  imageryMode        BriefImageryMode     @map("imagery_mode")
+  generationMode     DraftGenerationMode  @map("generation_mode")
+
+  generationPromptVersion String? @map("generation_prompt_version")
+  generationModel         String? @map("generation_model")
+  generationRunId         String? @map("generation_run_id")
+
+  needsHumanReview        Boolean               @map("needs_human_review")
+  editorialReviewStatus   EditorialReviewStatus @map("editorial_review_status")
+  autosaveStatus          AutosaveStatus        @default(saved) @map("autosave_status")
+  revisionCount           Int                   @default(0) @map("revision_count")
+
+  /// Audit actor (creator, system, etc.) — not FK to `creator` in M1-T06.
+  lastEditedBy String   @map("last_edited_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastEditedAt DateTime @default(now()) @updatedAt @map("last_edited_at") @db.Timestamptz(6)
+
+  sectionDrafts   SectionDraft[]
+  eventDrafts     EventDraft[]
+  imageProposals  ImageProposal[]
+  revisionEntries RevisionEntry[]
+
+  @@index([selectedFrameId], map: "story_draft_selected_frame_id_idx")
+  @@map("story_draft")
+}
+
+/// Audit trail for autosave / edits — editor §17; supports mutation contract §6 revision metadata.
+model RevisionEntry {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  revisionType        RevisionType       @map("revision_type")
+  changedObjectType     ChangedObjectType  @map("changed_object_type")
+  changedObjectId       String             @map("changed_object_id") @db.Uuid
+  changeSummary         String             @map("change_summary") @db.Text
+  isMaterialPublicChange Boolean           @map("is_material_public_change")
+  /// Audit actor — not FK to `creator` in M1-T06.
+  createdBy             String             @map("created_by") @db.Uuid
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([storyDraftId, createdAt(sort: Desc)], map: "revision_entry_draft_created_idx")
+  @@map("revision_entry")
+}
+
+/// Optional timeline grouping — editor §11.
+model SectionDraft {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  label          String
+  summary        String?           @db.Text
+  positionIndex  Int               @map("position_index")
+  timeStart      DateTime?         @map("time_start") @db.Timestamptz(6)
+  timeEnd        DateTime?         @map("time_end") @db.Timestamptz(6)
+  status         SectionDraftStatus @default(draft)
+  sectionOrigin  SectionOrigin     @map("section_origin")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  eventDrafts EventDraft[]
+
+  @@index([storyDraftId], map: "section_draft_story_draft_id_idx")
+  @@index([storyDraftId, positionIndex], map: "section_draft_story_position_idx")
+  @@map("section_draft")
+}
+
+/// Selective imagery candidates — editor §14; referenced by `event_draft.media_primary_candidate_id`.
+model ImageProposal {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  targetType   ImageProposalTargetType @map("target_type")
+  targetId     String?                   @map("target_id") @db.Uuid
+  eligibilityReason String             @map("eligibility_reason") @db.Text
+  proposalSource    ImageProposalAssetSource @map("proposal_source")
+  promptContext     String?            @map("prompt_context") @db.Text
+  styleMode         ImageStyleMode     @map("style_mode")
+  assetUrl          String?            @map("asset_url")
+  assetAlt          String?            @map("asset_alt")
+  assetCredit       String?            @map("asset_credit")
+  approvalStatus    ImageApprovalStatus @default(proposed) @map("approval_status")
+  isPublicSelected  Boolean            @default(false) @map("is_public_selected")
+  notes             String?            @map("notes") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  primaryForEvents EventDraft[] @relation("EventDraftPrimaryImage")
+
+  @@index([storyDraftId], map: "image_proposal_story_draft_id_idx")
+  @@index([targetType, targetId], map: "image_proposal_target_idx")
+  @@map("image_proposal")
+}
+
+/// Timeline unit — editor §12.1.
+model EventDraft {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  sectionDraftId String?       @map("section_draft_id") @db.Uuid
+  sectionDraft   SectionDraft? @relation(fields: [sectionDraftId], references: [id], onDelete: SetNull)
+
+  slug    String?
+  headline String
+  dek     String?
+  summary String  @db.Text
+  creatorNote String? @map("creator_note") @db.Text
+
+  eventType        EventDraftKind @map("event_type")
+  contextLabel     String?        @map("context_label")
+  significanceLevel SignificanceLevel @map("significance_level")
+
+  eventDateStart     DateTime?          @map("event_date_start") @db.Timestamptz(6)
+  eventDateEnd       DateTime?          @map("event_date_end") @db.Timestamptz(6)
+  eventDatePrecision EventDatePrecision @map("event_date_precision")
+  displayDate        String?            @map("display_date")
+  yearAnchor         Int?               @map("year_anchor")
+  positionIndex      Int                @map("position_index")
+  intervalNote       String?            @map("interval_note")
+  locationName       String?            @map("location_name")
+
+  mediaKind EventMediaKind @map("media_kind")
+
+  mediaPrimaryCandidateId String?       @map("media_primary_candidate_id") @db.Uuid
+  mediaPrimaryCandidate   ImageProposal? @relation("EventDraftPrimaryImage", fields: [mediaPrimaryCandidateId], references: [id], onDelete: SetNull)
+
+  sourceCount   Int                @default(0) @map("source_count")
+  sourceDensity EventSourceDensity @map("source_density")
+
+  confidenceState  EventConfidenceState @map("confidence_state")
+  claimRiskLevel   ClaimRiskLevel         @map("claim_risk_level")
+  moderationStatus EventModerationStatus @map("moderation_status")
+
+  isShareable           Boolean @default(false) @map("is_shareable")
+  isPinned              Boolean @default(false) @map("is_pinned")
+  isFeaturedInSummary   Boolean @default(false) @map("is_featured_in_summary")
+
+  generationMode  DraftGenerationMode     @map("generation_mode")
+  generationRunId String?                 @map("generation_run_id")
+  editorialReviewStatus EditorialReviewStatus @map("editorial_review_status")
+  status          EventDraftRowStatus     @default(draft)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sources SourceRecord[]
+
+  @@index([storyDraftId], map: "event_draft_story_draft_id_idx")
+  @@index([sectionDraftId], map: "event_draft_section_draft_id_idx")
+  @@index([storyDraftId, positionIndex], map: "event_draft_story_position_idx")
+  @@map("event_draft")
+}
+
+/// Evidence rows attached to an event draft — editor §13.
+model SourceRecord {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  eventDraftId String     @map("event_draft_id") @db.Uuid
+  eventDraft   EventDraft @relation(fields: [eventDraftId], references: [id], onDelete: Cascade)
+
+  sourceUrl      String @map("source_url")
+  sourceTitle    String @map("source_title")
+  publisherName  String @map("publisher_name")
+  sourceType     SourceRecordType @map("source_type")
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+  excerpt        String? @db.Text
+  relevanceNote  String  @map("relevance_note") @db.Text
+  reliabilityTier ReliabilityTier @map("reliability_tier")
+  verificationStatus SourceVerificationStatus @map("verification_status")
+  isPrimary      Boolean @map("is_primary")
+  isPublic       Boolean @map("is_public")
+  duplicateSignal Boolean @default(false) @map("duplicate_signal")
+  extractionMethod SourceExtractionMethod @map("source_extraction_method")
+  /// Audit actor — not FK to `creator` in M1-T06.
+  addedBy        String @map("added_by") @db.Uuid
+  status         SourceRecordStatus @default(draft)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([eventDraftId], map: "source_record_event_draft_id_idx")
+  @@map("source_record")
+}
