@@ -615,6 +615,45 @@ a:hover {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
 }
 
+.editor-panel--revisions {
+  background: #f3f4f1;
+}
+
+.editor-revision-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.editor-revision-list__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+
+.editor-revision-list__meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin: 0 0 0.25rem;
+}
+
+.editor-revision-list__summary {
+  margin: 0;
+  line-height: 1.4;
+  color: var(--text);
+}
+
 .editor-panel--outline,
 .editor-panel--timeline {
   background: #f3f4f1;

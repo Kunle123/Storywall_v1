@@ -13,12 +13,14 @@ import {
   extractConflictSource,
   listEvents,
   listFrames,
+  listRevisions,
   listSections,
   listSourcesForEvent,
   patchEvent,
   patchSection,
   patchSource,
   patchStoryDraft,
+  restoreRevision,
 } from "../api/creatorClient";
 import type {
   EventDraftResponse,
@@ -28,12 +30,40 @@ import type {
   PatchStoryDraftBody,
   SectionDraftResponse,
   SourceRecordResponse,
+  RevisionEntryResponse,
   StoryDraftResponse,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
+
+function resolveIfMatchFromSnapshot(
+  snapshot: unknown,
+  ctx: {
+    draft: StoryDraftResponse | null;
+    sections: SectionDraftResponse[];
+    events: EventDraftResponse[];
+  },
+): string | null {
+  if (snapshot === null || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
+  const o = snapshot as { kind?: string; section_id?: string; event_id?: string };
+  if (o.kind === "story_draft") {
+    return ctx.draft?.last_edited_at ?? null;
+  }
+  if (o.kind === "section_draft" && o.section_id) {
+    return ctx.sections.find((s) => s.id === o.section_id)?.updated_at ?? null;
+  }
+  if (o.kind === "event_draft" && o.event_id) {
+    return ctx.events.find((e) => e.id === o.event_id)?.updated_at ?? null;
+  }
+  if (o.kind === "source_record") {
+    return null;
+  }
+  return null;
+}
 
 type LocalDraftFields = {
   title: string;
@@ -632,6 +662,11 @@ export function DraftReadyPage() {
   const [scopedRegenTarget, setScopedRegenTarget] = useState<
     { kind: "event" | "section"; id: string } | null
   >(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [revisions, setRevisions] = useState<RevisionEntryResponse[]>([]);
+  const [revisionsLoading, setRevisionsLoading] = useState(false);
+  const [revisionsError, setRevisionsError] = useState<string | null>(null);
+  const [restoringRevisionId, setRestoringRevisionId] = useState<string | null>(null);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
@@ -719,6 +754,79 @@ export function DraftReadyPage() {
       }
     },
     [navigate, storyId, token],
+  );
+
+  useEffect(() => {
+    if (!historyOpen || !token || !storyId) return;
+    let cancelled = false;
+    void (async () => {
+      setRevisionsLoading(true);
+      setRevisionsError(null);
+      try {
+        const r = await listRevisions(token, storyId);
+        if (!cancelled) {
+          setRevisions(r.data.revisions);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setRevisionsError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load revisions.");
+        }
+      } finally {
+        if (!cancelled) {
+          setRevisionsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOpen, token, storyId]);
+
+  const handleRestoreRevision = useCallback(
+    async (rev: RevisionEntryResponse) => {
+      if (!token || !storyId) return;
+      const ifMatch = resolveIfMatchFromSnapshot(rev.recovery_snapshot, {
+        draft,
+        sections,
+        events,
+      });
+      if (!ifMatch) {
+        setSaveError(
+          "Cannot restore this entry: refresh the page, or for sources load the event and use a future source-specific restore.",
+        );
+        return;
+      }
+      if (
+        !window.confirm(
+          "Replace the current version with the saved snapshot from this revision? Unsaved local edits to that object may be overwritten on the next refresh.",
+        )
+      ) {
+        return;
+      }
+      setRestoringRevisionId(rev.id);
+      setSaveError(null);
+      try {
+        await restoreRevision(token, storyId, rev.id, ifMatch);
+        const rFrames = await listFrames(token, storyId);
+        setWorkflow(rFrames.data.story_state);
+        const d = rFrames.data.story_draft;
+        setDraft(d);
+        if (d) {
+          applyServerDraftToForm(d, { setTitle, setSubtitle, setSummary, setLens, setConclusion });
+        }
+        await refreshSections();
+        await refreshEvents();
+        setSaveOk(true);
+        window.setTimeout(() => setSaveOk(false), 2000);
+        const rList = await listRevisions(token, storyId);
+        setRevisions(rList.data.revisions);
+      } catch (e) {
+        setSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Restore failed.");
+      } finally {
+        setRestoringRevisionId(null);
+      }
+    },
+    [draft, events, refreshEvents, refreshSections, sections, storyId, token],
   );
 
   const startScopedSectionRegenerate = useCallback(
@@ -888,7 +996,8 @@ export function DraftReadyPage() {
             </p>
           </div>
           {draft ? (
-            <div className="editor-shell">
+            <>
+              <div className="editor-shell">
               <section className="editor-panel editor-panel--story" aria-labelledby="editor-story-heading">
                 <div className="editor-panel__head">
                   <p className="editor-panel__eyebrow">Story</p>
@@ -1082,6 +1191,68 @@ export function DraftReadyPage() {
                 ))}
               </section>
             </div>
+
+              <section className="editor-panel editor-panel--revisions" aria-labelledby="editor-revisions-heading">
+                <div className="editor-panel__head">
+                  <p className="editor-panel__eyebrow">History</p>
+                  <h3 id="editor-revisions-heading" className="editor-panel__title">
+                    Revision log
+                  </h3>
+                  <p className="editor-panel__hint">
+                    Recent autosaves and regenerations. Restore applies the saved snapshot when available (requires current version to match).
+                  </p>
+                  <button
+                    type="button"
+                    className="btn ghost inline"
+                    onClick={() => setHistoryOpen((o) => !o)}
+                  >
+                    {historyOpen ? "Hide history" : "Show history"}
+                  </button>
+                </div>
+                {historyOpen ? (
+                  revisionsLoading ? (
+                    <p className="muted small">Loading revision log…</p>
+                  ) : revisionsError ? (
+                    <p className="hint">{revisionsError}</p>
+                  ) : revisions.length === 0 ? (
+                    <p className="muted small">No revisions recorded yet.</p>
+                  ) : (
+                    <ul className="editor-revision-list">
+                      {revisions.map((r) => {
+                        const canRestore =
+                          r.recovery_snapshot != null &&
+                          resolveIfMatchFromSnapshot(r.recovery_snapshot, {
+                            draft,
+                            sections,
+                            events,
+                          }) !== null;
+                        return (
+                          <li key={r.id} className="editor-revision-list__item">
+                            <div>
+                              <p className="editor-revision-list__meta">
+                                {new Date(r.created_at).toLocaleString()} · {r.revision_type} ·{" "}
+                                {r.changed_object_type}
+                              </p>
+                              <p className="editor-revision-list__summary">{r.change_summary}</p>
+                            </div>
+                            {canRestore ? (
+                              <button
+                                type="button"
+                                className="btn ghost inline"
+                                disabled={restoringRevisionId !== null}
+                                onClick={() => void handleRestoreRevision(r)}
+                              >
+                                {restoringRevisionId === r.id ? "Restoring…" : "Restore"}
+                              </button>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )
+                ) : null}
+              </section>
+            </>
           ) : (
             <p className="muted" style={{ marginTop: "0.75rem" }}>
               No story draft row yet — complete framing selection and draft assembly from the brief workspace.

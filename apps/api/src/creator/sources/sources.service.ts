@@ -9,6 +9,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { normalizeIfMatchHeader } from "../stories/if-match";
 import type { CreateSourceDto } from "./dto/create-source.dto";
 import type { PatchSourceDto } from "./dto/patch-source.dto";
+import {
+  buildSourceRecoverySnapshot,
+  insertRevisionEntry,
+} from "../revision/revision-recorder";
 import { sourceRecordToApi } from "./source-record-to-api";
 
 const ALLOWED_SOURCE_EDIT_STATES: CreatorWorkflowState[] = [
@@ -220,6 +224,17 @@ export class SourcesService {
           },
         });
       }
+
+      await insertRevisionEntry(tx, {
+        storyDraftId: ctx.storyDraftId,
+        revisionType: "autosave",
+        changedObjectType: "source",
+        changedObjectId: row.id,
+        changeSummary: `Autosave: source (${Object.keys(dto).filter((k) => dto[k as keyof typeof dto] !== undefined).join(", ")})`,
+        isMaterialPublicChange: dto.relevance_note !== undefined || dto.source_title !== undefined,
+        createdBy: creatorId,
+        recoverySnapshot: buildSourceRecoverySnapshot(eventId, row),
+      });
 
       const fresh = await tx.sourceRecord.findUniqueOrThrow({ where: { id: row.id } });
       return { source: fresh, storyState: ctx.workflowState };

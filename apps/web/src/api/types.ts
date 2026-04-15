@@ -449,3 +449,33 @@ export type PatchStoryBriefBody = Partial<{
   writing_style_preference: string | null;
   creation_mode: CreationMode | null;
 }>;
+
+/** M2-T13 — revision history (editor §17). */
+export interface RevisionEntryResponse {
+  id: string;
+  revision_type: string;
+  changed_object_type: string;
+  changed_object_id: string;
+  change_summary: string;
+  is_material_public_change: boolean;
+  created_by: string;
+  created_at: string;
+  recovery_snapshot: unknown;
+}
+
+export interface ListRevisionsSuccess {
+  ok: true;
+  data: {
+    revisions: RevisionEntryResponse[];
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface RestoreRevisionSuccess {
+  ok: true;
+  data: {
+    restored_from_revision_id: string;
+    revision: RevisionEntryResponse;
+    story_state: CreatorWorkflowState;
+  };
+}

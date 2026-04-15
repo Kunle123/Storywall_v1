@@ -2,7 +2,12 @@
  * M2-T05 — materialize `event_draft` + `source_record` from chronology staging (mutation §11.2).
  * M2-T12 — scoped regeneration for one event or one section (workflow spec regeneration rules).
  */
-import type { ChronologyExtractedEvent, CreatorWorkflowState, Prisma } from "@prisma/client";
+import type {
+  ChangedObjectType,
+  ChronologyExtractedEvent,
+  CreatorWorkflowState,
+  Prisma,
+} from "@prisma/client";
 
 /** Chronology row as loaded for draft assembly (includes source link edges). */
 type ChronologyEventWithLinks = Prisma.ChronologyExtractedEventGetPayload<{
@@ -95,6 +100,35 @@ type AssemblePayload = {
   scoped_event_id: string | null;
   scoped_section_id: string | null;
 };
+
+async function recordAssemblyRevision(
+  tx: Prisma.TransactionClient,
+  p: {
+    storyDraftId: string;
+    changedObjectType: ChangedObjectType;
+    changedObjectId: string;
+    changeSummary: string;
+    createdBy: string;
+    recoverySnapshot?: Prisma.InputJsonValue | null;
+  },
+): Promise<void> {
+  await tx.revisionEntry.create({
+    data: {
+      storyDraftId: p.storyDraftId,
+      revisionType: "ai_regeneration",
+      changedObjectType: p.changedObjectType,
+      changedObjectId: p.changedObjectId,
+      changeSummary: p.changeSummary,
+      isMaterialPublicChange: true,
+      createdBy: p.createdBy,
+      recoverySnapshot: p.recoverySnapshot ?? undefined,
+    },
+  });
+  await tx.storyDraft.update({
+    where: { id: p.storyDraftId },
+    data: { revisionCount: { increment: 1 } },
+  });
+}
 
 function parseAssemblePayload(raw: Prisma.JsonValue): AssemblePayload | null {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
@@ -309,6 +343,17 @@ export async function runDraftAssemblyJob(
     const summary =
       typeof c.summary === "string" ? c.summary : c.summary === null ? null : section.summary;
 
+    const sectionRecoverySnapshot: Prisma.InputJsonValue = {
+      v: 1,
+      kind: "section_draft",
+      section_id: section.id,
+      prior: {
+        label: section.label,
+        summary: section.summary,
+        updated_at: section.updatedAt.toISOString(),
+      },
+    };
+
     await tx.sectionDraft.update({
       where: { id: section.id },
       data: {
@@ -316,6 +361,15 @@ export async function runDraftAssemblyJob(
         summary,
         sectionOrigin: "ai_generated",
       },
+    });
+
+    await recordAssemblyRevision(tx, {
+      storyDraftId: storyDraft.id,
+      changedObjectType: "section",
+      changedObjectId: section.id,
+      changeSummary: "Scoped section regeneration from framing candidate",
+      createdBy: draftJob.creatorId,
+      recoverySnapshot: sectionRecoverySnapshot,
     });
 
     await finalizeAssemblySuccess(tx, {
@@ -389,6 +443,19 @@ export async function runDraftAssemblyJob(
       eventDraft.creatorNote,
     );
 
+    const eventRecoverySnapshot: Prisma.InputJsonValue = {
+      v: 1,
+      kind: "event_draft",
+      event_id: eventDraft.id,
+      prior: {
+        headline: eventDraft.headline,
+        summary: eventDraft.summary,
+        dek: eventDraft.dek,
+        creator_note: eventDraft.creatorNote,
+        updated_at: eventDraft.updatedAt.toISOString(),
+      },
+    };
+
     await tx.eventDraft.update({
       where: { id: eventDraft.id },
       data: updateData,
@@ -399,6 +466,15 @@ export async function runDraftAssemblyJob(
     await tx.eventDraft.update({
       where: { id: eventDraft.id },
       data: { sourceCount: srcCount },
+    });
+
+    await recordAssemblyRevision(tx, {
+      storyDraftId: storyDraft.id,
+      changedObjectType: "event",
+      changedObjectId: eventDraft.id,
+      changeSummary: "Scoped event regeneration from research chronology",
+      createdBy: draftJob.creatorId,
+      recoverySnapshot: eventRecoverySnapshot,
     });
 
     await finalizeAssemblySuccess(tx, {
@@ -430,6 +506,15 @@ export async function runDraftAssemblyJob(
       data: { sourceCount: srcCount },
     });
   }
+
+  await recordAssemblyRevision(tx, {
+    storyDraftId: storyDraft.id,
+    changedObjectType: "story",
+    changedObjectId: storyDraft.id,
+    changeSummary: "Full draft assembly from chronology",
+    createdBy: draftJob.creatorId,
+    recoverySnapshot: null,
+  });
 
   await finalizeAssemblySuccess(tx, {
     draftAssemblyJobId,

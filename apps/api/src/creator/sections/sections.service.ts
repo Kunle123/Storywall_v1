@@ -9,6 +9,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { normalizeIfMatchHeader } from "../stories/if-match";
 import type { CreateSectionDto } from "./dto/create-section.dto";
 import type { PatchSectionDto } from "./dto/patch-section.dto";
+import {
+  buildSectionRecoverySnapshot,
+  insertRevisionEntry,
+} from "../revision/revision-recorder";
 import { sectionDraftToApi } from "./section-draft-to-api";
 
 const ALLOWED_SECTION_EDIT_STATES: CreatorWorkflowState[] = [
@@ -191,6 +195,17 @@ export class SectionsService {
           },
         });
       }
+
+      await insertRevisionEntry(tx, {
+        storyDraftId: ctx.storyDraftId,
+        revisionType: "autosave",
+        changedObjectType: "section",
+        changedObjectId: section.id,
+        changeSummary: `Autosave: section (${Object.keys(dto).filter((k) => dto[k as keyof typeof dto] !== undefined).join(", ")})`,
+        isMaterialPublicChange: dto.label !== undefined || dto.summary !== undefined,
+        createdBy: creatorId,
+        recoverySnapshot: buildSectionRecoverySnapshot(section),
+      });
 
       const fresh = await tx.sectionDraft.findUniqueOrThrow({
         where: { id: section.id },

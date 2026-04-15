@@ -93,7 +93,7 @@ export class StoriesController {
     @Body() body: PatchStoryDraftDto,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
-    const { storyDraft, storyState } = await this.stories.patchStoryDraft({
+    const { storyDraft, storyState, revisionId } = await this.stories.patchStoryDraft({
       storyId,
       creatorId: creator.id,
       ifMatchRaw: ifMatch,
@@ -109,6 +109,7 @@ export class StoriesController {
       },
       meta: {
         saved_at: storyDraft.lastEditedAt.toISOString(),
+        ...(revisionId ? { revision_id: revisionId } : {}),
       },
     };
   }

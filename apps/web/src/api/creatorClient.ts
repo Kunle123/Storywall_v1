@@ -31,6 +31,8 @@ import type {
   RunResearchPassSuccess,
   SelectFrameSuccess,
   StoryDraftResponse,
+  ListRevisionsSuccess,
+  RestoreRevisionSuccess,
 } from "./types";
 
 function apiBase(): string {
@@ -455,4 +457,40 @@ export async function assembleDraft(
     throw new ApiRequestError(`Draft assembly failed (${res.status})`, res.status, data);
   }
   return data as AssembleDraftSuccess;
+}
+
+/** M2-T13 — GET …/revisions */
+export async function listRevisions(token: string, storyId: string): Promise<ListRevisionsSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/revisions`, {
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`List revisions failed (${res.status})`, res.status, data);
+  }
+  return data as ListRevisionsSuccess;
+}
+
+/** M2-T13 — POST …/revisions/:revisionId/restore (`If-Match` = current object version). */
+export async function restoreRevision(
+  token: string,
+  storyId: string,
+  revisionId: string,
+  ifMatch: string,
+): Promise<RestoreRevisionSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/revisions/${encodeURIComponent(revisionId)}/restore`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(token),
+        "If-Match": ifMatch,
+      },
+    },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Restore revision failed (${res.status})`, res.status, data);
+  }
+  return data as RestoreRevisionSuccess;
 }

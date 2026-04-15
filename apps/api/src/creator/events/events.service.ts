@@ -9,6 +9,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { normalizeIfMatchHeader } from "../stories/if-match";
 import type { CreateEventDto } from "./dto/create-event.dto";
 import type { PatchEventDto } from "./dto/patch-event.dto";
+import {
+  buildEventRecoverySnapshot,
+  insertRevisionEntry,
+} from "../revision/revision-recorder";
 import { eventDraftToApi } from "./event-draft-to-api";
 
 const ALLOWED_EVENT_EDIT_STATES: CreatorWorkflowState[] = [
@@ -233,6 +237,18 @@ export class EventsService {
           },
         });
       }
+
+      await insertRevisionEntry(tx, {
+        storyDraftId: ctx.storyDraftId,
+        revisionType: "autosave",
+        changedObjectType: "event",
+        changedObjectId: event.id,
+        changeSummary: `Autosave: event (${Object.keys(dto).filter((k) => dto[k as keyof typeof dto] !== undefined).join(", ")})`,
+        isMaterialPublicChange:
+          dto.headline !== undefined || dto.summary !== undefined || dto.creator_note !== undefined,
+        createdBy: creatorId,
+        recoverySnapshot: buildEventRecoverySnapshot(event),
+      });
 
       const fresh = await tx.eventDraft.findUniqueOrThrow({
         where: { id: event.id },

@@ -15,6 +15,12 @@ import {
 import { randomBytes } from "node:crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { storyDraftToApi } from "../frames/story-draft-to-api";
+import {
+  buildStoryDraftRecoverySnapshot,
+  insertRevisionEntry,
+  isMaterialStoryPatch,
+  summarizeStoryPatchFields,
+} from "../revision/revision-recorder";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
@@ -328,6 +334,7 @@ export class StoriesService {
   }): Promise<{
     storyDraft: StoryDraft;
     storyState: CreatorWorkflowState;
+    revisionId?: string;
   }> {
     const { storyId, creatorId, ifMatchRaw, dto } = params;
 
@@ -433,6 +440,17 @@ export class StoriesService {
         });
       }
 
+      const revisionId = await insertRevisionEntry(tx, {
+        storyDraftId: draft.id,
+        revisionType: "autosave",
+        changedObjectType: "story",
+        changedObjectId: draft.id,
+        changeSummary: `Autosave: ${summarizeStoryPatchFields(dto as unknown as Record<string, unknown>)}`,
+        isMaterialPublicChange: isMaterialStoryPatch(dto),
+        createdBy: creatorId,
+        recoverySnapshot: buildStoryDraftRecoverySnapshot(draft),
+      });
+
       const storyDraft = await tx.storyDraft.findUniqueOrThrow({
         where: { id: draft.id },
       });
@@ -441,7 +459,7 @@ export class StoriesService {
         select: { workflowState: true },
       });
 
-      return { storyDraft, storyState: st.workflowState };
+      return { storyDraft, storyState: st.workflowState, revisionId };
     });
   }
 
