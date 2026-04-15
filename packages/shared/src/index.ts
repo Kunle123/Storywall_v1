@@ -235,5 +235,8 @@ export type {
 } from "./chronology-source-links";
 
 // --- M2-T05 draft assembly idempotency payload ---
-export { stableAssembleDraftPayload } from "./assemble-draft-payload";
+export {
+  normalizeAssembleDraftPayloadFromStored,
+  stableAssembleDraftPayload,
+} from "./assemble-draft-payload";
 export type { AssembleDraftPayloadInput } from "./assemble-draft-payload";

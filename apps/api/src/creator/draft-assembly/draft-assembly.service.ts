@@ -13,7 +13,10 @@ import {
   type ResearchJobStatus,
 } from "@prisma/client";
 import type { Queue } from "bullmq";
-import { stableAssembleDraftPayload } from "@storywall/shared";
+import {
+  normalizeAssembleDraftPayloadFromStored,
+  stableAssembleDraftPayload,
+} from "@storywall/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { AssembleDraftDto } from "./dto/assemble-draft.dto";
@@ -30,12 +33,61 @@ const BLOCKED_OVERLAP: CreatorWorkflowState[] = ["researching", "assembling_draf
 const ACCEPTED_STORY_STATE: CreatorWorkflowState = "assembling_draft";
 const ACCEPTED_JOB_STATUS: DraftAssemblyJobStatus = "pending";
 
+function validateDraftAssembleDto(dto: AssembleDraftDto): void {
+  const e = dto.scoped_event_id?.trim() || null;
+  const s = dto.scoped_section_id?.trim() || null;
+  const hasE = Boolean(e);
+  const hasS = Boolean(s);
+  if (hasE && hasS) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "invalid_scoped_assemble",
+        message: "Specify only one of scoped_event_id or scoped_section_id",
+      },
+    });
+  }
+  if (dto.mode === "scoped_event_regeneration") {
+    if (!hasE || hasS) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "invalid_scoped_assemble",
+          message: "scoped_event_regeneration requires scoped_event_id and no scoped_section_id",
+        },
+      });
+    }
+  } else if (dto.mode === "scoped_section_regeneration") {
+    if (!hasS || hasE) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "invalid_scoped_assemble",
+          message: "scoped_section_regeneration requires scoped_section_id and no scoped_event_id",
+        },
+      });
+    }
+  } else if (dto.mode === "full_regeneration") {
+    if (hasE || hasS) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "invalid_scoped_assemble",
+          message: "full_regeneration must not include scoped_event_id or scoped_section_id",
+        },
+      });
+    }
+  }
+}
+
 function stablePayload(dto: AssembleDraftDto): Prisma.InputJsonValue {
   return stableAssembleDraftPayload({
     mode: dto.mode,
     preserve_creator_notes: dto.preserve_creator_notes,
     preserve_manual_event_positions: dto.preserve_manual_event_positions,
     preserve_approved_images: dto.preserve_approved_images,
+    scoped_event_id: dto.scoped_event_id ?? null,
+    scoped_section_id: dto.scoped_section_id ?? null,
   }) as Prisma.InputJsonValue;
 }
 
@@ -43,21 +95,16 @@ function payloadMatches(dto: AssembleDraftDto, stored: Prisma.JsonValue | null):
   if (stored === null || typeof stored !== "object" || Array.isArray(stored)) {
     return false;
   }
-  const s = stableAssembleDraftPayload({
-    mode: String((stored as Record<string, unknown>).mode ?? ""),
-    preserve_creator_notes: Boolean((stored as Record<string, unknown>).preserve_creator_notes),
-    preserve_manual_event_positions: Boolean(
-      (stored as Record<string, unknown>).preserve_manual_event_positions,
-    ),
-    preserve_approved_images: Boolean((stored as Record<string, unknown>).preserve_approved_images),
-  });
-  const t = stableAssembleDraftPayload({
+  const normalized = normalizeAssembleDraftPayloadFromStored(stored as Record<string, unknown>);
+  const next = stableAssembleDraftPayload({
     mode: dto.mode,
     preserve_creator_notes: dto.preserve_creator_notes,
     preserve_manual_event_positions: dto.preserve_manual_event_positions,
     preserve_approved_images: dto.preserve_approved_images,
+    scoped_event_id: dto.scoped_event_id ?? null,
+    scoped_section_id: dto.scoped_section_id ?? null,
   });
-  return JSON.stringify(s) === JSON.stringify(t);
+  return JSON.stringify(normalized) === JSON.stringify(next);
 }
 
 type StartTxResult =
@@ -90,6 +137,8 @@ export class DraftAssemblyService {
     idempotencyReplayed: boolean;
   }> {
     const { storyId, creatorId, dto, idempotencyKey } = params;
+
+    validateDraftAssembleDto(dto);
 
     const txResult = await this.prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRawUnsafe<Array<{ ok: number }>>(
@@ -210,34 +259,72 @@ export class DraftAssemblyService {
         });
       }
 
-      const recentSucceeded = await tx.researchJob.findMany({
-        where: {
-          storyId,
-          status: "succeeded",
-        },
-        orderBy: { finishedAt: "desc" },
-        take: 20,
-        include: {
-          chronologyAssembly: {
-            include: { events: true },
+      const storyDraftId = brief.storyDraft.id;
+
+      if (dto.mode === "scoped_section_regeneration") {
+        const sec = await tx.sectionDraft.findFirst({
+          where: { id: dto.scoped_section_id!, storyDraftId },
+        });
+        if (!sec) {
+          throw new NotFoundException({
+            ok: false,
+            error: {
+              code: "section_not_found",
+              message: "Section not found on this story draft",
+            },
+          });
+        }
+      }
+
+      let sourceResearchJobId: string | null = null;
+
+      if (dto.mode !== "scoped_section_regeneration") {
+        const recentSucceeded = await tx.researchJob.findMany({
+          where: {
+            storyId,
+            status: "succeeded",
           },
-        },
-      });
-
-      const latestResearch = recentSucceeded.find(
-        (j) =>
-          j.chronologyAssembly !== null && j.chronologyAssembly.events.length > 0,
-      );
-
-      if (!latestResearch?.chronologyAssembly) {
-        throw new BadRequestException({
-          ok: false,
-          error: {
-            code: "chronology_not_ready",
-            message:
-              "Complete a successful research pass with chronology output before assembling the draft",
+          orderBy: { finishedAt: "desc" },
+          take: 20,
+          include: {
+            chronologyAssembly: {
+              include: { events: true },
+            },
           },
         });
+
+        const latestResearch = recentSucceeded.find(
+          (j) =>
+            j.chronologyAssembly !== null && j.chronologyAssembly.events.length > 0,
+        );
+
+        if (!latestResearch?.chronologyAssembly) {
+          throw new BadRequestException({
+            ok: false,
+            error: {
+              code: "chronology_not_ready",
+              message:
+                "Complete a successful research pass with chronology output before assembling the draft",
+            },
+          });
+        }
+
+        sourceResearchJobId = latestResearch.id;
+      }
+
+      if (dto.mode === "scoped_event_regeneration") {
+        const ev = await tx.eventDraft.findFirst({
+          where: { id: dto.scoped_event_id!, storyDraftId },
+        });
+        if (!ev) {
+          throw new NotFoundException({
+            ok: false,
+            error: {
+              code: "event_not_found",
+              message: "Event not found on this story draft",
+            },
+          });
+        }
       }
 
       const wfBefore = storyRow.workflowState;
@@ -250,7 +337,7 @@ export class DraftAssemblyService {
           mode: dto.mode,
           requestPayload: stablePayload(dto),
           preAssemblyWorkflowState: wfBefore,
-          sourceResearchJobId: latestResearch.id,
+          sourceResearchJobId,
         },
       });
 

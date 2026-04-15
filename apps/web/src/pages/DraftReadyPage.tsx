@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import {
   ApiRequestError,
+  assembleDraft,
   createEvent,
   createSection,
   createSource,
@@ -30,6 +31,7 @@ import type {
   StoryDraftResponse,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
 
@@ -280,8 +282,22 @@ function EventDraftRow(props: {
   onVersionConflict: () => void;
   onSaveError: (message: string) => void;
   onRefreshEvents: () => void | Promise<void>;
+  regenInFlight: boolean;
+  regenActive: boolean;
+  onScopedEventRegenerate: () => void | Promise<void>;
 }) {
-  const { token, storyId, event, onPatched, onVersionConflict, onSaveError, onRefreshEvents } = props;
+  const {
+    token,
+    storyId,
+    event,
+    onPatched,
+    onVersionConflict,
+    onSaveError,
+    onRefreshEvents,
+    regenInFlight,
+    regenActive,
+    onScopedEventRegenerate,
+  } = props;
   const [headline, setHeadline] = useState(event.headline);
   const [summary, setSummary] = useState(event.summary);
   const [creatorNote, setCreatorNote] = useState(normalizeCreatorNote(event.creator_note));
@@ -405,6 +421,20 @@ function EventDraftRow(props: {
         </label>
       </div>
 
+      <div className="editor-regenerate-bar">
+        <button
+          type="button"
+          className="btn ghost inline"
+          disabled={!token || regenInFlight}
+          onClick={() => void onScopedEventRegenerate()}
+        >
+          {regenActive ? "Starting…" : "Regenerate event from research"}
+        </button>
+        <span className="field__hint">
+          Rebuilds this event and its sources from the latest chronology; other events stay as edited.
+        </span>
+      </div>
+
       <div className="editor-source-nest">
         <div className="editor-source-nest__bar">
           <span className="editor-source-nest__label">Sources</span>
@@ -463,8 +493,21 @@ function SectionDraftRow(props: {
   onPatched: (s: SectionDraftResponse) => void;
   onVersionConflict: () => void;
   onSaveError: (message: string) => void;
+  regenInFlight: boolean;
+  regenActive: boolean;
+  onScopedSectionRegenerate: () => void | Promise<void>;
 }) {
-  const { token, storyId, section, onPatched, onVersionConflict, onSaveError } = props;
+  const {
+    token,
+    storyId,
+    section,
+    onPatched,
+    onVersionConflict,
+    onSaveError,
+    regenInFlight,
+    regenActive,
+    onScopedSectionRegenerate,
+  } = props;
   const [label, setLabel] = useState(section.label);
   const [summary, setSummary] = useState(section.summary ?? "");
 
@@ -544,6 +587,20 @@ function SectionDraftRow(props: {
           />
         </label>
       </div>
+
+      <div className="editor-regenerate-bar">
+        <button
+          type="button"
+          className="btn ghost inline"
+          disabled={!token || regenInFlight}
+          onClick={() => void onScopedSectionRegenerate()}
+        >
+          {regenActive ? "Starting…" : "Regenerate section from framing"}
+        </button>
+        <span className="field__hint">
+          Reloads label and summary from the selected frame’s section candidate for this slot; timeline events stay as edited.
+        </span>
+      </div>
     </div>
   );
 }
@@ -553,6 +610,7 @@ function SectionDraftRow(props: {
  */
 export function DraftReadyPage() {
   const { storyId } = useParams<{ storyId: string }>();
+  const navigate = useNavigate();
   const { token, creator, logout } = useAuth();
   const [workflow, setWorkflow] = useState<CreatorWorkflowState | null>(null);
   const [draft, setDraft] = useState<StoryDraftResponse | null>(null);
@@ -570,6 +628,10 @@ export function DraftReadyPage() {
   const [events, setEvents] = useState<EventDraftResponse[]>([]);
   const [eventsLoadError, setEventsLoadError] = useState<string | null>(null);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [scopedRegenBusy, setScopedRegenBusy] = useState(false);
+  const [scopedRegenTarget, setScopedRegenTarget] = useState<
+    { kind: "event" | "section"; id: string } | null
+  >(null);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
@@ -618,6 +680,86 @@ export function DraftReadyPage() {
   const handleEventSaveError = useCallback((message: string) => {
     setSaveError(message);
   }, []);
+
+  const startScopedEventRegenerate = useCallback(
+    async (eventId: string) => {
+      if (!token || !storyId) return;
+      if (
+        !window.confirm(
+          "Replace this event’s text, dates, and sources from the latest research chronology? Other events and story copy stay as you edited them. Your creator note on this event is kept.",
+        )
+      ) {
+        return;
+      }
+      setScopedRegenBusy(true);
+      setScopedRegenTarget({ kind: "event", id: eventId });
+      setSaveError(null);
+      try {
+        const res = await assembleDraft(
+          token,
+          storyId,
+          {
+            mode: "scoped_event_regeneration",
+            preserve_creator_notes: true,
+            preserve_manual_event_positions: true,
+            preserve_approved_images: true,
+            scoped_event_id: eventId,
+          },
+          crypto.randomUUID(),
+        );
+        rememberActiveJob(storyId, res.data.job_id);
+        navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
+      } catch (e) {
+        setSaveError(
+          e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not start event regeneration.",
+        );
+      } finally {
+        setScopedRegenBusy(false);
+        setScopedRegenTarget(null);
+      }
+    },
+    [navigate, storyId, token],
+  );
+
+  const startScopedSectionRegenerate = useCallback(
+    async (sectionId: string) => {
+      if (!token || !storyId) return;
+      if (
+        !window.confirm(
+          "Reload this section’s label and summary from the selected framing candidate for this slot? Timeline events stay as edited.",
+        )
+      ) {
+        return;
+      }
+      setScopedRegenBusy(true);
+      setScopedRegenTarget({ kind: "section", id: sectionId });
+      setSaveError(null);
+      try {
+        const res = await assembleDraft(
+          token,
+          storyId,
+          {
+            mode: "scoped_section_regeneration",
+            preserve_creator_notes: true,
+            preserve_manual_event_positions: true,
+            preserve_approved_images: true,
+            scoped_section_id: sectionId,
+          },
+          crypto.randomUUID(),
+        );
+        rememberActiveJob(storyId, res.data.job_id);
+        navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
+      } catch (e) {
+        setSaveError(
+          e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not start section regeneration.",
+        );
+      } finally {
+        setScopedRegenBusy(false);
+        setScopedRegenTarget(null);
+      }
+    },
+    [navigate, storyId, token],
+  );
 
   useEffect(() => {
     if (!token || !storyId) return;
@@ -874,6 +1016,11 @@ export function DraftReadyPage() {
                     onPatched={handleSectionPatched}
                     onVersionConflict={handleSectionConflict}
                     onSaveError={handleSectionSaveError}
+                    regenInFlight={scopedRegenBusy}
+                    regenActive={
+                      scopedRegenBusy && scopedRegenTarget?.kind === "section" && scopedRegenTarget.id === sec.id
+                    }
+                    onScopedSectionRegenerate={() => void startScopedSectionRegenerate(sec.id)}
                   />
                 ))}
               </section>
@@ -926,6 +1073,11 @@ export function DraftReadyPage() {
                     onVersionConflict={handleEventConflict}
                     onSaveError={handleEventSaveError}
                     onRefreshEvents={refreshEvents}
+                    regenInFlight={scopedRegenBusy}
+                    regenActive={
+                      scopedRegenBusy && scopedRegenTarget?.kind === "event" && scopedRegenTarget.id === ev.id
+                    }
+                    onScopedEventRegenerate={() => void startScopedEventRegenerate(ev.id)}
                   />
                 ))}
               </section>

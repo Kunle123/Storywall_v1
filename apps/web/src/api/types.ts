@@ -370,12 +370,14 @@ export interface RunResearchPassSuccess {
   };
 }
 
-/** POST …/draft/assemble (mutation §11.2). */
+/** POST …/draft/assemble (mutation §11.2). M2-T12 scoped regeneration. */
 export interface AssembleDraftBody {
   mode: string;
   preserve_creator_notes: boolean;
   preserve_manual_event_positions: boolean;
   preserve_approved_images: boolean;
+  scoped_event_id?: string;
+  scoped_section_id?: string;
 }
 
 export interface AssembleDraftSuccess {
