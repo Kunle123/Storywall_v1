@@ -7,7 +7,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/config ./packages/config
 COPY packages/shared ./packages/shared
 COPY apps/worker ./apps/worker
-# postinstall runs `prisma generate --schema ../api/prisma/schema.prisma` — schema must exist at build time.
+# Worker postinstall: prisma generate --schema ../api/prisma/schema.prisma
+# Prisma requires a package.json next to the schema path so it does not try (and fail) to auto-install under /app/apps.
+COPY apps/api/package.json ./apps/api/package.json
 COPY apps/api/prisma ./apps/api/prisma
 
 RUN pnpm install --frozen-lockfile || pnpm install
