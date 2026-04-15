@@ -1,4 +1,5 @@
 import type { BriefFormValues } from "../lib/briefFormModel";
+import { CannedStartersPanel } from "./CannedStartersPanel";
 
 const STORY_TYPES: { value: BriefFormValues["story_type"]; label: string }[] = [
   { value: "biography", label: "Biography" },
@@ -84,6 +85,7 @@ export function BriefIntakeFields({
 
   return (
     <div className="brief-grid">
+      <CannedStartersPanel value={value} onChange={onChange} disabled={disabled} />
       <section className="brief-section">
         <h2 className="brief-h2">Subject & type</h2>
         <label className="field">

@@ -289,3 +289,73 @@ a:hover {
 .error {
   color: var(--danger);
 }
+
+/* M1-T10 — canned starters (workflow spec §6) */
+.starters-section {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem 1.15rem;
+  background: #fafcf9;
+}
+
+.starters-lead {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.starters-vague {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: #f0f4ff;
+  border: 1px solid #c9d6f5;
+  color: #1e2f5c;
+}
+
+.starter-group {
+  margin-top: 0.85rem;
+}
+
+.starter-group:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.starter-group-title {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--muted);
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.starter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.starter-chip {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #b8d4c8;
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.starter-chip:hover:not(:disabled) {
+  background: #eef6f2;
+}
+
+.starter-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.starters-blocked {
+  margin: 0.75rem 0 0;
+}
