@@ -116,10 +116,15 @@ function buildSectionPatch(
   return p;
 }
 
+function normalizeCreatorNote(s: string | null | undefined): string {
+  return s ?? "";
+}
+
 function buildEventPatch(
   server: EventDraftResponse,
   headline: string,
   summary: string,
+  creatorNote: string,
 ): PatchEventBody | null {
   const p: PatchEventBody = {};
   if (headline !== server.headline) {
@@ -127,6 +132,10 @@ function buildEventPatch(
   }
   if (summary !== server.summary) {
     p.summary = summary;
+  }
+  const serverNote = normalizeCreatorNote(server.creator_note);
+  if (creatorNote !== serverNote) {
+    p.creator_note = creatorNote === "" ? null : creatorNote;
   }
   if (Object.keys(p).length === 0) return null;
   if (p.headline !== undefined && p.headline.trim().length < 1) return null;
@@ -224,6 +233,7 @@ function SourceDraftRow(props: {
       </p>
       <label className="field">
         <span className="label">URL</span>
+        <span className="field__hint">Canonical evidence link.</span>
         <input
           type="url"
           className="input"
@@ -235,6 +245,7 @@ function SourceDraftRow(props: {
       </label>
       <label className="field">
         <span className="label">Title</span>
+        <span className="field__hint">Human-readable citation title.</span>
         <input
           type="text"
           className="input"
@@ -245,7 +256,10 @@ function SourceDraftRow(props: {
         />
       </label>
       <label className="field">
-        <span className="label">Relevance</span>
+        <span className="label">Relevance to this event</span>
+        <span className="field__hint">
+          How this source supports the factual claim — evidence note, not general commentary.
+        </span>
         <textarea
           className="input textarea"
           value={relevanceNote}
@@ -270,6 +284,7 @@ function EventDraftRow(props: {
   const { token, storyId, event, onPatched, onVersionConflict, onSaveError, onRefreshEvents } = props;
   const [headline, setHeadline] = useState(event.headline);
   const [summary, setSummary] = useState(event.summary);
+  const [creatorNote, setCreatorNote] = useState(normalizeCreatorNote(event.creator_note));
   const [sources, setSources] = useState<SourceRecordResponse[]>([]);
   const [sourcesLoadError, setSourcesLoadError] = useState<string | null>(null);
   const [addingSource, setAddingSource] = useState(false);
@@ -277,6 +292,7 @@ function EventDraftRow(props: {
   useEffect(() => {
     setHeadline(event.headline);
     setSummary(event.summary);
+    setCreatorNote(normalizeCreatorNote(event.creator_note));
   }, [event.id, event.updated_at]);
 
   const loadSources = useCallback(async () => {
@@ -300,7 +316,7 @@ function EventDraftRow(props: {
 
   useEffect(() => {
     if (!token) return;
-    const patch = buildEventPatch(event, headline, summary);
+    const patch = buildEventPatch(event, headline, summary, creatorNote);
     if (!patch) return;
 
     const tm = setTimeout(() => {
@@ -328,8 +344,10 @@ function EventDraftRow(props: {
     event.updated_at,
     event.headline,
     event.summary,
+    event.creator_note,
     headline,
     summary,
+    creatorNote,
     onPatched,
     onVersionConflict,
     onSaveError,
@@ -340,27 +358,52 @@ function EventDraftRow(props: {
       <p className="editor-block__meta">
         Event <code className="inline-code">{event.id.slice(0, 8)}…</code>
       </p>
-      <label className="field">
-        <span className="label">Headline</span>
-        <input
-          type="text"
-          className="input"
-          value={headline}
-          onChange={(ev) => setHeadline(ev.target.value)}
-          autoComplete="off"
-          maxLength={500}
-        />
-      </label>
-      <label className="field">
-        <span className="label">Summary</span>
-        <textarea
-          className="input textarea"
-          value={summary}
-          onChange={(ev) => setSummary(ev.target.value)}
-          rows={3}
-          maxLength={100000}
-        />
-      </label>
+      <div className="editor-fieldgroup">
+        <p className="editor-fieldgroup__title">Factual event copy</p>
+        <p className="editor-fieldgroup__lead muted small">
+          What happened — restrained, source-aware summary. Keep opinion out of these fields.
+        </p>
+        <label className="field">
+          <span className="label">Headline</span>
+          <span className="field__hint">Event-led title, not an article headline.</span>
+          <input
+            type="text"
+            className="input"
+            value={headline}
+            onChange={(ev) => setHeadline(ev.target.value)}
+            autoComplete="off"
+            maxLength={500}
+          />
+        </label>
+        <label className="field">
+          <span className="label">Summary</span>
+          <span className="field__hint">Factual account of the event for readers.</span>
+          <textarea
+            className="input textarea"
+            value={summary}
+            onChange={(ev) => setSummary(ev.target.value)}
+            rows={3}
+            maxLength={100000}
+          />
+        </label>
+      </div>
+      <div className="editor-fieldgroup editor-fieldgroup--creator">
+        <p className="editor-fieldgroup__title">Creator note</p>
+        <p className="editor-fieldgroup__lead muted small">
+          Interpretation, significance, or voice — explicitly separate from the factual summary.
+        </p>
+        <label className="field">
+          <span className="label">Note</span>
+          <span className="field__hint">Optional. Use for commentary that must not read as neutral fact.</span>
+          <textarea
+            className="input textarea"
+            value={creatorNote}
+            onChange={(ev) => setCreatorNote(ev.target.value)}
+            rows={3}
+            maxLength={100000}
+          />
+        </label>
+      </div>
 
       <div className="editor-source-nest">
         <div className="editor-source-nest__bar">
@@ -472,27 +515,35 @@ function SectionDraftRow(props: {
       <p className="editor-block__meta">
         Section <code className="inline-code">{section.id.slice(0, 8)}…</code>
       </p>
-      <label className="field">
-        <span className="label">Label</span>
-        <input
-          type="text"
-          className="input"
-          value={label}
-          onChange={(ev) => setLabel(ev.target.value)}
-          autoComplete="off"
-          maxLength={500}
-        />
-      </label>
-      <label className="field">
-        <span className="label">Summary</span>
-        <textarea
-          className="input textarea"
-          value={summary}
-          onChange={(ev) => setSummary(ev.target.value)}
-          rows={3}
-          maxLength={100000}
-        />
-      </label>
+      <div className="editor-fieldgroup">
+        <p className="editor-fieldgroup__title">Section outline</p>
+        <p className="editor-fieldgroup__lead muted small">
+          Structural labels and factual framing for this arc. Use story lens or event creator notes for interpretive voice.
+        </p>
+        <label className="field">
+          <span className="label">Label</span>
+          <span className="field__hint">Section title (e.g. Origins, Fallout).</span>
+          <input
+            type="text"
+            className="input"
+            value={label}
+            onChange={(ev) => setLabel(ev.target.value)}
+            autoComplete="off"
+            maxLength={500}
+          />
+        </label>
+        <label className="field">
+          <span className="label">Summary</span>
+          <span className="field__hint">Optional factual framing text for this section.</span>
+          <textarea
+            className="input textarea"
+            value={summary}
+            onChange={(ev) => setSummary(ev.target.value)}
+            rows={3}
+            maxLength={100000}
+          />
+        </label>
+      </div>
     </div>
   );
 }
@@ -691,7 +742,7 @@ export function DraftReadyPage() {
           <div className="editor-workspace-intro">
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
-              Edit story copy, outline sections, and build the timeline. Changes save automatically (creator mutations §12–15).
+              Factual fields and creator-voice fields are labeled separately. Changes save automatically.
             </p>
           </div>
           {draft ? (
@@ -707,58 +758,75 @@ export function DraftReadyPage() {
                   </p>
                 </div>
                 <div className="editor-fields-stack">
-                  <label className="field">
-                    <span className="label">Title</span>
-                    <input
-                      type="text"
-                      className="input"
-                      value={title}
-                      onChange={(ev) => setTitle(ev.target.value)}
-                      autoComplete="off"
-                      maxLength={500}
-                    />
-                  </label>
-                  <label className="field">
-                    <span className="label">Subtitle</span>
-                    <input
-                      type="text"
-                      className="input"
-                      value={subtitle}
-                      onChange={(ev) => setSubtitle(ev.target.value)}
-                      autoComplete="off"
-                      maxLength={500}
-                    />
-                  </label>
-                  <label className="field">
-                    <span className="label">Summary</span>
-                    <textarea
-                      className="input textarea"
-                      value={summary}
-                      onChange={(ev) => setSummary(ev.target.value)}
-                      rows={5}
-                      maxLength={100_000}
-                    />
-                  </label>
-                  <label className="field">
-                    <span className="label">Lens</span>
-                    <textarea
-                      className="input textarea"
-                      value={lens}
-                      onChange={(ev) => setLens(ev.target.value)}
-                      rows={5}
-                      maxLength={100_000}
-                    />
-                  </label>
-                  <label className="field">
-                    <span className="label">Conclusion</span>
-                    <textarea
-                      className="input textarea"
-                      value={conclusion}
-                      onChange={(ev) => setConclusion(ev.target.value)}
-                      rows={4}
-                      maxLength={100_000}
-                    />
-                  </label>
+                  <div className="editor-fieldgroup">
+                    <p className="editor-fieldgroup__title">Factual &amp; display copy</p>
+                    <p className="editor-fieldgroup__lead muted small">
+                      What readers see as the story’s neutral overview — keep interpretation out of the summary.
+                    </p>
+                    <label className="field">
+                      <span className="label">Title</span>
+                      <span className="field__hint">Working headline for discovery and sharing.</span>
+                      <input
+                        type="text"
+                        className="input"
+                        value={title}
+                        onChange={(ev) => setTitle(ev.target.value)}
+                        autoComplete="off"
+                        maxLength={500}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="label">Subtitle</span>
+                      <span className="field__hint">Optional supporting line — still factual, not commentary.</span>
+                      <input
+                        type="text"
+                        className="input"
+                        value={subtitle}
+                        onChange={(ev) => setSubtitle(ev.target.value)}
+                        autoComplete="off"
+                        maxLength={500}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="label">Summary</span>
+                      <span className="field__hint">Short factual overview of the story.</span>
+                      <textarea
+                        className="input textarea"
+                        value={summary}
+                        onChange={(ev) => setSummary(ev.target.value)}
+                        rows={5}
+                        maxLength={100_000}
+                      />
+                    </label>
+                  </div>
+                  <div className="editor-fieldgroup editor-fieldgroup--creator">
+                    <p className="editor-fieldgroup__title">Framing &amp; synthesis</p>
+                    <p className="editor-fieldgroup__lead muted small">
+                      Explicit angle and closing synthesis — not neutral reporting.
+                    </p>
+                    <label className="field">
+                      <span className="label">Lens</span>
+                      <span className="field__hint">The story’s angle or framing line — interpretive by design.</span>
+                      <textarea
+                        className="input textarea"
+                        value={lens}
+                        onChange={(ev) => setLens(ev.target.value)}
+                        rows={5}
+                        maxLength={100_000}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="label">Conclusion</span>
+                      <span className="field__hint">Optional closing synthesis — distinct from factual summary.</span>
+                      <textarea
+                        className="input textarea"
+                        value={conclusion}
+                        onChange={(ev) => setConclusion(ev.target.value)}
+                        rows={4}
+                        maxLength={100_000}
+                      />
+                    </label>
+                  </div>
                 </div>
               </section>
 
