@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   Param,
   Post,
@@ -14,6 +15,7 @@ import { CurrentCreator } from "../../auth/current-creator.decorator";
 import type { AuthenticatedCreator } from "../../auth/types";
 import { OwnershipService } from "../ownership.service";
 import { RunResearchPassDto } from "./dto/run-research-pass.dto";
+import { researchArtifactToApi, researchCandidateSourceToApi } from "./research-package-to-api";
 import { ResearchService } from "./research.service";
 
 const IDEMPOTENCY_KEY_MAX = 255;
@@ -57,6 +59,31 @@ export class ResearchController {
     private readonly research: ResearchService,
     private readonly ownership: OwnershipService,
   ) {}
+
+  /** M2-T02 — read persisted research package after job success. */
+  @Get(":storyId/research/jobs/:jobId/package")
+  async getPackage(
+    @Param("storyId") storyId: string,
+    @Param("jobId") jobId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const pkg = await this.research.getResearchPackage({
+      storyId,
+      jobId,
+      creatorId: creator.id,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        job_status: pkg.jobStatus,
+        artifact: researchArtifactToApi(pkg.artifact),
+        candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
+      },
+    };
+  }
 
   /** Mutation §11.1 — async research pass (M2-T01 orchestration stub; artifacts M2-T02). */
   @Post(":storyId/research/run")

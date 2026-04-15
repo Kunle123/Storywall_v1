@@ -408,6 +408,8 @@ model Story {
   workflowTransitions StoryWorkflowTransition[]
   researchJobs              ResearchJob[]
   researchRunIdempotencyRows CreatorResearchRunIdempotency[]
+  researchArtifacts         ResearchArtifact[]
+  researchCandidateSources    ResearchCandidateSource[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -562,9 +564,59 @@ model ResearchJob {
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
 
   idempotencyRecord CreatorResearchRunIdempotency?
+  artifact          ResearchArtifact?
+  candidateSources  ResearchCandidateSource[]
 
   @@index([storyId, status], map: "research_job_story_status_idx")
   @@map("research_job")
+}
+
+/// M2-T02: structured research-stage output for a completed job (not timeline events — M2-T03).
+model ResearchArtifact {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  researchJobId String      @unique @map("research_job_id") @db.Uuid
+  researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  evidencePackageSummary String @map("evidence_package_summary") @db.Text
+  candidateEventHints    Json   @default("[]") @map("candidate_event_hints")
+  riskFlags                Json   @default("[]") @map("risk_flags")
+  confidencePosture        String? @map("confidence_posture") @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([storyId], map: "research_artifact_story_idx")
+  @@map("research_artifact")
+}
+
+/// M2-T02: candidate sources before event attachment (editor §13 shape, story-scoped).
+model ResearchCandidateSource {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  researchJobId String      @map("research_job_id") @db.Uuid
+  researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  sourceUrl      String @map("source_url")
+  sourceTitle    String @map("source_title")
+  publisherName  String @map("publisher_name")
+  sourceType     SourceRecordType @map("source_type")
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+  excerpt        String? @db.Text
+  relevanceNote  String  @map("relevance_note") @db.Text
+  reliabilityTier ReliabilityTier @map("reliability_tier")
+  positionIndex   Int             @map("position_index")
+  extractionMethod SourceExtractionMethod @default(ai_extracted) @map("extraction_method")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([researchJobId, positionIndex], map: "research_cand_src_job_pos_idx")
+  @@map("research_candidate_source")
 }
 
 /// Durable idempotency for `POST …/research/run` (mutation §11.1).

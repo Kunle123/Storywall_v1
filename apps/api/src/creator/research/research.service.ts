@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import type { ResearchArtifact, ResearchCandidateSource } from "@prisma/client";
 import {
   type CreatorWorkflowState,
   type Prisma,
@@ -263,5 +264,64 @@ export class ResearchService {
       });
     }
     return { job, storyId: job.story.id };
+  }
+
+  /** M2-T02 — durable research package for a succeeded job (creator-owned story). */
+  async getResearchPackage(params: {
+    storyId: string;
+    jobId: string;
+    creatorId: string;
+  }): Promise<{
+    jobStatus: string;
+    artifact: ResearchArtifact;
+    candidateSources: ResearchCandidateSource[];
+  }> {
+    const { storyId, jobId, creatorId } = params;
+
+    const job = await this.prisma.researchJob.findFirst({
+      where: {
+        id: jobId,
+        storyId,
+        story: { creatorId },
+      },
+      include: {
+        artifact: true,
+        candidateSources: { orderBy: { positionIndex: "asc" } },
+      },
+    });
+
+    if (!job) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "research_job_not_found", message: "Research job not found for this story" },
+      });
+    }
+
+    if (job.status !== "succeeded") {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "research_package_not_ready",
+          message: "Research package is available only after the job succeeds",
+          details: { job_status: job.status },
+        },
+      });
+    }
+
+    if (!job.artifact) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "research_package_incomplete",
+          message: "Research job succeeded but no artifact row was persisted",
+        },
+      });
+    }
+
+    return {
+      jobStatus: job.status,
+      artifact: job.artifact,
+      candidateSources: job.candidateSources,
+    };
   }
 }

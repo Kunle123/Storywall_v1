@@ -1,11 +1,12 @@
 /**
  * Background job worker (M0-T07 / M2-T01): BullMQ consumer for research orchestration.
- * Research artifact persistence is M2-T02.
+ * M2-T02: persist research artifact + candidate sources before marking job succeeded.
  */
 import { PrismaClient } from "@prisma/client";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
+import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
@@ -24,7 +25,20 @@ const worker = new Worker(
       await prisma.$transaction(async (tx) => {
         const rj = await tx.researchJob.findUnique({
           where: { id: researchJobId },
-          include: { story: true },
+          include: {
+            story: {
+              include: {
+                storyBrief: {
+                  select: {
+                    subject: true,
+                    normalizedSubject: true,
+                    researchBrief: true,
+                    desiredAngle: true,
+                  },
+                },
+              },
+            },
+          },
         });
         if (!rj) {
           return;
@@ -40,6 +54,26 @@ const worker = new Worker(
           await tx.researchJob.update({
             where: { id: researchJobId },
             data: { status: "running", startedAt: new Date() },
+          });
+        }
+
+        const existingArtifact = await tx.researchArtifact.findUnique({
+          where: { researchJobId: rj.id },
+        });
+        if (!existingArtifact) {
+          const payload = buildM2T02PersistPayload(rj);
+          await tx.researchArtifact.create({
+            data: {
+              researchJobId: rj.id,
+              storyId: rj.storyId,
+              evidencePackageSummary: payload.evidencePackageSummary,
+              candidateEventHints: payload.candidateEventHints,
+              riskFlags: payload.riskFlags,
+              confidencePosture: payload.confidencePosture,
+            },
+          });
+          await tx.researchCandidateSource.createMany({
+            data: payload.candidateSources,
           });
         }
 

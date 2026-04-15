@@ -19,7 +19,8 @@
     "smoke:frames": "node ./scripts/smoke-frames-generate.mjs",
     "smoke:m12": "node ./scripts/smoke-m12-framing-select.mjs",
     "smoke:m13": "node ./scripts/smoke-m13-workflow-transitions.mjs",
-    "smoke:m2-01": "node ./scripts/smoke-m2-01-research-run.mjs"
+    "smoke:m2-01": "node ./scripts/smoke-m2-01-research-run.mjs",
+    "smoke:m2-02": "node ./scripts/smoke-m2-02-research-package.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
