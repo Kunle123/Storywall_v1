@@ -1,9 +1,14 @@
 import type {
+  AssembleDraftBody,
+  AssembleDraftSuccess,
   CreateStoryBody,
   CreateStorySuccess,
   ListFramesSuccess,
   PatchBriefSuccess,
   PatchStoryBriefBody,
+  PollJobSuccess,
+  RunResearchPassBody,
+  RunResearchPassSuccess,
   SelectFrameSuccess,
 } from "./types";
 
@@ -151,4 +156,60 @@ export async function selectFrame(
     throw new ApiRequestError(`Select frame failed (${res.status})`, res.status, data);
   }
   return data as SelectFrameSuccess;
+}
+
+/** Mutation §6 — poll long-running jobs (research_run or draft_assemble). */
+export async function getCreatorJob(token: string, jobId: string): Promise<PollJobSuccess> {
+  const res = await fetch(`${apiBase()}/creator/jobs/${encodeURIComponent(jobId)}`, {
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Get job failed (${res.status})`, res.status, data);
+  }
+  return data as PollJobSuccess;
+}
+
+/** Mutation §11.1 */
+export async function runResearchPass(
+  token: string,
+  storyId: string,
+  body: RunResearchPassBody,
+  idempotencyKey: string,
+): Promise<RunResearchPassSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/research/run`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Research run failed (${res.status})`, res.status, data);
+  }
+  return data as RunResearchPassSuccess;
+}
+
+/** Mutation §11.2 */
+export async function assembleDraft(
+  token: string,
+  storyId: string,
+  body: AssembleDraftBody,
+  idempotencyKey: string,
+): Promise<AssembleDraftSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/draft/assemble`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Draft assembly failed (${res.status})`, res.status, data);
+  }
+  return data as AssembleDraftSuccess;
 }

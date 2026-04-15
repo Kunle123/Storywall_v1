@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
-import { ApiRequestError, extractConflictBrief, listFrames, patchStoryBrief } from "../api/creatorClient";
+import {
+  ApiRequestError,
+  assembleDraft,
+  extractConflictBrief,
+  listFrames,
+  patchStoryBrief,
+  runResearchPass,
+} from "../api/creatorClient";
 import type { StoryBriefResponse } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { BriefIntakeFields } from "../components/BriefIntakeFields";
 import { cacheBriefWorkspace, loadBriefCache } from "../lib/briefCache";
+import { readActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 import { briefResponseToForm, diffPatch, type BriefFormValues } from "../lib/briefFormModel";
 
 type SaveUi = "idle" | "saving" | "saved" | "error" | "conflict";
@@ -15,6 +23,7 @@ const DEBOUNCE_MS = 900;
 export function EditBriefPage() {
   const { storyId } = useParams<{ storyId: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const { token, creator, logout } = useAuth();
 
   const navState = location.state as { story_brief?: StoryBriefResponse; story_state?: CreatorWorkflowState } | null;
@@ -37,6 +46,8 @@ export function EditBriefPage() {
   const [saveUi, setSaveUi] = useState<SaveUi>("idle");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [genBusy, setGenBusy] = useState<"research" | "assemble" | null>(null);
 
   const serverRef = useRef(serverBrief);
   serverRef.current = serverBrief;
@@ -146,6 +157,59 @@ export function EditBriefPage() {
   }
 
   const stateLabel = storyState ?? "—";
+  const activeJobId = storyId ? readActiveJob(storyId) : null;
+
+  async function onRunResearch() {
+    if (!token || !storyId) return;
+    setGenError(null);
+    setGenBusy("research");
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const res = await runResearchPass(
+        token,
+        storyId,
+        {
+          mode: "full",
+          respect_existing_manual_events: true,
+          respect_existing_sources: true,
+          notes: "Creator-initiated research pass (M2-T06).",
+        },
+        idempotencyKey,
+      );
+      rememberActiveJob(storyId, res.data.job_id);
+      navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
+    } catch (err) {
+      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not start research.");
+    } finally {
+      setGenBusy(null);
+    }
+  }
+
+  async function onAssembleDraft() {
+    if (!token || !storyId) return;
+    setGenError(null);
+    setGenBusy("assemble");
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const res = await assembleDraft(
+        token,
+        storyId,
+        {
+          mode: "full_regeneration",
+          preserve_creator_notes: true,
+          preserve_manual_event_positions: false,
+          preserve_approved_images: true,
+        },
+        idempotencyKey,
+      );
+      rememberActiveJob(storyId, res.data.job_id);
+      navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
+    } catch (err) {
+      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not start draft assembly.");
+    } finally {
+      setGenBusy(null);
+    }
+  }
 
   return (
     <div className="page">
@@ -175,6 +239,60 @@ export function EditBriefPage() {
         {saveUi === "error" ? <span className="error">Save error</span> : null}
       </div>
       {saveMessage ? <div className="banner warn">{saveMessage}</div> : null}
+      {genError ? <div className="banner error">{genError}</div> : null}
+
+      {storyState === "researching" || storyState === "assembling_draft" ? (
+        <div className="banner warn" style={{ marginBottom: "1rem" }}>
+          <strong>Generation is in progress on the server.</strong>{" "}
+          {activeJobId ? (
+            <>
+              <Link to={`/creator/stories/${storyId}/jobs/${activeJobId}`}>Open generation status</Link> to watch the unified
+              job poll.
+            </>
+          ) : (
+            <>
+              If you still have the status link from when you started, open it to watch progress. Otherwise wait and refresh
+              this page — you cannot safely start a duplicate run while workflow is <code className="inline-code">{storyState}</code>.
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {storyState === "awaiting_framing_choice" || storyState === "ready_for_edit" ? (
+        <div className="card gen-actions-card" style={{ marginBottom: "1rem" }}>
+          <h2 className="gen-actions-title">AI generation (M2)</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Long-running jobs use one poll endpoint: <code className="inline-code">GET /api/v1/creator/jobs/:jobId</code>. After
+            draft assembly succeeds and workflow is <code className="inline-code">ready_for_edit</code>, you will enter the draft
+            workspace.
+          </p>
+          <div className="gen-actions-row">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!!genBusy}
+              onClick={() => void onRunResearch()}
+            >
+              {genBusy === "research" ? "Starting…" : "Run research pass"}
+            </button>
+            {storyState === "ready_for_edit" ? (
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={!!genBusy}
+                onClick={() => void onAssembleDraft()}
+              >
+                {genBusy === "assemble" ? "Starting…" : "Assemble full draft"}
+              </button>
+            ) : null}
+          </div>
+          {storyState === "awaiting_framing_choice" ? (
+            <p className="hint footnote" style={{ marginBottom: 0 }}>
+              Choose a framing when you are ready; draft assembly is available after the story is <code className="inline-code">ready_for_edit</code> (selected frame and story draft shell).
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {storyState === "awaiting_framing_choice" ? (
         <div className="banner" style={{ background: "#e8f4ef", borderColor: "#b8d4c8", marginBottom: "1rem" }}>

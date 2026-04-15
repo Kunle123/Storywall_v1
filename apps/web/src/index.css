@@ -418,3 +418,134 @@ a:hover {
   margin: 0;
   font-size: 0.8125rem;
 }
+
+/* M2-T06 — generation status + draft-ready shell */
+.gen-actions-card .gen-actions-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+
+.gen-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.gen-status-card .gen-status-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.gen-card-title {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin: 0;
+}
+
+.gen-status-body {
+  margin: 0.65rem 0 0;
+  line-height: 1.45;
+}
+
+.gen-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #f0f0ec;
+  color: var(--muted);
+}
+
+.gen-pill-pending,
+.gen-pill-running {
+  background: #fff8e6;
+  border-color: var(--warn-border);
+  color: #5c4a00;
+}
+
+.gen-pill-succeeded {
+  background: #e8f4ef;
+  border-color: #b8d4c8;
+  color: var(--accent);
+}
+
+.gen-pill-failed,
+.gen-pill-cancelled {
+  background: #fdecec;
+  border-color: #e0a8a8;
+  color: var(--danger);
+}
+
+.gen-meta {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
+.gen-meta div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.5rem;
+}
+
+.gen-meta dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gen-meta dd {
+  margin: 0;
+}
+
+.gen-next-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.gen-next-list li {
+  margin-bottom: 0.35rem;
+}
+
+.gen-terminal-error .gen-error-detail {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  color: var(--danger);
+}
+
+.gen-actions {
+  margin-top: 1rem;
+}
+
+.draft-ready-card .draft-ready-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin: 0 0 0.5rem;
+}
+
+.draft-ready-title {
+  font-size: 1.2rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+
+.draft-ready-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}

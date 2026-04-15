@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
+import { DraftReadyPage } from "./pages/DraftReadyPage";
 import { EditBriefPage } from "./pages/EditBriefPage";
 import { FramingChoosePage } from "./pages/FramingChoosePage";
 import { HomePage } from "./pages/HomePage";
+import { JobStatusPage } from "./pages/JobStatusPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewStoryBriefPage } from "./pages/NewStoryBriefPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -45,6 +47,22 @@ export function App() {
           element={
             <Protected>
               <FramingChoosePage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/creator/stories/:storyId/jobs/:jobId"
+          element={
+            <Protected>
+              <JobStatusPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/creator/stories/:storyId/draft"
+          element={
+            <Protected>
+              <DraftReadyPage />
             </Protected>
           }
         />

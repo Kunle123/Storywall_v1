@@ -131,6 +131,70 @@ export interface SelectFrameSuccess {
   };
 }
 
+/** GET /creator/jobs/:jobId — unified poll for research_run and draft_assemble (mutation §6). */
+export interface CreatorJobPollData {
+  job_id: string;
+  kind: "research_run" | "draft_assemble";
+  status: string;
+  story_id: string;
+  mode: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error_message: string | null;
+}
+
+export interface PollJobSuccess {
+  ok: true;
+  data: CreatorJobPollData;
+}
+
+/** POST …/research/run (mutation §11.1). */
+export interface RunResearchPassBody {
+  mode: "full";
+  respect_existing_manual_events: boolean;
+  respect_existing_sources: boolean;
+  notes?: string;
+}
+
+export interface RunResearchPassSuccess {
+  ok: true;
+  data: {
+    story_id: string;
+    story_state: CreatorWorkflowState;
+    job_id: string;
+    job_status: string;
+  };
+  meta?: {
+    idempotency_key?: string;
+    async_job?: { job_id: string; kind: "research_run" };
+    idempotency_replayed?: boolean;
+  };
+}
+
+/** POST …/draft/assemble (mutation §11.2). */
+export interface AssembleDraftBody {
+  mode: string;
+  preserve_creator_notes: boolean;
+  preserve_manual_event_positions: boolean;
+  preserve_approved_images: boolean;
+}
+
+export interface AssembleDraftSuccess {
+  ok: true;
+  data: {
+    story_id: string;
+    story_state: CreatorWorkflowState;
+    job_id: string;
+    job_status: string;
+  };
+  meta?: {
+    idempotency_key?: string;
+    async_job?: { job_id: string; kind: "draft_assemble" };
+    idempotency_replayed?: boolean;
+  };
+}
+
 /** POST /api/v1/creator/stories body (snake_case, mutation §9.1). */
 export interface CreateStoryBody {
   subject: string;
