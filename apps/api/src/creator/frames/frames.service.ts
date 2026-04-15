@@ -12,6 +12,7 @@ import {
   type StoryFrameDraft,
 } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { GenerateFramesDto } from "./dto/generate-frames.dto";
 import type { SelectFrameDto } from "./dto/select-frame.dto";
 
@@ -27,7 +28,10 @@ const OPTION_COUNT = 3;
 
 @Injectable()
 export class FramesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workflowTransitions: WorkflowTransitionService,
+  ) {}
 
   /** GET list — minimal read for framing chooser (M1-T12); not full workspace. */
   async listFrames(storyId: string, creatorId: string): Promise<{
@@ -229,6 +233,8 @@ export class FramesService {
         },
       });
 
+      const wfBeforeSelect = story.workflowState;
+
       const updatedStory = await tx.story.update({
         where: { id: storyId },
         data: {
@@ -238,6 +244,15 @@ export class FramesService {
           lens: selectedFrame.lensCandidate.slice(0, 8000),
         },
         select: { workflowState: true },
+      });
+
+      await this.workflowTransitions.appendIfChanged(tx, {
+        storyId: story.id,
+        fromState: wfBeforeSelect,
+        toState: updatedStory.workflowState,
+        actorType: "creator",
+        actorId: creatorId,
+        trigger: "frames_select",
       });
 
       await tx.creatorFrameSelectIdempotency.create({
@@ -422,10 +437,21 @@ export class FramesService {
         orderBy: { candidateRank: "asc" },
       });
 
+      const wfBeforeGenerate = story.workflowState;
+
       const updatedStory = await tx.story.update({
         where: { id: storyId },
         data: { workflowState: "awaiting_framing_choice" },
         select: { workflowState: true },
+      });
+
+      await this.workflowTransitions.appendIfChanged(tx, {
+        storyId: story.id,
+        fromState: wfBeforeGenerate,
+        toState: updatedStory.workflowState,
+        actorType: "creator",
+        actorId: creatorId,
+        trigger: "frames_generate",
       });
 
       return {

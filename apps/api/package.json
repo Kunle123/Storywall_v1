@@ -17,7 +17,8 @@
     "db:studio": "prisma studio",
     "smoke:creator": "node ./scripts/smoke-creator-slice.mjs",
     "smoke:frames": "node ./scripts/smoke-frames-generate.mjs",
-    "smoke:m12": "node ./scripts/smoke-m12-framing-select.mjs"
+    "smoke:m12": "node ./scripts/smoke-m12-framing-select.mjs",
+    "smoke:m13": "node ./scripts/smoke-m13-workflow-transitions.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

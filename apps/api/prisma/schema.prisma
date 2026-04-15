@@ -68,6 +68,12 @@ enum CreatorWorkflowState {
   published
 }
 
+/// M1-T13: who caused a persisted workflow transition (setup flow uses `creator` only for now).
+enum WorkflowTransitionActorType {
+  creator
+  system
+}
+
 // --- M1-T03 brief & framing (storywall_editor_cms_input_model.md §7–9) ---
 
 enum BriefStoryType {
@@ -398,11 +404,36 @@ model Story {
 
   storyBrief StoryBrief?
   frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
+  workflowTransitions StoryWorkflowTransition[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
   @@index([categoryPrimary, publishedAt(sort: Desc)], map: "stories_category_primary_published_at_idx")
   @@map("stories")
+}
+
+/// Append-only setup / workflow history (M1-T13). One row per actual `stories.workflow_state` change we record.
+/// Not a full audit log for all mutations — only explicit workflow transitions from approved command paths.
+model StoryWorkflowTransition {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  fromWorkflowState CreatorWorkflowState? @map("from_workflow_state")
+  toWorkflowState   CreatorWorkflowState  @map("to_workflow_state")
+
+  actorType WorkflowTransitionActorType @map("actor_type")
+  /// Set when `actor_type` is `creator`; null for `system` until system-driven transitions exist.
+  actorId   String? @map("actor_id") @db.Uuid
+
+  /// Stable command name: `create_story`, `frames_generate`, `frames_select`, etc.
+  trigger String @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([storyId, createdAt(sort: Asc)], map: "story_wf_transition_story_created_idx")
+  @@map("story_workflow_transition")
 }
 
 /// `story_brief` — editor §7 + normalization overlay §8. One row per story workspace.

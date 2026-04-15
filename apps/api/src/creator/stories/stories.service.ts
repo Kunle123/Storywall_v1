@@ -13,6 +13,7 @@ import {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { PrismaService } from "../../prisma/prisma.service";
+import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
 import { normalizeIfMatchHeader } from "./if-match";
@@ -100,7 +101,10 @@ function storyBriefToApi(b: StoryBrief): Record<string, unknown> {
 
 @Injectable()
 export class StoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workflowTransitions: WorkflowTransitionService,
+  ) {}
 
   async createStoryWorkspace(
     creatorId: string,
@@ -152,6 +156,15 @@ export class StoriesService {
           writingStylePreference: dto.writing_style_preference ?? null,
           creationMode: dto.creation_mode,
         },
+      });
+
+      await this.workflowTransitions.appendIfChanged(tx, {
+        storyId: story.id,
+        fromState: null,
+        toState: story.workflowState,
+        actorType: "creator",
+        actorId: creatorId,
+        trigger: "create_story",
       });
 
       return {
