@@ -52,6 +52,11 @@ export function EditBriefPage() {
   const serverRef = useRef(serverBrief);
   serverRef.current = serverBrief;
 
+  const formRef = useRef(form);
+  formRef.current = form;
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
   useEffect(() => {
     if (!token || !storyId) return;
     let cancelled = false;
@@ -78,18 +83,26 @@ export function EditBriefPage() {
   }, [token, storyId]);
 
   function mergeForm(patch: Partial<BriefFormValues>) {
+    if (import.meta.env.DEV) {
+      console.debug("[brief] mergeForm", Object.keys(patch));
+    }
     setForm((f) => (f ? { ...f, ...patch } : f));
   }
 
   useEffect(() => {
     if (!token || !storyId || !form) return;
-    const s = serverRef.current;
-    if (!s) return;
+    if (!serverRef.current) return;
 
     const timer = setTimeout(() => {
       const baseline = serverRef.current;
       if (!baseline) return;
-      const patch = diffPatch(baseline, form);
+      const currentForm = formRef.current;
+      const authToken = tokenRef.current;
+      if (!currentForm || !authToken || !storyId) return;
+      const patch = diffPatch(baseline, currentForm);
+      if (import.meta.env.DEV) {
+        console.debug("[brief] autosave debounce", { patchKeys: Object.keys(patch), baselineAt: baseline.updated_at });
+      }
       if (Object.keys(patch).length === 0) return;
 
       setSaveUi("saving");
@@ -97,7 +110,7 @@ export function EditBriefPage() {
 
       void (async () => {
         try {
-          const res = await patchStoryBrief(token, storyId, baseline.updated_at, patch);
+          const res = await patchStoryBrief(authToken, storyId, baseline.updated_at, patch);
           const next = res.data.story_brief;
           const st = res.data.story_state;
           setServerBrief(next);

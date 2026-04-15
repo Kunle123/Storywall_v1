@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { clearAllBriefCaches } from "../lib/briefCache";
 
 const TOKEN_KEY = "storywall_creator_token";
 const CREATOR_KEY = "storywall_creator_profile";
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(CREATOR_KEY);
+      clearAllBriefCaches();
     } catch {
       /* ignore */
     }

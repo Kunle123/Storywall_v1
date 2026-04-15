@@ -110,6 +110,14 @@ export function formToCreateBody(f: BriefFormValues): CreateStoryBody {
   return body;
 }
 
+/** Normalize wire date to YYYY-MM-DD for PATCH diff (API may return ISO day-only or full datetime). */
+export function normalizeBriefDateField(raw: string | null | undefined): string {
+  if (raw == null || raw === "") return "";
+  const s = String(raw).trim();
+  if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s;
+}
+
 /** Build PATCH body: only keys that differ from baseline; supports null clears for nullable fields. */
 export function diffPatch(from: StoryBriefResponse, form: BriefFormValues): PatchStoryBriefBody {
   const patch: PatchStoryBriefBody = {};
@@ -128,15 +136,15 @@ export function diffPatch(from: StoryBriefResponse, form: BriefFormValues): Patc
   if (form.time_scope_mode !== from.time_scope_mode) patch.time_scope_mode = form.time_scope_mode;
 
   {
-    const nextStart = form.time_scope_start.trim();
-    const prevStart = from.time_scope_start ?? "";
+    const nextStart = normalizeBriefDateField(form.time_scope_start);
+    const prevStart = normalizeBriefDateField(from.time_scope_start);
     if (nextStart !== prevStart) {
       patch.time_scope_start = nextStart === "" ? null : nextStart;
     }
   }
   {
-    const nextEnd = form.time_scope_end.trim();
-    const prevEnd = from.time_scope_end ?? "";
+    const nextEnd = normalizeBriefDateField(form.time_scope_end);
+    const prevEnd = normalizeBriefDateField(from.time_scope_end);
     if (nextEnd !== prevEnd) {
       patch.time_scope_end = nextEnd === "" ? null : nextEnd;
     }

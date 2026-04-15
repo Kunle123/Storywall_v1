@@ -26,3 +26,17 @@ export function loadBriefCache(storyId: string): CachedBriefWorkspace | null {
     return null;
   }
 }
+
+/** Remove all cached brief workspaces (call on logout so a new session does not reuse stale drafts). */
+export function clearAllBriefCaches(): void {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(PREFIX)) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
