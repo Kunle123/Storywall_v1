@@ -1,11 +1,16 @@
 /**
  * Background job worker (M0-T07 / M2-T01): BullMQ consumer for research orchestration.
  * M2-T02: persist research artifact + candidate sources before marking job succeeded.
+ * M2-T03: assemble chronology (extracted events) from the research package.
  */
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { API_CONTRACT_VERSION } from "@storywall/shared";
+import {
+  API_CONTRACT_VERSION,
+  buildChronologyEventsFromResearchPackage,
+  CHRONOLOGY_EXTRACTION_VERSION,
+} from "@storywall/shared";
 import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
@@ -74,6 +79,65 @@ const worker = new Worker(
           });
           await tx.researchCandidateSource.createMany({
             data: payload.candidateSources,
+          });
+        }
+
+        const assemblyExists = await tx.chronologyAssembly.findUnique({
+          where: { researchJobId: rj.id },
+        });
+        if (!assemblyExists) {
+          const art = await tx.researchArtifact.findUniqueOrThrow({
+            where: { researchJobId: rj.id },
+          });
+          const sources = await tx.researchCandidateSource.findMany({
+            where: { researchJobId: rj.id },
+            orderBy: { positionIndex: "asc" },
+          });
+          const rows = buildChronologyEventsFromResearchPackage(
+            {
+              evidencePackageSummary: art.evidencePackageSummary,
+              candidateEventHints: art.candidateEventHints,
+              riskFlags: art.riskFlags,
+            },
+            sources.map((s) => ({
+              id: s.id,
+              positionIndex: s.positionIndex,
+              sourceTitle: s.sourceTitle,
+              excerpt: s.excerpt,
+              relevanceNote: s.relevanceNote,
+              reliabilityTier: s.reliabilityTier,
+            })),
+          );
+          await tx.chronologyAssembly.create({
+            data: {
+              researchJobId: rj.id,
+              storyId: rj.storyId,
+              extractionVersion: CHRONOLOGY_EXTRACTION_VERSION,
+              events: {
+                create: rows.map((row, idx) => ({
+                  positionIndex: idx,
+                  headline: row.headline,
+                  summary: row.summary,
+                  creatorNote: row.creatorNote,
+                  eventType: row.eventType,
+                  contextLabel: row.contextLabel,
+                  significanceLevel: row.significanceLevel,
+                  eventDateStart: row.eventDateStart,
+                  eventDateEnd: row.eventDateEnd,
+                  eventDatePrecision: row.eventDatePrecision,
+                  displayDate: row.displayDate,
+                  yearAnchor: row.yearAnchor,
+                  intervalNote: row.intervalNote,
+                  locationName: row.locationName,
+                  mediaKind: row.mediaKind,
+                  sourceDensity: row.sourceDensity,
+                  confidenceState: row.confidenceState,
+                  claimRiskLevel: row.claimRiskLevel,
+                  supportingCandidateSourceIds: row.supportingCandidateSourceIds as unknown as Prisma.InputJsonValue,
+                  ambiguityNote: row.ambiguityNote,
+                })),
+              },
+            },
           });
         }
 

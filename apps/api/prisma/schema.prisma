@@ -410,6 +410,7 @@ model Story {
   researchRunIdempotencyRows CreatorResearchRunIdempotency[]
   researchArtifacts         ResearchArtifact[]
   researchCandidateSources    ResearchCandidateSource[]
+  chronologyAssemblies      ChronologyAssembly[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -566,6 +567,7 @@ model ResearchJob {
   idempotencyRecord CreatorResearchRunIdempotency?
   artifact          ResearchArtifact?
   candidateSources  ResearchCandidateSource[]
+  chronologyAssembly ChronologyAssembly?
 
   @@index([storyId, status], map: "research_job_story_status_idx")
   @@map("research_job")
@@ -617,6 +619,66 @@ model ResearchCandidateSource {
 
   @@index([researchJobId, positionIndex], map: "research_cand_src_job_pos_idx")
   @@map("research_candidate_source")
+}
+
+/// M2-T03 — chronology assembled from the research package (staging; `event_draft` promotion is later).
+model ChronologyAssembly {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  researchJobId String      @unique @map("research_job_id") @db.Uuid
+  researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  extractionVersion String @default("m2-t03-v1") @map("extraction_version") @db.VarChar(32)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  events ChronologyExtractedEvent[]
+
+  @@index([storyId], map: "chronology_assembly_story_idx")
+  @@map("chronology_assembly")
+}
+
+model ChronologyExtractedEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  chronologyAssemblyId String @map("chronology_assembly_id") @db.Uuid
+  chronologyAssembly   ChronologyAssembly @relation(fields: [chronologyAssemblyId], references: [id], onDelete: Cascade)
+
+  positionIndex Int @map("position_index")
+
+  headline String
+  summary  String @db.Text
+  creatorNote String? @map("creator_note") @db.Text
+
+  eventType         EventDraftKind    @map("event_type")
+  contextLabel      String?           @map("context_label")
+  significanceLevel SignificanceLevel @map("significance_level")
+
+  eventDateStart     DateTime?          @map("event_date_start") @db.Timestamptz(6)
+  eventDateEnd       DateTime?          @map("event_date_end") @db.Timestamptz(6)
+  eventDatePrecision EventDatePrecision @map("event_date_precision")
+  displayDate        String?            @map("display_date")
+  yearAnchor         Int?               @map("year_anchor")
+  intervalNote       String?            @map("interval_note")
+  locationName       String?            @map("location_name")
+
+  mediaKind     EventMediaKind     @map("media_kind")
+  sourceDensity EventSourceDensity @map("source_density")
+
+  confidenceState EventConfidenceState @map("confidence_state")
+  claimRiskLevel  ClaimRiskLevel       @map("claim_risk_level")
+
+  supportingCandidateSourceIds Json @default("[]") @map("supporting_candidate_source_ids")
+
+  ambiguityNote String? @map("ambiguity_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([chronologyAssemblyId, positionIndex], map: "chronology_evt_assembly_pos_idx")
+  @@map("chronology_extracted_event")
 }
 
 /// Durable idempotency for `POST …/research/run` (mutation §11.1).

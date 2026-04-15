@@ -6,7 +6,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { ResearchArtifact, ResearchCandidateSource } from "@prisma/client";
+import type {
+  ChronologyAssembly,
+  ChronologyExtractedEvent,
+  ResearchArtifact,
+  ResearchCandidateSource,
+} from "@prisma/client";
 import {
   type CreatorWorkflowState,
   type Prisma,
@@ -322,6 +327,68 @@ export class ResearchService {
       jobStatus: job.status,
       artifact: job.artifact,
       candidateSources: job.candidateSources,
+    };
+  }
+
+  /** M2-T03 — assembled chronology for a succeeded job (creator-owned story). */
+  async getResearchChronology(params: {
+    storyId: string;
+    jobId: string;
+    creatorId: string;
+  }): Promise<{
+    jobStatus: string;
+    assembly: ChronologyAssembly;
+    events: ChronologyExtractedEvent[];
+  }> {
+    const { storyId, jobId, creatorId } = params;
+
+    const job = await this.prisma.researchJob.findFirst({
+      where: {
+        id: jobId,
+        storyId,
+        story: { creatorId },
+      },
+      include: {
+        chronologyAssembly: {
+          include: {
+            events: { orderBy: { positionIndex: "asc" } },
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "research_job_not_found", message: "Research job not found for this story" },
+      });
+    }
+
+    if (job.status !== "succeeded") {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "chronology_not_ready",
+          message: "Chronology is available only after the research job succeeds",
+          details: { job_status: job.status },
+        },
+      });
+    }
+
+    if (!job.chronologyAssembly) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "chronology_not_found",
+          message: "Research job succeeded but no chronology assembly was persisted",
+        },
+      });
+    }
+
+    return {
+      jobStatus: job.status,
+      assembly: job.chronologyAssembly,
+      events: job.chronologyAssembly.events,
     };
   }
 }

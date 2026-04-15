@@ -15,6 +15,7 @@ import { CurrentCreator } from "../../auth/current-creator.decorator";
 import type { AuthenticatedCreator } from "../../auth/types";
 import { OwnershipService } from "../ownership.service";
 import { RunResearchPassDto } from "./dto/run-research-pass.dto";
+import { chronologyAssemblyToApi } from "./chronology-to-api";
 import { researchArtifactToApi, researchCandidateSourceToApi } from "./research-package-to-api";
 import { ResearchService } from "./research.service";
 
@@ -59,6 +60,30 @@ export class ResearchController {
     private readonly research: ResearchService,
     private readonly ownership: OwnershipService,
   ) {}
+
+  /** M2-T03 — read assembled chronology (extracted events) after job success. */
+  @Get(":storyId/research/jobs/:jobId/chronology")
+  async getChronology(
+    @Param("storyId") storyId: string,
+    @Param("jobId") jobId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const out = await this.research.getResearchChronology({
+      storyId,
+      jobId,
+      creatorId: creator.id,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        job_status: out.jobStatus,
+        chronology: chronologyAssemblyToApi(out.assembly, out.events),
+      },
+    };
+  }
 
   /** M2-T02 — read persisted research package after job success. */
   @Get(":storyId/research/jobs/:jobId/package")

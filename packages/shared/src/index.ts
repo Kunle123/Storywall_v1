@@ -213,3 +213,14 @@ export type ImageProposalAssetSource =
 export type ImageStyleMode = "editorial" | "archival" | "illustrative" | "minimal";
 
 export type ImageApprovalStatus = "proposed" | "approved" | "rejected" | "superseded";
+
+// --- M2-T03 chronology extraction (deterministic pipeline from research package) ---
+export {
+  buildChronologyEventsFromResearchPackage,
+  CHRONOLOGY_EXTRACTION_VERSION,
+} from "./chronology-extraction";
+export type {
+  ChronologyExtractionRow,
+  ResearchArtifactExtractionInput,
+  ResearchCandidateSourceExtractionInput,
+} from "./chronology-extraction";
