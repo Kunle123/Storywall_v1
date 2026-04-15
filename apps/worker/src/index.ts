@@ -33,7 +33,8 @@ const worker = new Worker(
           return;
         }
 
-        const wfBefore = rj.story.workflowState;
+        const wfDuring = rj.story.workflowState;
+        const targetState = rj.preResearchWorkflowState;
 
         if (rj.status === "pending") {
           await tx.researchJob.update({
@@ -52,7 +53,7 @@ const worker = new Worker(
 
         await tx.story.update({
           where: { id: rj.storyId },
-          data: { workflowState: "ready_for_edit" },
+          data: { workflowState: targetState },
         });
 
         const after = await tx.story.findUniqueOrThrow({
@@ -60,11 +61,11 @@ const worker = new Worker(
           select: { workflowState: true },
         });
 
-        if (wfBefore !== after.workflowState) {
+        if (wfDuring !== after.workflowState) {
           await tx.storyWorkflowTransition.create({
             data: {
               storyId: rj.storyId,
-              fromWorkflowState: wfBefore,
+              fromWorkflowState: wfDuring,
               toWorkflowState: after.workflowState,
               actorType: "system",
               actorId: null,

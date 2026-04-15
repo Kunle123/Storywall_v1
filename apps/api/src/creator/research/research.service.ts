@@ -22,6 +22,10 @@ const ALLOWED_PRE_RESEARCH: CreatorWorkflowState[] = ["awaiting_framing_choice",
 
 const ACTIVE: ResearchJobStatus[] = ["pending", "running"];
 
+/** First accepted `POST …/research/run` outcome (idempotent replay; mutation §6). */
+const ACCEPTED_STORY_STATE: CreatorWorkflowState = "researching";
+const ACCEPTED_JOB_STATUS: ResearchJobStatus = "pending";
+
 function stableRequestPayload(dto: RunResearchPassDto): Prisma.InputJsonValue {
   return {
     mode: dto.mode,
@@ -48,7 +52,12 @@ function payloadMatches(
 }
 
 type StartTxResult =
-  | { kind: "replay"; job: ResearchJob; storyState: CreatorWorkflowState }
+  | {
+      kind: "replay";
+      jobId: string;
+      storyState: CreatorWorkflowState;
+      jobStatus: ResearchJobStatus;
+    }
   | { kind: "new"; job: ResearchJob; storyState: CreatorWorkflowState };
 
 @Injectable()
@@ -119,14 +128,11 @@ export class ResearchService {
             },
           });
         }
-        const st = await tx.story.findUniqueOrThrow({
-          where: { id: storyId },
-          select: { workflowState: true },
-        });
         const out: StartTxResult = {
           kind: "replay",
-          job: existingIdem.researchJob,
-          storyState: st.workflowState,
+          jobId: existingIdem.researchJobId,
+          storyState: existingIdem.acceptedResponseStoryState,
+          jobStatus: existingIdem.acceptedResponseJobStatus,
         };
         return out;
       }
@@ -167,6 +173,7 @@ export class ResearchService {
           status: "pending",
           mode: dto.mode,
           requestPayload: stableRequestPayload(dto),
+          preResearchWorkflowState: wfBefore,
         },
       });
 
@@ -176,6 +183,8 @@ export class ResearchService {
           storyId,
           requestKey: idempotencyKey,
           researchJobId: job.id,
+          acceptedResponseStoryState: ACCEPTED_STORY_STATE,
+          acceptedResponseJobStatus: ACCEPTED_JOB_STATUS,
         },
       });
 
@@ -210,12 +219,22 @@ export class ResearchService {
       );
     }
 
+    if (txResult.kind === "replay") {
+      return {
+        storyId,
+        storyState: txResult.storyState,
+        jobId: txResult.jobId,
+        jobStatus: txResult.jobStatus,
+        idempotencyReplayed: true,
+      };
+    }
+
     return {
       storyId,
       storyState: txResult.storyState,
       jobId: txResult.job.id,
       jobStatus: txResult.job.status,
-      idempotencyReplayed: txResult.kind === "replay",
+      idempotencyReplayed: false,
     };
   }
 

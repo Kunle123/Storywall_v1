@@ -554,6 +554,9 @@ model ResearchJob {
   requestPayload  Json   @map("request_payload")
   errorMessage    String? @map("error_message") @db.Text
 
+  /// Workflow state before `researching` (restore target when the job completes; M2-T01).
+  preResearchWorkflowState CreatorWorkflowState @map("pre_research_workflow_state")
+
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   startedAt  DateTime? @map("started_at") @db.Timestamptz(6)
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
@@ -577,6 +580,10 @@ model CreatorResearchRunIdempotency {
   requestKey   String @map("request_key") @db.VarChar(255)
   researchJobId String @unique @map("research_job_id") @db.Uuid
   researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  /// First successful `POST …/research/run` response envelope (idempotent replay; mutation §6).
+  acceptedResponseStoryState CreatorWorkflowState @map("accepted_response_story_state")
+  acceptedResponseJobStatus  ResearchJobStatus    @map("accepted_response_job_status")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 

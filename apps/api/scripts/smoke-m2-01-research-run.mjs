@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * M2-T01: POST /research/run + GET /jobs/:id + worker completion (requires Redis + worker running for full pass).
+ * M2-T01: POST /research/run idempotent replay (frozen first outcome), GET job poll,
+ * worker restores pre-research workflow (awaiting vs ready). Requires Redis + worker.
  */
 
 const BASE = process.env.API_URL ?? "http://127.0.0.1:3001";
@@ -55,6 +56,14 @@ async function pollJob(token, jobId, maxMs) {
   fail("timeout waiting for job");
 }
 
+function assertAcceptedReplayEquals(first, replay) {
+  assert(first.data.story_id === replay.data.story_id, "replay story_id");
+  assert(first.data.job_id === replay.data.job_id, "replay job_id");
+  assert(first.data.story_state === replay.data.story_state, "replay story_state must match first accept");
+  assert(first.data.job_status === replay.data.job_status, "replay job_status must match first accept");
+  assert(first.data.story_state === "researching" && first.data.job_status === "pending", "first accept snapshot");
+}
+
 async function main() {
   const email = `smoke-m2-${Date.now()}@example.test`;
   const password = "smokepass123";
@@ -75,24 +84,63 @@ async function main() {
   });
   const createJson = await j(create);
   assert(create.ok, `create ${create.status}`);
-  const storyId = createJson.data.story_id;
+  const storyA = createJson.data.story_id;
 
-  const gen = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames/generate`, {
+  const genA = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/frames/generate`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  assert((await j(gen)).ok, "generate");
+  assert((await j(genA)).ok, "generate A");
+
+  const idemAwait = `m2-await-${storyA}`;
+  const runAwait = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/research/run`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idemAwait,
+    },
+    body: JSON.stringify(runBody),
+  });
+  const runAwaitJson = await j(runAwait);
+  assert(runAwait.ok, `research from awaiting ${runAwait.status}`);
+  assert(runAwaitJson.data.story_state === "researching", "awaiting path: researching");
+  assert(runAwaitJson.data.job_status === "pending", "awaiting path: pending");
+  const jobAwait = runAwaitJson.data.job_id;
+
+  await pollJob(token, jobAwait, 15000);
+
+  const framesAwait = await j(
+    await fetch(`${BASE}/api/v1/creator/stories/${storyA}/frames`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  );
+  assert(framesAwait.data.story_state === "awaiting_framing_choice", "worker restores awaiting (no draft gate bypass)");
+
+  const replayAwait = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/research/run`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idemAwait,
+    },
+    body: JSON.stringify(runBody),
+  });
+  const replayAwaitJson = await j(replayAwait);
+  assert(replayAwait.ok, "replay awaiting path");
+  assert(replayAwaitJson.meta?.idempotency_replayed === true, "idem replay flag");
+  assertAcceptedReplayEquals(runAwaitJson, replayAwaitJson);
 
   const list = await j(
-    await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames`, {
+    await fetch(`${BASE}/api/v1/creator/stories/${storyA}/frames`, {
       headers: { Authorization: `Bearer ${token}` },
     }),
   );
   const frameId = list.data.frame_drafts[0].id;
-  const idemSelect = `m2-sel-${storyId}`;
+  const idemSelect = `m2-sel-${storyA}`;
 
-  const sel = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames/select`, {
+  const sel = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/frames/select`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -103,8 +151,8 @@ async function main() {
   });
   assert((await j(sel)).ok, "select frame");
 
-  const idemResearch = `m2-res-${storyId}`;
-  const run = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/research/run`, {
+  const idemResearch = `m2-res-${storyA}`;
+  const run = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/research/run`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -114,22 +162,21 @@ async function main() {
     body: JSON.stringify(runBody),
   });
   const runJson = await j(run);
-  assert(run.ok, `research run ${run.status} ${JSON.stringify(runJson)}`);
-  assert(runJson.data.story_state === "researching", "story researching");
-  assert(runJson.data.job_status === "pending", "job pending");
+  assert(run.ok, `research run ${run.status}`);
+  assert(runJson.data.story_state === "researching", "ready path: researching");
+  assert(runJson.data.job_status === "pending", "ready path: pending");
   const jobId = runJson.data.job_id;
 
-  const polled = await pollJob(token, jobId, 15000);
-  assert(polled.status === "succeeded", "job succeeded");
+  await pollJob(token, jobId, 15000);
 
   const framesAfter = await j(
-    await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames`, {
+    await fetch(`${BASE}/api/v1/creator/stories/${storyA}/frames`, {
       headers: { Authorization: `Bearer ${token}` },
     }),
   );
-  assert(framesAfter.data.story_state === "ready_for_edit", "back to ready_for_edit after worker");
+  assert(framesAfter.data.story_state === "ready_for_edit", "ready path: back to ready_for_edit");
 
-  const replay = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/research/run`, {
+  const replay = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/research/run`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -139,10 +186,11 @@ async function main() {
     body: JSON.stringify(runBody),
   });
   const replayJson = await j(replay);
-  assert(replay.ok, "replay");
-  assert(replayJson.meta?.idempotency_replayed === true, "idempotent replay");
+  assert(replay.ok, "replay ready path");
+  assert(replayJson.meta?.idempotency_replayed === true, "idem replay ready");
+  assertAcceptedReplayEquals(runJson, replayJson);
 
-  const bad = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/research/run`, {
+  const bad = await fetch(`${BASE}/api/v1/creator/stories/${storyA}/research/run`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
