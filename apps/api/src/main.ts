@@ -6,6 +6,15 @@ import { API_CONTRACT_VERSION } from "@storywall/shared";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: [
+      "https://frontend-staging-423b.up.railway.app",
+      /\.up\.railway\.app$/,
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
