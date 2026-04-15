@@ -1,13 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import {
   ApiRequestError,
+  createSection,
   extractConflictDraft,
+  extractConflictSection,
   listFrames,
+  listSections,
+  patchSection,
   patchStoryDraft,
 } from "../api/creatorClient";
-import type { PatchStoryDraftBody, StoryDraftResponse } from "../api/types";
+import type {
+  PatchSectionBody,
+  PatchStoryDraftBody,
+  SectionDraftResponse,
+  StoryDraftResponse,
+} from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 
 const AUTOSAVE_MS = 600;
@@ -76,6 +85,120 @@ function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setters.setConclusion(normalizeConclusion(d.conclusion));
 }
 
+function buildSectionPatch(
+  server: SectionDraftResponse,
+  label: string,
+  summary: string,
+): PatchSectionBody | null {
+  const p: PatchSectionBody = {};
+  if (label !== server.label) {
+    p.label = label;
+  }
+  const localSum = summary ?? "";
+  const srvSum = server.summary ?? "";
+  if (localSum !== srvSum) {
+    p.summary = localSum === "" ? null : summary;
+  }
+  if (Object.keys(p).length === 0) return null;
+  if (p.label !== undefined && p.label.trim().length < 1) return null;
+  return p;
+}
+
+function SectionDraftRow(props: {
+  token: string;
+  storyId: string;
+  section: SectionDraftResponse;
+  onPatched: (s: SectionDraftResponse) => void;
+  onVersionConflict: () => void;
+  onSaveError: (message: string) => void;
+}) {
+  const { token, storyId, section, onPatched, onVersionConflict, onSaveError } = props;
+  const [label, setLabel] = useState(section.label);
+  const [summary, setSummary] = useState(section.summary ?? "");
+
+  useEffect(() => {
+    setLabel(section.label);
+    setSummary(section.summary ?? "");
+  }, [section.id, section.updated_at]);
+
+  useEffect(() => {
+    if (!token) return;
+    const patch = buildSectionPatch(section, label, summary);
+    if (!patch) return;
+
+    const tm = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await patchSection(token, storyId, section.id, section.updated_at, patch);
+          onPatched(res.data.section_draft);
+        } catch (e) {
+          if (e instanceof ApiRequestError && e.status === 409) {
+            const snap = extractConflictSection(e.body);
+            if (snap) onPatched(snap);
+            onVersionConflict();
+          } else {
+            onSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Section save failed.");
+          }
+        }
+      })();
+    }, AUTOSAVE_MS);
+
+    return () => clearTimeout(tm);
+  }, [
+    token,
+    storyId,
+    section.id,
+    section.updated_at,
+    section.label,
+    section.summary,
+    label,
+    summary,
+    onPatched,
+    onVersionConflict,
+    onSaveError,
+  ]);
+
+  return (
+    <div
+      className="section-draft-row"
+      style={{
+        borderTop: "1px solid var(--border, #e0e0e0)",
+        paddingTop: "1rem",
+        marginTop: "0.5rem",
+      }}
+    >
+      <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+        Section <code className="inline-code">{section.id.slice(0, 8)}…</code>
+      </p>
+      <label>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Label
+        </span>
+        <input
+          type="text"
+          className="input"
+          value={label}
+          onChange={(ev) => setLabel(ev.target.value)}
+          autoComplete="off"
+          maxLength={500}
+        />
+      </label>
+      <label style={{ display: "block", marginTop: "0.75rem" }}>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Summary
+        </span>
+        <textarea
+          className="input textarea"
+          value={summary}
+          onChange={(ev) => setSummary(ev.target.value)}
+          rows={3}
+          maxLength={100000}
+        />
+      </label>
+    </div>
+  );
+}
+
 /**
  * M2-T06 entry + M2-T07 story-level draft autosave (mutation §12.1).
  */
@@ -92,8 +215,34 @@ export function DraftReadyPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [sections, setSections] = useState<SectionDraftResponse[]>([]);
+  const [sectionsLoadError, setSectionsLoadError] = useState<string | null>(null);
+  const [addingSection, setAddingSection] = useState(false);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
+
+  const refreshSections = useCallback(async () => {
+    if (!token || !storyId) return;
+    setSectionsLoadError(null);
+    try {
+      const r = await listSections(token, storyId);
+      setSections(r.data.sections);
+    } catch (e) {
+      setSectionsLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load sections.");
+    }
+  }, [token, storyId]);
+
+  const handleSectionPatched = useCallback((s: SectionDraftResponse) => {
+    setSections((prev) => prev.map((x) => (x.id === s.id ? s : x)));
+  }, []);
+
+  const handleSectionConflict = useCallback(() => {
+    setSaveError("Version conflict — section refreshed from the server.");
+  }, []);
+
+  const handleSectionSaveError = useCallback((message: string) => {
+    setSaveError(message);
+  }, []);
 
   useEffect(() => {
     if (!token || !storyId) return;
@@ -119,6 +268,11 @@ export function DraftReadyPage() {
       cancelled = true;
     };
   }, [token, storyId]);
+
+  useEffect(() => {
+    if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
+    void refreshSections();
+  }, [token, storyId, draft, workflow, refreshSections]);
 
   useEffect(() => {
     if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
@@ -215,7 +369,7 @@ export function DraftReadyPage() {
           <p className="draft-ready-badge">ready_for_edit</p>
           <h2 className="draft-ready-title">Your draft workspace is open</h2>
           <p className="muted small">
-            Story fields autosave (mutation §12.1). Sections, events, and sources will connect in later tickets.
+            Story fields autosave (mutation §12.1). Section drafts autosave (mutation §13). Events and sources come in later tickets.
           </p>
           {draft ? (
             <div className="draft-ready-fields" style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -281,6 +435,52 @@ export function DraftReadyPage() {
                   maxLength={100_000}
                 />
               </label>
+
+              <div style={{ marginTop: "1.25rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span className="muted small">Sections</span>
+                  <button
+                    type="button"
+                    className="btn ghost inline"
+                    disabled={!token || addingSection}
+                    onClick={() => {
+                      if (!token || !storyId) return;
+                      setAddingSection(true);
+                      void (async () => {
+                        try {
+                          const r = await createSection(token, storyId, { label: "New section" });
+                          setSections((prev) => [...prev, r.data.section_draft]);
+                          setSaveError(null);
+                        } catch (e) {
+                          setSaveError(
+                            e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add section.",
+                          );
+                        } finally {
+                          setAddingSection(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {addingSection ? "Adding…" : "Add section"}
+                  </button>
+                </div>
+                {sectionsLoadError ? (
+                  <p className="muted small" style={{ marginTop: "0.5rem" }}>
+                    {sectionsLoadError}
+                  </p>
+                ) : null}
+                {sections.map((sec) => (
+                  <SectionDraftRow
+                    key={sec.id}
+                    token={token!}
+                    storyId={storyId}
+                    section={sec}
+                    onPatched={handleSectionPatched}
+                    onVersionConflict={handleSectionConflict}
+                    onSaveError={handleSectionSaveError}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <p className="muted" style={{ marginTop: "0.75rem" }}>

@@ -137,6 +137,54 @@ export interface PatchDraftSuccess {
   meta?: { saved_at?: string };
 }
 
+/** Section draft — mutation §13, editor §11. */
+export interface SectionDraftResponse {
+  id: string;
+  story_draft_id: string;
+  label: string;
+  summary: string | null;
+  position_index: number;
+  status: string;
+  section_origin: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListSectionsSuccess {
+  ok: true;
+  data: {
+    sections: SectionDraftResponse[];
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface CreateSectionSuccess {
+  ok: true;
+  data: {
+    section_draft: SectionDraftResponse;
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface PatchSectionSuccess {
+  ok: true;
+  data: {
+    section_draft: SectionDraftResponse;
+    story_state: CreatorWorkflowState;
+  };
+  meta?: { saved_at?: string };
+}
+
+export interface CreateSectionBody {
+  label: string;
+  summary?: string;
+}
+
+export type PatchSectionBody = Partial<{
+  label: string;
+  summary: string | null;
+}>;
+
 export interface SelectFrameSuccess {
   ok: true;
   data: {

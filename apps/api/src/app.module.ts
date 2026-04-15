@@ -4,6 +4,7 @@ import { CreatorModule } from "./creator/creator.module";
 import { FramesModule } from "./creator/frames/frames.module";
 import { DraftAssemblyModule } from "./creator/draft-assembly/draft-assembly.module";
 import { ResearchModule } from "./creator/research/research.module";
+import { SectionsModule } from "./creator/sections/sections.module";
 import { StoriesModule } from "./creator/stories/stories.module";
 import { HealthModule } from "./health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -18,6 +19,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     FramesModule,
     ResearchModule,
     DraftAssemblyModule,
+    SectionsModule,
   ],
 })
 export class AppModule {}

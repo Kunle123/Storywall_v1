@@ -7,8 +7,14 @@ import type {
   PatchBriefSuccess,
   PatchDraftSuccess,
   PatchStoryBriefBody,
+  PatchSectionBody,
   PatchStoryDraftBody,
+  CreateSectionBody,
+  CreateSectionSuccess,
+  ListSectionsSuccess,
+  PatchSectionSuccess,
   PollJobSuccess,
+  SectionDraftResponse,
   RunResearchPassBody,
   RunResearchPassSuccess,
   SelectFrameSuccess,
@@ -156,6 +162,67 @@ export function extractConflictBrief(body: unknown): import("./types").StoryBrie
 export function extractConflictDraft(body: unknown): StoryDraftResponse | null {
   const b = body as { error?: { details?: { story_draft?: StoryDraftResponse } } };
   return b?.error?.details?.story_draft ?? null;
+}
+
+export function extractConflictSection(body: unknown): SectionDraftResponse | null {
+  const b = body as { error?: { details?: { section_draft?: SectionDraftResponse } } };
+  return b?.error?.details?.section_draft ?? null;
+}
+
+export async function listSections(token: string, storyId: string): Promise<ListSectionsSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/sections`, {
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`List sections failed (${res.status})`, res.status, data);
+  }
+  return data as ListSectionsSuccess;
+}
+
+export async function createSection(
+  token: string,
+  storyId: string,
+  body: CreateSectionBody,
+): Promise<CreateSectionSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/sections`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Create section failed (${res.status})`, res.status, data);
+  }
+  return data as CreateSectionSuccess;
+}
+
+export async function patchSection(
+  token: string,
+  storyId: string,
+  sectionId: string,
+  ifMatch: string,
+  body: PatchSectionBody,
+): Promise<PatchSectionSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/sections/${encodeURIComponent(sectionId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...authHeaders(token),
+        "If-Match": ifMatch,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await parseJson(res);
+  if (res.status === 409) {
+    throw new ApiRequestError("Conflict", 409, data);
+  }
+  if (!res.ok) {
+    throw new ApiRequestError(`Section save failed (${res.status})`, res.status, data);
+  }
+  return data as PatchSectionSuccess;
 }
 
 export async function listFrames(token: string, storyId: string): Promise<ListFramesSuccess> {
