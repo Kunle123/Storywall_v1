@@ -8,6 +8,7 @@ import { EventsModule } from "./creator/events/events.module";
 import { SectionsModule } from "./creator/sections/sections.module";
 import { SourcesModule } from "./creator/sources/sources.module";
 import { StoriesModule } from "./creator/stories/stories.module";
+import { ValidationModule } from "./creator/validation/validation.module";
 import { HealthModule } from "./health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
@@ -24,6 +25,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     SectionsModule,
     EventsModule,
     SourcesModule,
+    ValidationModule,
   ],
 })
 export class AppModule {}

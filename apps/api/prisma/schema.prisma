@@ -42,6 +42,8 @@ model Creator {
   researchRunIdempotencyRows CreatorResearchRunIdempotency[]
   draftAssembleIdempotencyRows CreatorDraftAssembleIdempotency[]
   draftAssemblyJobs          DraftAssemblyJob[]
+  /// M3-T02: `POST …/validation/run` idempotent replay (mutation §17.1).
+  validationRunIdempotencyRows CreatorValidationRunIdempotency[]
 
   @@map("creator")
 }
@@ -486,6 +488,7 @@ model Story {
   chronologyAssemblies      ChronologyAssembly[]
   chronologyEventSourceLinks ChronologyEventSourceLink[]
   draftAssemblyJobs          DraftAssemblyJob[]
+  validationRunIdempotencyRows CreatorValidationRunIdempotency[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -973,7 +976,7 @@ model RevisionEntry {
   @@map("revision_entry")
 }
 
-/// Immutable validation run / report — editor §15.1; created by `POST …/validation/run` in later tickets.
+/// Immutable validation run / report — editor §15.1; created by `POST …/validation/run` (M3-T02+).
 model ValidationReport {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
@@ -999,6 +1002,8 @@ model ValidationReport {
 
   /// At most one draft row may point here as `latest_validation_report_id`.
   latestForDraftTrustMetadata DraftTrustMetadata? @relation("DraftTrustLatestValidationReport")
+
+  idempotencyReplayRecord CreatorValidationRunIdempotency?
 
   @@index([storyDraftId, createdAt(sort: Desc)], map: "validation_report_draft_created_idx")
   @@map("validation_report")
@@ -1048,6 +1053,30 @@ model DraftTrustMetadata {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("draft_trust_metadata")
+}
+
+/// Durable idempotency for `POST …/validation/run` (mutation §17.1).
+model CreatorValidationRunIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  requestKey String @map("request_key") @db.VarChar(255)
+
+  validationReportId String @unique @map("validation_report_id") @db.Uuid
+  validationReport   ValidationReport @relation(fields: [validationReportId], references: [id], onDelete: Cascade)
+
+  acceptedResponseStoryState CreatorWorkflowState @map("accepted_response_story_state")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, requestKey], map: "creator_validation_run_idem_uidx")
+  @@index([storyId], map: "creator_validation_run_idem_story_idx")
+  @@map("creator_validation_run_idempotency")
 }
 
 /// Optional timeline grouping — editor §11.
