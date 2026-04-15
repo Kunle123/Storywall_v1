@@ -1,8 +1,10 @@
 import type {
   CreateStoryBody,
   CreateStorySuccess,
+  ListFramesSuccess,
   PatchBriefSuccess,
   PatchStoryBriefBody,
+  SelectFrameSuccess,
 } from "./types";
 
 function apiBase(): string {
@@ -117,4 +119,32 @@ export async function patchStoryBrief(
 export function extractConflictBrief(body: unknown): import("./types").StoryBriefResponse | null {
   const b = body as { error?: { details?: { story_brief?: import("./types").StoryBriefResponse } } };
   return b?.error?.details?.story_brief ?? null;
+}
+
+export async function listFrames(token: string, storyId: string): Promise<ListFramesSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/frames`, {
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`List frames failed (${res.status})`, res.status, data);
+  }
+  return data as ListFramesSuccess;
+}
+
+export async function selectFrame(
+  token: string,
+  storyId: string,
+  body: { frame_id: string; selection_mode: "accept" },
+): Promise<SelectFrameSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/frames/select`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Select frame failed (${res.status})`, res.status, data);
+  }
+  return data as SelectFrameSuccess;
 }

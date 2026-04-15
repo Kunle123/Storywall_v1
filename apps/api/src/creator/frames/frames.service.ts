@@ -3,10 +3,12 @@ import {
   type CreatorWorkflowState,
   Prisma,
   type StoryBrief,
+  type StoryDraft,
   type StoryFrameDraft,
 } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { GenerateFramesDto } from "./dto/generate-frames.dto";
+import type { SelectFrameDto } from "./dto/select-frame.dto";
 
 const ALLOWED_WORKFLOW_FOR_GENERATE: CreatorWorkflowState[] = [
   "drafting_brief",
@@ -16,10 +18,182 @@ const ALLOWED_WORKFLOW_FOR_GENERATE: CreatorWorkflowState[] = [
 /** M1-T11: deterministic mock framing (2–4 options). No external AI call. */
 const OPTION_COUNT = 3;
 
-
 @Injectable()
 export class FramesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** GET list — minimal read for framing chooser (M1-T12); not full workspace. */
+  async listFrames(storyId: string, creatorId: string): Promise<{
+    storyId: string;
+    storyState: CreatorWorkflowState;
+    frameDrafts: StoryFrameDraft[];
+  }> {
+    const story = await this.prisma.story.findFirst({
+      where: { id: storyId, creatorId },
+      include: { storyBrief: true },
+    });
+    if (!story?.storyBrief) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "story_not_found", message: "Story or brief not found" },
+      });
+    }
+    const frameDrafts = await this.prisma.storyFrameDraft.findMany({
+      where: { storyBriefId: story.storyBrief.id },
+      orderBy: { candidateRank: "asc" },
+    });
+    return {
+      storyId: story.id,
+      storyState: story.workflowState,
+      frameDrafts,
+    };
+  }
+
+  /**
+   * Mutation §10.2 — allowed from `awaiting_framing_choice` only.
+   * Creates `story_draft` shell from selected frame (editor §9 + §10); sets workflow `ready_for_edit`.
+   */
+  async selectFrame(params: {
+    storyId: string;
+    creatorId: string;
+    dto: SelectFrameDto;
+  }): Promise<{
+    storyId: string;
+    storyState: CreatorWorkflowState;
+    storyDraft: StoryDraft;
+    selectedFrame: StoryFrameDraft;
+  }> {
+    const { storyId, creatorId, dto } = params;
+
+    return this.prisma.$transaction(async (tx) => {
+      const story = await tx.story.findFirst({
+        where: { id: storyId, creatorId },
+        include: {
+          storyBrief: {
+            include: { storyDraft: true },
+          },
+        },
+      });
+
+      if (!story?.storyBrief) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "story_not_found", message: "Story or brief not found" },
+        });
+      }
+
+      if (story.workflowState !== "awaiting_framing_choice") {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "invalid_state_transition",
+            message: "Frame selection is only allowed while awaiting framing choice",
+            details: { story_state: story.workflowState },
+          },
+        });
+      }
+
+      if (story.storyBrief.storyDraft) {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "frame_already_selected",
+            message: "A framing choice already exists for this story",
+          },
+        });
+      }
+
+      const brief = story.storyBrief;
+
+      const frame = await tx.storyFrameDraft.findFirst({
+        where: {
+          id: dto.frame_id,
+          storyBriefId: brief.id,
+        },
+      });
+
+      if (!frame) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "frame_not_found", message: "Framing option not found for this story" },
+        });
+      }
+
+      if (frame.status !== "proposed") {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "validation_failed",
+            message: "Only proposed framing options can be selected",
+            details: { frame_status: frame.status },
+          },
+        });
+      }
+
+      await tx.storyFrameDraft.updateMany({
+        where: {
+          storyBriefId: brief.id,
+          id: { not: frame.id },
+          status: "proposed",
+        },
+        data: { isSelected: false, status: "discarded" },
+      });
+
+      const selectedFrame = await tx.storyFrameDraft.update({
+        where: { id: frame.id },
+        data: {
+          isSelected: true,
+          status: "selected",
+          selectionSource: "ai_proposed",
+        },
+      });
+
+      const storyDraft = await tx.storyDraft.create({
+        data: {
+          storyBriefId: brief.id,
+          selectedFrameId: selectedFrame.id,
+          title: selectedFrame.titleCandidate.slice(0, 500),
+          subtitle: selectedFrame.subtitleCandidate,
+          summary: selectedFrame.summaryCandidate,
+          lens: selectedFrame.lensCandidate,
+          conclusion: null,
+          subjectType: story.subjectType,
+          categoryPrimary: story.categoryPrimary,
+          categorySecondary: null,
+          timeStart: story.timeStart,
+          timeEnd: story.timeEnd,
+          timeDisplay: story.timeDisplay,
+          storyStatus: "draft",
+          visibilityTarget: "private",
+          leadPriority: null,
+          discoveryMode: null,
+          imageryMode: brief.imageryMode,
+          generationMode: "ai_draft",
+          needsHumanReview: false,
+          editorialReviewStatus: "unreviewed",
+          lastEditedBy: creatorId,
+        },
+      });
+
+      const updatedStory = await tx.story.update({
+        where: { id: storyId },
+        data: {
+          workflowState: "ready_for_edit",
+          title: selectedFrame.titleCandidate.slice(0, 500),
+          summary: selectedFrame.summaryCandidate.slice(0, 2000),
+          lens: selectedFrame.lensCandidate.slice(0, 8000),
+        },
+        select: { workflowState: true },
+      });
+
+      return {
+        storyId: story.id,
+        storyState: updatedStory.workflowState,
+        storyDraft,
+        selectedFrame,
+      };
+    });
+  }
 
   /**
    * Generate framing candidates from latest brief snapshot (mutation §10.1).

@@ -71,6 +71,62 @@ export interface PatchBriefSuccess {
   };
 }
 
+/** GET /creator/stories/:id/frames — M1-T12 */
+export interface FrameDraftResponse {
+  id: string;
+  story_brief_id: string;
+  title_candidate: string;
+  subtitle_candidate: string | null;
+  summary_candidate: string;
+  lens_candidate: string;
+  scope_rationale: string;
+  coverage_implications: unknown;
+  balance_note: string | null;
+  candidate_rank: number;
+  is_selected: boolean;
+  selection_source: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListFramesSuccess {
+  ok: true;
+  data: {
+    story_id: string;
+    story_state: CreatorWorkflowState;
+    frame_drafts: FrameDraftResponse[];
+  };
+}
+
+export interface StoryDraftResponse {
+  id: string;
+  story_brief_id: string;
+  selected_frame_id: string;
+  title: string;
+  subtitle: string | null;
+  summary: string;
+  lens: string;
+  story_status: string;
+  visibility_target: string;
+  imagery_mode: string;
+  generation_mode: string;
+  editorial_review_status: string;
+  created_at: string;
+  last_edited_at: string;
+}
+
+export interface SelectFrameSuccess {
+  ok: true;
+  data: {
+    story_id: string;
+    story_state: CreatorWorkflowState;
+    selected_frame_id: string;
+    story_draft: StoryDraftResponse;
+    frame_draft: FrameDraftResponse;
+  };
+}
+
 /** POST /api/v1/creator/stories body (snake_case, mutation §9.1). */
 export interface CreateStoryBody {
   subject: string;

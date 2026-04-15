@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
-import { ApiRequestError, extractConflictBrief, patchStoryBrief } from "../api/creatorClient";
+import { ApiRequestError, extractConflictBrief, listFrames, patchStoryBrief } from "../api/creatorClient";
 import type { StoryBriefResponse } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { BriefIntakeFields } from "../components/BriefIntakeFields";
@@ -40,6 +40,31 @@ export function EditBriefPage() {
 
   const serverRef = useRef(serverBrief);
   serverRef.current = serverBrief;
+
+  useEffect(() => {
+    if (!token || !storyId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await listFrames(token, storyId);
+        if (cancelled) return;
+        setStoryState(r.data.story_state);
+        const c = loadBriefCache(storyId);
+        if (c?.story_brief) {
+          cacheBriefWorkspace(storyId, {
+            story_brief: c.story_brief,
+            story_state: r.data.story_state,
+            cached_at: new Date().toISOString(),
+          });
+        }
+      } catch {
+        /* ignore — offline or not ready */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, storyId]);
 
   function mergeForm(patch: Partial<BriefFormValues>) {
     setForm((f) => (f ? { ...f, ...patch } : f));
@@ -150,6 +175,19 @@ export function EditBriefPage() {
         {saveUi === "error" ? <span className="error">Save error</span> : null}
       </div>
       {saveMessage ? <div className="banner warn">{saveMessage}</div> : null}
+
+      {storyState === "awaiting_framing_choice" ? (
+        <div className="banner" style={{ background: "#e8f4ef", borderColor: "#b8d4c8", marginBottom: "1rem" }}>
+          <strong>Framing options are ready.</strong>{" "}
+          <Link to={`/creator/stories/${storyId}/framing`}>Choose a framing</Link> to lock in a story draft shell
+          (workflow spec §8).
+        </div>
+      ) : null}
+      {location.state && (location.state as { framing_selected?: boolean }).framing_selected ? (
+        <div className="banner" style={{ background: "#e8f0ff", borderColor: "#a8c0f0", marginBottom: "1rem" }}>
+          Framing selected — story workspace is <strong>ready_for_edit</strong>. Brief edits still autosave.
+        </div>
+      ) : null}
 
       <div className="card brief-card">
         <BriefIntakeFields value={form} onChange={mergeForm} />

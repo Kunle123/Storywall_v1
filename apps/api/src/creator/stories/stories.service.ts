@@ -220,6 +220,7 @@ export class StoriesService {
       const allowedStates: CreatorWorkflowState[] = [
         "drafting_brief",
         "awaiting_framing_choice",
+        "ready_for_edit",
       ];
       if (!allowedStates.includes(story.workflowState)) {
         throw new BadRequestException({

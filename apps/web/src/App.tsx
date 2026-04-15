@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import { EditBriefPage } from "./pages/EditBriefPage";
+import { FramingChoosePage } from "./pages/FramingChoosePage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewStoryBriefPage } from "./pages/NewStoryBriefPage";
@@ -36,6 +37,14 @@ export function App() {
           element={
             <Protected>
               <EditBriefPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/creator/stories/:storyId/framing"
+          element={
+            <Protected>
+              <FramingChoosePage />
             </Protected>
           }
         />

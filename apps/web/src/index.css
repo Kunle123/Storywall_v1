@@ -359,3 +359,62 @@ a:hover {
 .starters-blocked {
   margin: 0.75rem 0 0;
 }
+
+/* M1-T12 — framing chooser */
+.framing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.framing-card {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.framing-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.framing-card input[type="radio"] {
+  margin-top: 0.35rem;
+}
+
+.framing-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.framing-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 0 0 0.35rem;
+}
+
+.framing-subtitle {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+.framing-summary {
+  margin: 0 0 0.5rem;
+  line-height: 1.45;
+}
+
+.framing-lens {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+}
+
+.framing-scope {
+  margin: 0;
+  font-size: 0.8125rem;
+}
