@@ -18,6 +18,7 @@ import {
   deriveOverallResult,
   type SkeletonDraftSnapshot,
 } from "./validation-skeleton.engine";
+import { collectSourceSufficiencyAndReferenceIssues } from "./validation-source-sufficiency.engine";
 
 const ALLOWED_VALIDATION_STATES: CreatorWorkflowState[] = [
   "ready_for_edit",
@@ -116,7 +117,11 @@ export class ValidationService {
                   eventDrafts: {
                     select: {
                       id: true,
-                      sources: { select: { id: true } },
+                      eventType: true,
+                      significanceLevel: true,
+                      sources: {
+                        select: { id: true, isPublic: true, status: true },
+                      },
                     },
                   },
                 },
@@ -154,14 +159,22 @@ export class ValidationService {
         lens: draft.lens,
         conclusion: draft.conclusion,
         sectionCount: sections.length,
-        eventCount: events.length,
         events: events.map((e) => ({
           id: e.id,
-          sourceCount: e.sources.length,
+          eventType: e.eventType,
+          significanceLevel: e.significanceLevel,
+          sources: e.sources.map((s) => ({
+            id: s.id,
+            isPublic: s.isPublic,
+            status: s.status,
+          })),
         })),
       };
 
-      const skeletonIssues = collectSkeletonValidationIssues(snapshot, runType);
+      const skeletonIssues = [
+        ...collectSkeletonValidationIssues(snapshot, runType),
+        ...collectSourceSufficiencyAndReferenceIssues(snapshot),
+      ];
       const overallResult = deriveOverallResult(skeletonIssues);
       const { blockers, warnings } = countByPublishEffect(skeletonIssues);
       const issueCountTotal = skeletonIssues.length;

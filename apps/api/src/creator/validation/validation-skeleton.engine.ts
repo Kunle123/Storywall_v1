@@ -1,4 +1,7 @@
 import type {
+  EventDraftKind,
+  SignificanceLevel,
+  SourceRecordStatus,
   ValidationIssueObjectType,
   ValidationIssueSeverity,
   ValidationIssueType,
@@ -8,7 +11,7 @@ import type {
 } from "@prisma/client";
 
 /**
- * M3-T02 — narrow structural/readiness checks only. Deeper trust rules belong in M3-T03+.
+ * M3-T02 — narrow structural/readiness checks only. M3-T03 adds source sufficiency in a separate pass.
  */
 export type SkeletonIssueInput = {
   objectType: ValidationIssueObjectType;
@@ -20,6 +23,14 @@ export type SkeletonIssueInput = {
   suggestedFix?: string | null;
 };
 
+/** Per-event snapshot: `sources` drives both M3-T02 (count) and M3-T03 (visibility, kind, status). */
+export type SkeletonEventSnapshot = {
+  id: string;
+  eventType: EventDraftKind;
+  significanceLevel: SignificanceLevel;
+  sources: Array<{ id: string; isPublic: boolean; status: SourceRecordStatus }>;
+};
+
 export type SkeletonDraftSnapshot = {
   storyDraftId: string;
   title: string;
@@ -27,8 +38,7 @@ export type SkeletonDraftSnapshot = {
   lens: string;
   conclusion: string | null;
   sectionCount: number;
-  eventCount: number;
-  events: Array<{ id: string; sourceCount: number }>;
+  events: SkeletonEventSnapshot[];
 };
 
 function trimOrEmpty(s: string | null | undefined): string {
@@ -61,7 +71,7 @@ export function collectSkeletonValidationIssues(
     });
   }
 
-  if (draft.sectionCount === 0 && draft.eventCount === 0) {
+  if (draft.sectionCount === 0 && draft.events.length === 0) {
     issues.push({
       objectType: "story",
       objectId: draft.storyDraftId,
@@ -74,7 +84,7 @@ export function collectSkeletonValidationIssues(
   }
 
   for (const ev of draft.events) {
-    if (ev.sourceCount < 1) {
+    if (ev.sources.length < 1) {
       issues.push({
         objectType: "event",
         objectId: ev.id,
@@ -93,7 +103,7 @@ export function collectSkeletonValidationIssues(
     requestedRunType === "trust"
   ) {
     const concl = trimOrEmpty(draft.conclusion);
-    if (draft.eventCount > 0 && !concl) {
+    if (draft.events.length > 0 && !concl) {
       issues.push({
         objectType: "story",
         objectId: draft.storyDraftId,
@@ -136,7 +146,7 @@ export function buildSummaryNote(
   warnings: number,
 ): string {
   if (issueCount === 0) {
-    return "Validation completed: no issues found by the baseline checks.";
+    return "Validation completed: no issues found by structural, source sufficiency, or reference visibility checks.";
   }
   if (overall === "block") {
     return `Validation found ${issueCount} issue(s) including ${blockers} blocker(s) and ${warnings} warning(s).`;
