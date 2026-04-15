@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import { ApiRequestError, listFrames, selectFrame } from "../api/creatorClient";
@@ -17,6 +17,11 @@ export function FramingChoosePage() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /** Stable per visit so retries / double-submit replay the same successful outcome (mutation §10.2). */
+  const selectIdempotencyKeyRef = useRef<string | null>(null);
+  if (!selectIdempotencyKeyRef.current) {
+    selectIdempotencyKeyRef.current = crypto.randomUUID();
+  }
 
   useEffect(() => {
     if (!token || !storyId) return;
@@ -53,7 +58,7 @@ export function FramingChoosePage() {
     setError(null);
     setPending(true);
     try {
-      const res = await selectFrame(token, storyId, { frame_id: selectedId, selection_mode: "accept" });
+      const res = await selectFrame(token, storyId, { frame_id: selectedId, selection_mode: "accept" }, selectIdempotencyKeyRef.current!);
       const brief = loadBriefCache(storyId)?.story_brief;
       if (brief) {
         cacheBriefWorkspace(storyId, {

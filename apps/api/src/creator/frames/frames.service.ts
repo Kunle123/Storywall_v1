@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   type CreatorWorkflowState,
   Prisma,
@@ -17,6 +22,8 @@ const ALLOWED_WORKFLOW_FOR_GENERATE: CreatorWorkflowState[] = [
 
 /** M1-T11: deterministic mock framing (2–4 options). No external AI call. */
 const OPTION_COUNT = 3;
+
+/** Idempotency for `POST …/frames/select` is persisted in `creator_frame_select_idempotency` only (M1-T12). Other mutation commands do not share this mechanism yet. */
 
 @Injectable()
 export class FramesService {
@@ -52,20 +59,67 @@ export class FramesService {
   /**
    * Mutation §10.2 — allowed from `awaiting_framing_choice` only.
    * Creates `story_draft` shell from selected frame (editor §9 + §10); sets workflow `ready_for_edit`.
+   * Idempotency-Key is required (contract §10.2); same key + same body replays the prior success from DB + `creator_frame_select_idempotency`.
    */
   async selectFrame(params: {
     storyId: string;
     creatorId: string;
     dto: SelectFrameDto;
+    idempotencyKey: string;
   }): Promise<{
     storyId: string;
     storyState: CreatorWorkflowState;
     storyDraft: StoryDraft;
     selectedFrame: StoryFrameDraft;
+    idempotencyReplayed: boolean;
   }> {
-    const { storyId, creatorId, dto } = params;
+    const { storyId, creatorId, dto, idempotencyKey } = params;
 
     return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRawUnsafe<Array<{ ok: number }>>(
+        `SELECT 1 AS ok FROM stories WHERE id = $1::uuid AND creator_id = $2::uuid FOR UPDATE`,
+        storyId,
+        creatorId,
+      );
+      if (locked.length === 0) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "story_not_found", message: "Story or brief not found" },
+        });
+      }
+
+      const existingKey = await tx.creatorFrameSelectIdempotency.findUnique({
+        where: {
+          creatorId_storyId_requestKey: {
+            creatorId,
+            storyId,
+            requestKey: idempotencyKey,
+          },
+        },
+      });
+
+      if (existingKey) {
+        if (existingKey.selectedFrameId !== dto.frame_id) {
+          throw new ConflictException({
+            ok: false,
+            error: {
+              code: "idempotency_key_mismatch",
+              message:
+                "This Idempotency-Key was already used with a different frame_id for this story",
+              details: {
+                prior_selected_frame_id: existingKey.selectedFrameId,
+                requested_frame_id: dto.frame_id,
+              },
+            },
+          });
+        }
+        return this.loadSelectOutcomeForReplay(tx, {
+          storyId,
+          creatorId,
+          selectedFrameId: existingKey.selectedFrameId,
+        });
+      }
+
       const story = await tx.story.findFirst({
         where: { id: storyId, creatorId },
         include: {
@@ -186,13 +240,88 @@ export class FramesService {
         select: { workflowState: true },
       });
 
+      await tx.creatorFrameSelectIdempotency.create({
+        data: {
+          creatorId,
+          storyId,
+          requestKey: idempotencyKey,
+          selectedFrameId: selectedFrame.id,
+        },
+      });
+
       return {
         storyId: story.id,
         storyState: updatedStory.workflowState,
         storyDraft,
         selectedFrame,
+        idempotencyReplayed: false,
       };
     });
+  }
+
+  private async loadSelectOutcomeForReplay(
+    tx: Prisma.TransactionClient,
+    params: { storyId: string; creatorId: string; selectedFrameId: string },
+  ): Promise<{
+    storyId: string;
+    storyState: CreatorWorkflowState;
+    storyDraft: StoryDraft;
+    selectedFrame: StoryFrameDraft;
+    idempotencyReplayed: boolean;
+  }> {
+    const { storyId, creatorId, selectedFrameId } = params;
+
+    const story = await tx.story.findFirst({
+      where: { id: storyId, creatorId },
+      include: {
+        storyBrief: {
+          include: { storyDraft: true },
+        },
+      },
+    });
+
+    if (!story?.storyBrief?.storyDraft) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "idempotency_replay_inconsistent",
+          message: "Stored idempotency record does not match current story draft state",
+        },
+      });
+    }
+
+    const draft = story.storyBrief.storyDraft;
+    if (draft.selectedFrameId !== selectedFrameId) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "idempotency_replay_inconsistent",
+          message: "Story draft does not match idempotency record",
+        },
+      });
+    }
+
+    const selectedFrame = await tx.storyFrameDraft.findFirst({
+      where: { id: selectedFrameId, storyBriefId: story.storyBrief.id },
+    });
+
+    if (!selectedFrame) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "idempotency_replay_inconsistent",
+          message: "Selected frame row missing for replay",
+        },
+      });
+    }
+
+    return {
+      storyId: story.id,
+      storyState: story.workflowState,
+      storyDraft: draft,
+      selectedFrame,
+      idempotencyReplayed: true,
+    };
   }
 
   /**

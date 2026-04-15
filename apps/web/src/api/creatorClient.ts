@@ -136,10 +136,14 @@ export async function selectFrame(
   token: string,
   storyId: string,
   body: { frame_id: string; selection_mode: "accept" },
+  idempotencyKey: string,
 ): Promise<SelectFrameSuccess> {
   const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/frames/select`, {
     method: "POST",
-    headers: authHeaders(token),
+    headers: {
+      ...authHeaders(token),
+      "Idempotency-Key": idempotencyKey,
+    },
     body: JSON.stringify(body),
   });
   const data = await parseJson(res);

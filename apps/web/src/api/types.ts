@@ -125,6 +125,10 @@ export interface SelectFrameSuccess {
     story_draft: StoryDraftResponse;
     frame_draft: FrameDraftResponse;
   };
+  meta?: {
+    idempotency_key?: string;
+    idempotency_replayed?: boolean;
+  };
 }
 
 /** POST /api/v1/creator/stories body (snake_case, mutation §9.1). */

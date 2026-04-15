@@ -37,6 +37,8 @@ model Creator {
 
   stories     Story[]
   storyBriefs StoryBrief[]
+  /// M1-T12: durable replay for `POST …/frames/select` only — not a generic idempotency store.
+  frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
 
   @@map("creator")
 }
@@ -395,6 +397,7 @@ model Story {
   coverImage Json? @map("cover_image")
 
   storyBrief StoryBrief?
+  frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -473,6 +476,27 @@ model StoryFrameDraft {
   @@index([storyBriefId], map: "story_frame_draft_brief_id_idx")
   @@index([storyBriefId, candidateRank], map: "story_frame_draft_brief_rank_idx")
   @@map("story_frame_draft")
+}
+
+/// M1-T12: stores completed `POST /frames/select` outcomes for Idempotency-Key replay (mutation §10.2).
+/// Scoped per creator + story + key. No other commands use this table yet.
+model CreatorFrameSelectIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  requestKey      String @map("request_key") @db.VarChar(255)
+  selectedFrameId String @map("selected_frame_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, requestKey], map: "creator_frame_sel_idem_uidx")
+  @@index([storyId], map: "creator_frame_sel_idem_story_idx")
+  @@map("creator_frame_select_idempotency")
 }
 
 /// Primary editable story workspace — editor §10.1. One row per brief (1:1 with `story_brief`).

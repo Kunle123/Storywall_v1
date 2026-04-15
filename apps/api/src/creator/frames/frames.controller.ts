@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { randomUUID } from "node:crypto";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
@@ -10,6 +10,40 @@ import { SelectFrameDto } from "./dto/select-frame.dto";
 import { storyFrameDraftToApi } from "./frame-draft-to-api";
 import { storyDraftToApi } from "./story-draft-to-api";
 import { FramesService } from "./frames.service";
+
+const IDEMPOTENCY_KEY_MAX = 255;
+
+function normalizeFrameSelectIdempotencyKey(raw: string | undefined): string {
+  if (raw === undefined || raw === null) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for frame selection (mutation §10.2)",
+      },
+    });
+  }
+  const t = raw.trim();
+  if (!t) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for frame selection (mutation §10.2)",
+      },
+    });
+  }
+  if (t.length > IDEMPOTENCY_KEY_MAX) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_invalid",
+        message: `Idempotency-Key must be at most ${IDEMPOTENCY_KEY_MAX} characters`,
+      },
+    });
+  }
+  return t;
+}
 
 /**
  * Framing commands — mutation contract §10 (`POST .../frames/generate`, `.../select`).
@@ -77,13 +111,15 @@ export class FramesController {
     @Param("storyId") storyId: string,
     @CurrentCreator() creator: AuthenticatedCreator,
     @Body() body: SelectFrameDto,
-    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
+    const idempotencyKey = normalizeFrameSelectIdempotencyKey(idempotencyKeyHeader);
     const result = await this.frames.selectFrame({
       storyId,
       creatorId: creator.id,
       dto: body,
+      idempotencyKey,
     });
     return {
       ok: true,
@@ -97,7 +133,8 @@ export class FramesController {
         frame_draft: storyFrameDraftToApi(result.selectedFrame),
       },
       meta: {
-        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+        idempotency_key: idempotencyKey,
+        ...(result.idempotencyReplayed ? { idempotency_replayed: true as const } : {}),
       },
     };
   }
