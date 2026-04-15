@@ -1,0 +1,1 @@
+export const RESEARCH_QUEUE_TOKEN = "RESEARCH_QUEUE";

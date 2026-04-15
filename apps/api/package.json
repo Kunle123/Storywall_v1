@@ -18,7 +18,8 @@
     "smoke:creator": "node ./scripts/smoke-creator-slice.mjs",
     "smoke:frames": "node ./scripts/smoke-frames-generate.mjs",
     "smoke:m12": "node ./scripts/smoke-m12-framing-select.mjs",
-    "smoke:m13": "node ./scripts/smoke-m13-workflow-transitions.mjs"
+    "smoke:m13": "node ./scripts/smoke-m13-workflow-transitions.mjs",
+    "smoke:m2-01": "node ./scripts/smoke-m2-01-research-run.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -29,8 +30,10 @@
     "@prisma/client": "^6.1.0",
     "@storywall/shared": "workspace:*",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.34.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "ioredis": "^5.4.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",

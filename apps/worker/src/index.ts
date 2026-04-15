@@ -1,7 +1,8 @@
 /**
- * Background job worker (M0-T07 pattern): Redis-backed queue for AI research,
- * draft assembly, validation, and derived-field refresh per migration plan.
+ * Background job worker (M0-T07 / M2-T01): BullMQ consumer for research orchestration.
+ * Research artifact persistence is M2-T02.
  */
+import { PrismaClient } from "@prisma/client";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
@@ -12,10 +13,70 @@ const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
 const queueName = "storywall-default";
 
+const prisma = new PrismaClient();
+
 const worker = new Worker(
   queueName,
   async (job) => {
-    // Placeholder: job handlers implemented with M2/M3 tickets
+    if (job.name === "research.run") {
+      const { researchJobId } = job.data as { researchJobId: string };
+
+      await prisma.$transaction(async (tx) => {
+        const rj = await tx.researchJob.findUnique({
+          where: { id: researchJobId },
+          include: { story: true },
+        });
+        if (!rj) {
+          return;
+        }
+        if (rj.status === "succeeded" || rj.status === "failed" || rj.status === "cancelled") {
+          return;
+        }
+
+        const wfBefore = rj.story.workflowState;
+
+        if (rj.status === "pending") {
+          await tx.researchJob.update({
+            where: { id: researchJobId },
+            data: { status: "running", startedAt: new Date() },
+          });
+        }
+
+        await tx.researchJob.update({
+          where: { id: researchJobId },
+          data: {
+            status: "succeeded",
+            finishedAt: new Date(),
+          },
+        });
+
+        await tx.story.update({
+          where: { id: rj.storyId },
+          data: { workflowState: "ready_for_edit" },
+        });
+
+        const after = await tx.story.findUniqueOrThrow({
+          where: { id: rj.storyId },
+          select: { workflowState: true },
+        });
+
+        if (wfBefore !== after.workflowState) {
+          await tx.storyWorkflowTransition.create({
+            data: {
+              storyId: rj.storyId,
+              fromWorkflowState: wfBefore,
+              toWorkflowState: after.workflowState,
+              actorType: "system",
+              actorId: null,
+              trigger: "research_job_complete",
+            },
+          });
+        }
+      });
+
+      return { processed: true, researchJobId };
+    }
+
     return { processed: true, jobId: job.id, name: job.name };
   },
   { connection },
@@ -39,6 +100,7 @@ console.log(
 async function shutdown() {
   await worker.close();
   await connection.quit();
+  await prisma.$disconnect();
   process.exit(0);
 }
 

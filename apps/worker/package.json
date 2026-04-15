@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate --schema ../api/prisma/schema.prisma",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
@@ -11,11 +12,13 @@
     "lint": "echo \"no lint yet\""
   },
   "dependencies": {
+    "@prisma/client": "^6.1.0",
     "@storywall/shared": "workspace:*",
     "bullmq": "^5.34.0",
     "ioredis": "^5.4.2"
   },
   "devDependencies": {
+    "prisma": "^6.1.0",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

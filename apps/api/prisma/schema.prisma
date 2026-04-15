@@ -39,6 +39,7 @@ model Creator {
   storyBriefs StoryBrief[]
   /// M1-T12: durable replay for `POST …/frames/select` only — not a generic idempotency store.
   frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
+  researchRunIdempotencyRows CreatorResearchRunIdempotency[]
 
   @@map("creator")
 }
@@ -405,6 +406,8 @@ model Story {
   storyBrief StoryBrief?
   frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
   workflowTransitions StoryWorkflowTransition[]
+  researchJobs              ResearchJob[]
+  researchRunIdempotencyRows CreatorResearchRunIdempotency[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -528,6 +531,58 @@ model CreatorFrameSelectIdempotency {
   @@unique([creatorId, storyId, requestKey], map: "creator_frame_sel_idem_uidx")
   @@index([storyId], map: "creator_frame_sel_idem_story_idx")
   @@map("creator_frame_select_idempotency")
+}
+
+/// M2-T01: async research pass orchestration (mutation §11.1). Artifact persistence is M2-T02.
+enum ResearchJobStatus {
+  pending
+  running
+  succeeded
+  failed
+  cancelled
+}
+
+model ResearchJob {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  status ResearchJobStatus @map("status")
+
+  mode            String @default("full") @db.VarChar(32)
+  requestPayload  Json   @map("request_payload")
+  errorMessage    String? @map("error_message") @db.Text
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt  DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  idempotencyRecord CreatorResearchRunIdempotency?
+
+  @@index([storyId, status], map: "research_job_story_status_idx")
+  @@map("research_job")
+}
+
+/// Durable idempotency for `POST …/research/run` (mutation §11.1).
+model CreatorResearchRunIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  requestKey   String @map("request_key") @db.VarChar(255)
+  researchJobId String @unique @map("research_job_id") @db.Uuid
+  researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, requestKey], map: "creator_research_run_idem_uidx")
+  @@index([storyId], map: "creator_research_run_idem_story_idx")
+  @@map("creator_research_run_idempotency")
 }
 
 /// Primary editable story workspace — editor §10.1. One row per brief (1:1 with `story_brief`).

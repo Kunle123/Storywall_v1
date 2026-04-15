@@ -34,12 +34,18 @@ importers:
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
+      bullmq:
+        specifier: ^5.34.0
+        version: 5.73.5
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.10.1
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -111,6 +117,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@prisma/client':
+        specifier: ^6.1.0
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@storywall/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -124,6 +133,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.17
+      prisma:
+        specifier: ^6.1.0
+        version: 6.19.3(typescript@5.9.3)
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
