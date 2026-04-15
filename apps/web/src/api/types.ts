@@ -241,6 +241,79 @@ export type PatchEventBody = Partial<{
   creator_note: string | null;
 }>;
 
+/** Source record — mutation §15, editor §13. */
+export interface SourceRecordResponse {
+  id: string;
+  event_id: string;
+  source_url: string;
+  source_title: string;
+  publisher_name: string;
+  source_type: string;
+  published_at: string | null;
+  excerpt: string | null;
+  relevance_note: string;
+  reliability_tier: string;
+  verification_status: string;
+  is_primary: boolean;
+  is_public: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListSourcesSuccess {
+  ok: true;
+  data: {
+    sources: SourceRecordResponse[];
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface CreateSourceSuccess {
+  ok: true;
+  data: {
+    source_record: SourceRecordResponse;
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface PatchSourceSuccess {
+  ok: true;
+  data: {
+    source_record: SourceRecordResponse;
+    story_state: CreatorWorkflowState;
+  };
+  meta?: { saved_at?: string };
+}
+
+export interface CreateSourceBody {
+  source_url: string;
+  source_title: string;
+  publisher_name: string;
+  relevance_note: string;
+  published_at?: string | null;
+  excerpt?: string | null;
+  source_type?: string;
+  reliability_tier?: string;
+  verification_status?: string;
+  is_primary?: boolean;
+  is_public?: boolean;
+  source_extraction_method?: string;
+}
+
+export type PatchSourceBody = Partial<{
+  source_url: string;
+  source_title: string;
+  publisher_name: string;
+  relevance_note: string;
+  published_at: string | null;
+  excerpt: string | null;
+  reliability_tier: string;
+  verification_status: string;
+  is_primary: boolean;
+  is_public: boolean;
+}>;
+
 export interface SelectFrameSuccess {
   ok: true;
   data: {

@@ -8,18 +8,24 @@ import type {
   PatchDraftSuccess,
   PatchStoryBriefBody,
   PatchEventBody,
+  PatchSourceBody,
   PatchSectionBody,
   PatchStoryDraftBody,
   CreateEventBody,
   CreateEventSuccess,
+  CreateSourceBody,
+  CreateSourceSuccess,
   CreateSectionBody,
   CreateSectionSuccess,
   ListEventsSuccess,
+  ListSourcesSuccess,
   ListSectionsSuccess,
   PatchSectionSuccess,
   PatchEventSuccess,
+  PatchSourceSuccess,
   PollJobSuccess,
   EventDraftResponse,
+  SourceRecordResponse,
   SectionDraftResponse,
   RunResearchPassBody,
   RunResearchPassSuccess,
@@ -180,6 +186,11 @@ export function extractConflictEvent(body: unknown): EventDraftResponse | null {
   return b?.error?.details?.event_draft ?? null;
 }
 
+export function extractConflictSource(body: unknown): SourceRecordResponse | null {
+  const b = body as { error?: { details?: { source_record?: SourceRecordResponse } } };
+  return b?.error?.details?.source_record ?? null;
+}
+
 export async function listSections(token: string, storyId: string): Promise<ListSectionsSuccess> {
   const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/sections`, {
     headers: authHeaders(token),
@@ -290,6 +301,72 @@ export async function patchEvent(
     throw new ApiRequestError(`Event save failed (${res.status})`, res.status, data);
   }
   return data as PatchEventSuccess;
+}
+
+export async function listSourcesForEvent(
+  token: string,
+  storyId: string,
+  eventId: string,
+): Promise<ListSourcesSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/events/${encodeURIComponent(eventId)}/sources`,
+    { headers: authHeaders(token) },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`List sources failed (${res.status})`, res.status, data);
+  }
+  return data as ListSourcesSuccess;
+}
+
+export async function createSource(
+  token: string,
+  storyId: string,
+  eventId: string,
+  body: CreateSourceBody,
+): Promise<CreateSourceSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/events/${encodeURIComponent(eventId)}/sources`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Create source failed (${res.status})`, res.status, data);
+  }
+  return data as CreateSourceSuccess;
+}
+
+export async function patchSource(
+  token: string,
+  storyId: string,
+  eventId: string,
+  sourceId: string,
+  ifMatch: string,
+  body: PatchSourceBody,
+): Promise<PatchSourceSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/events/${encodeURIComponent(eventId)}/sources/${encodeURIComponent(sourceId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...authHeaders(token),
+        "If-Match": ifMatch,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await parseJson(res);
+  if (res.status === 409) {
+    throw new ApiRequestError("Conflict", 409, data);
+  }
+  if (!res.ok) {
+    throw new ApiRequestError(`Source save failed (${res.status})`, res.status, data);
+  }
+  return data as PatchSourceSuccess;
 }
 
 export async function listFrames(token: string, storyId: string): Promise<ListFramesSuccess> {

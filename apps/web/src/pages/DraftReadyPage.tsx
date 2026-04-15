@@ -5,22 +5,28 @@ import {
   ApiRequestError,
   createEvent,
   createSection,
+  createSource,
   extractConflictDraft,
   extractConflictEvent,
   extractConflictSection,
+  extractConflictSource,
   listEvents,
   listFrames,
   listSections,
+  listSourcesForEvent,
   patchEvent,
   patchSection,
+  patchSource,
   patchStoryDraft,
 } from "../api/creatorClient";
 import type {
   EventDraftResponse,
   PatchEventBody,
   PatchSectionBody,
+  PatchSourceBody,
   PatchStoryDraftBody,
   SectionDraftResponse,
+  SourceRecordResponse,
   StoryDraftResponse,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -128,6 +134,143 @@ function buildEventPatch(
   return p;
 }
 
+function buildSourcePatch(
+  server: SourceRecordResponse,
+  sourceTitle: string,
+  relevanceNote: string,
+  sourceUrl: string,
+): PatchSourceBody | null {
+  const p: PatchSourceBody = {};
+  if (sourceTitle !== server.source_title) {
+    p.source_title = sourceTitle;
+  }
+  if (relevanceNote !== server.relevance_note) {
+    p.relevance_note = relevanceNote;
+  }
+  if (sourceUrl !== server.source_url) {
+    p.source_url = sourceUrl;
+  }
+  if (Object.keys(p).length === 0) return null;
+  if (p.source_title !== undefined && p.source_title.trim().length < 1) return null;
+  if (p.relevance_note !== undefined && p.relevance_note.trim().length < 1) return null;
+  if (p.source_url !== undefined && p.source_url.trim().length < 8) return null;
+  return p;
+}
+
+function SourceDraftRow(props: {
+  token: string;
+  storyId: string;
+  eventId: string;
+  source: SourceRecordResponse;
+  onPatched: (s: SourceRecordResponse) => void;
+  onVersionConflict: () => void;
+  onSaveError: (message: string) => void;
+}) {
+  const { token, storyId, eventId, source, onPatched, onVersionConflict, onSaveError } = props;
+  const [sourceTitle, setSourceTitle] = useState(source.source_title);
+  const [relevanceNote, setRelevanceNote] = useState(source.relevance_note);
+  const [sourceUrl, setSourceUrl] = useState(source.source_url);
+
+  useEffect(() => {
+    setSourceTitle(source.source_title);
+    setRelevanceNote(source.relevance_note);
+    setSourceUrl(source.source_url);
+  }, [source.id, source.updated_at]);
+
+  useEffect(() => {
+    if (!token) return;
+    const patch = buildSourcePatch(source, sourceTitle, relevanceNote, sourceUrl);
+    if (!patch) return;
+
+    const tm = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await patchSource(token, storyId, eventId, source.id, source.updated_at, patch);
+          onPatched(res.data.source_record);
+        } catch (e) {
+          if (e instanceof ApiRequestError && e.status === 409) {
+            const snap = extractConflictSource(e.body);
+            if (snap) onPatched(snap);
+            onVersionConflict();
+          } else {
+            onSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Source save failed.");
+          }
+        }
+      })();
+    }, AUTOSAVE_MS);
+
+    return () => clearTimeout(tm);
+  }, [
+    token,
+    storyId,
+    eventId,
+    source.id,
+    source.updated_at,
+    source.source_title,
+    source.relevance_note,
+    source.source_url,
+    sourceTitle,
+    relevanceNote,
+    sourceUrl,
+    onPatched,
+    onVersionConflict,
+    onSaveError,
+  ]);
+
+  return (
+    <div
+      className="source-draft-row"
+      style={{
+        borderTop: "1px dashed var(--border, #e0e0e0)",
+        paddingTop: "0.75rem",
+        marginTop: "0.5rem",
+      }}
+    >
+      <p className="muted small" style={{ marginBottom: "0.35rem" }}>
+        Source <code className="inline-code">{source.id.slice(0, 8)}…</code>
+      </p>
+      <label>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          URL
+        </span>
+        <input
+          type="url"
+          className="input"
+          value={sourceUrl}
+          onChange={(ev) => setSourceUrl(ev.target.value)}
+          autoComplete="off"
+          maxLength={8000}
+        />
+      </label>
+      <label style={{ display: "block", marginTop: "0.5rem" }}>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Title
+        </span>
+        <input
+          type="text"
+          className="input"
+          value={sourceTitle}
+          onChange={(ev) => setSourceTitle(ev.target.value)}
+          autoComplete="off"
+          maxLength={2000}
+        />
+      </label>
+      <label style={{ display: "block", marginTop: "0.5rem" }}>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Relevance
+        </span>
+        <textarea
+          className="input textarea"
+          value={relevanceNote}
+          onChange={(ev) => setRelevanceNote(ev.target.value)}
+          rows={2}
+          maxLength={100000}
+        />
+      </label>
+    </div>
+  );
+}
+
 function EventDraftRow(props: {
   token: string;
   storyId: string;
@@ -135,15 +278,38 @@ function EventDraftRow(props: {
   onPatched: (e: EventDraftResponse) => void;
   onVersionConflict: () => void;
   onSaveError: (message: string) => void;
+  onRefreshEvents: () => void | Promise<void>;
 }) {
-  const { token, storyId, event, onPatched, onVersionConflict, onSaveError } = props;
+  const { token, storyId, event, onPatched, onVersionConflict, onSaveError, onRefreshEvents } = props;
   const [headline, setHeadline] = useState(event.headline);
   const [summary, setSummary] = useState(event.summary);
+  const [sources, setSources] = useState<SourceRecordResponse[]>([]);
+  const [sourcesLoadError, setSourcesLoadError] = useState<string | null>(null);
+  const [addingSource, setAddingSource] = useState(false);
 
   useEffect(() => {
     setHeadline(event.headline);
     setSummary(event.summary);
   }, [event.id, event.updated_at]);
+
+  const loadSources = useCallback(async () => {
+    if (!token) return;
+    setSourcesLoadError(null);
+    try {
+      const r = await listSourcesForEvent(token, storyId, event.id);
+      setSources(r.data.sources);
+    } catch (e) {
+      setSourcesLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load sources.");
+    }
+  }, [token, storyId, event.id]);
+
+  useEffect(() => {
+    void loadSources();
+  }, [loadSources]);
+
+  const handleSourcePatched = useCallback((s: SourceRecordResponse) => {
+    setSources((prev) => prev.map((x) => (x.id === s.id ? s : x)));
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -219,6 +385,58 @@ function EventDraftRow(props: {
           maxLength={100000}
         />
       </label>
+
+      <div style={{ marginTop: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <span className="muted small">Sources</span>
+          <button
+            type="button"
+            className="btn ghost inline"
+            disabled={!token || addingSource}
+            onClick={() => {
+              if (!token || !storyId) return;
+              setAddingSource(true);
+              void (async () => {
+                try {
+                  const r = await createSource(token, storyId, event.id, {
+                    source_url: "https://example.com/evidence",
+                    source_title: "New source",
+                    publisher_name: "Publisher",
+                    relevance_note: "Why this source supports the event.",
+                  });
+                  setSources((prev) => [...prev, r.data.source_record]);
+                  void onRefreshEvents();
+                } catch (e) {
+                  onSaveError(
+                    e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add source.",
+                  );
+                } finally {
+                  setAddingSource(false);
+                }
+              })();
+            }}
+          >
+            {addingSource ? "Adding…" : "Add source"}
+          </button>
+        </div>
+        {sourcesLoadError ? (
+          <p className="muted small" style={{ marginTop: "0.35rem" }}>
+            {sourcesLoadError}
+          </p>
+        ) : null}
+        {sources.map((src) => (
+          <SourceDraftRow
+            key={src.id}
+            token={token}
+            storyId={storyId}
+            eventId={event.id}
+            source={src}
+            onPatched={handleSourcePatched}
+            onVersionConflict={onVersionConflict}
+            onSaveError={onSaveError}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -515,7 +733,7 @@ export function DraftReadyPage() {
           <p className="draft-ready-badge">ready_for_edit</p>
           <h2 className="draft-ready-title">Your draft workspace is open</h2>
           <p className="muted small">
-            Story fields autosave (mutation §12.1). Section drafts (§13) and event drafts (§14) autosave here. Source CRUD is a later ticket.
+            Story fields (§12.1), sections (§13), events (§14), and per-event sources (§15) autosave on this page.
           </p>
           {draft ? (
             <div className="draft-ready-fields" style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -673,6 +891,7 @@ export function DraftReadyPage() {
                     onPatched={handleEventPatched}
                     onVersionConflict={handleEventConflict}
                     onSaveError={handleEventSaveError}
+                    onRefreshEvents={refreshEvents}
                   />
                 ))}
               </div>
