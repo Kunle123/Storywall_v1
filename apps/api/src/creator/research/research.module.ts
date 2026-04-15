@@ -4,6 +4,7 @@ import IORedis from "ioredis";
 import { AuthModule } from "../../auth/auth.module";
 import { PrismaModule } from "../../prisma/prisma.module";
 import { CreatorModule } from "../creator.module";
+import { CreatorJobsService } from "../jobs/creator-jobs.service";
 import { JobsController } from "../jobs/jobs.controller";
 import { ResearchController } from "./research.controller";
 import { ResearchService } from "./research.service";
@@ -14,6 +15,7 @@ import { RESEARCH_QUEUE_TOKEN } from "./research.tokens";
   controllers: [ResearchController, JobsController],
   providers: [
     ResearchService,
+    CreatorJobsService,
     {
       provide: RESEARCH_QUEUE_TOKEN,
       useFactory: () => {
@@ -23,6 +25,6 @@ import { RESEARCH_QUEUE_TOKEN } from "./research.tokens";
       },
     },
   ],
-  exports: [ResearchService],
+  exports: [ResearchService, RESEARCH_QUEUE_TOKEN],
 })
 export class ResearchModule {}

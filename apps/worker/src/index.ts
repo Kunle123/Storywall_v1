@@ -2,6 +2,7 @@
  * Background job worker (M0-T07 / M2-T01): BullMQ consumer for research orchestration.
  * M2-T02: persist research artifact + candidate sources before marking job succeeded.
  * M2-T03: assemble chronology (extracted events) from the research package.
+ * M2-T05: full draft assembly from chronology into `event_draft` / `source_record`.
  */
 import { Prisma, PrismaClient } from "@prisma/client";
 import { Worker } from "bullmq";
@@ -13,6 +14,7 @@ import {
 } from "@storywall/shared";
 import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
 import { ensureChronologyEventSourceLinks } from "./m2-t04-persist-links.js";
+import { runDraftAssemblyJob } from "./m2-t05-draft-assemble.js";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
@@ -180,6 +182,16 @@ const worker = new Worker(
       });
 
       return { processed: true, researchJobId };
+    }
+
+    if (job.name === "draft.assemble") {
+      const { draftAssemblyJobId } = job.data as { draftAssemblyJobId: string };
+
+      await prisma.$transaction(async (tx) => {
+        await runDraftAssemblyJob(tx, draftAssemblyJobId);
+      });
+
+      return { processed: true, draftAssemblyJobId };
     }
 
     return { processed: true, jobId: job.id, name: job.name };

@@ -161,6 +161,20 @@ export class ResearchService {
         });
       }
 
+      const activeDraftAssembly = await tx.draftAssemblyJob.findFirst({
+        where: { storyId, status: { in: ["pending", "running"] } },
+      });
+      if (activeDraftAssembly) {
+        throw new ConflictException({
+          ok: false,
+          error: {
+            code: "draft_assembly_job_active",
+            message: "A draft assembly job is running; wait for it to finish before starting research",
+            details: { job_id: activeDraftAssembly.id },
+          },
+        });
+      }
+
       if (!ALLOWED_PRE_RESEARCH.includes(storyRow.workflowState)) {
         throw new BadRequestException({
           ok: false,

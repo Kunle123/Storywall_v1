@@ -40,6 +40,8 @@ model Creator {
   /// M1-T12: durable replay for `POST …/frames/select` only — not a generic idempotency store.
   frameSelectIdempotencyRows CreatorFrameSelectIdempotency[]
   researchRunIdempotencyRows CreatorResearchRunIdempotency[]
+  draftAssembleIdempotencyRows CreatorDraftAssembleIdempotency[]
+  draftAssemblyJobs          DraftAssemblyJob[]
 
   @@map("creator")
 }
@@ -408,10 +410,12 @@ model Story {
   workflowTransitions StoryWorkflowTransition[]
   researchJobs              ResearchJob[]
   researchRunIdempotencyRows CreatorResearchRunIdempotency[]
+  draftAssembleIdempotencyRows CreatorDraftAssembleIdempotency[]
   researchArtifacts         ResearchArtifact[]
   researchCandidateSources    ResearchCandidateSource[]
   chronologyAssemblies      ChronologyAssembly[]
   chronologyEventSourceLinks ChronologyEventSourceLink[]
+  draftAssemblyJobs          DraftAssemblyJob[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -570,9 +574,75 @@ model ResearchJob {
   candidateSources  ResearchCandidateSource[]
   chronologyAssembly ChronologyAssembly?
   chronologyEventSourceLinks ChronologyEventSourceLink[]
+  sourcedDraftAssemblies     DraftAssemblyJob[] @relation("DraftAssemblySourceResearch")
 
   @@index([storyId, status], map: "research_job_story_status_idx")
   @@map("research_job")
+}
+
+/// M2-T05 — async full draft assembly (mutation §11.2).
+enum DraftAssemblyJobStatus {
+  pending
+  running
+  succeeded
+  failed
+  cancelled
+}
+
+model DraftAssemblyJob {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  status DraftAssemblyJobStatus @map("status")
+
+  mode           String @default("full_regeneration") @db.VarChar(64)
+  requestPayload Json   @map("request_payload")
+  errorMessage   String? @map("error_message") @db.Text
+
+  /// Workflow state before `assembling_draft` (restored on failure; success → `ready_for_edit`).
+  preAssemblyWorkflowState CreatorWorkflowState @map("pre_assembly_workflow_state")
+
+  sourceResearchJobId String?      @map("source_research_job_id") @db.Uuid
+  sourceResearchJob   ResearchJob? @relation("DraftAssemblySourceResearch", fields: [sourceResearchJobId], references: [id], onDelete: SetNull)
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt  DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  idempotencyRecord CreatorDraftAssembleIdempotency?
+
+  @@index([storyId, status], map: "draft_assembly_job_story_status_idx")
+  @@map("draft_assembly_job")
+}
+
+/// Durable idempotency for `POST …/draft/assemble` (mutation §11.2).
+model CreatorDraftAssembleIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  requestKey String @map("request_key") @db.VarChar(255)
+
+  draftAssemblyJobId String           @unique @map("draft_assembly_job_id") @db.Uuid
+  draftAssemblyJob   DraftAssemblyJob @relation(fields: [draftAssemblyJobId], references: [id], onDelete: Cascade)
+
+  acceptedResponseStoryState CreatorWorkflowState @map("accepted_response_story_state")
+  acceptedResponseJobStatus  DraftAssemblyJobStatus @map("accepted_response_job_status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, requestKey], map: "creator_draft_asm_idem_uidx")
+  @@index([storyId], map: "creator_draft_asm_idem_story_idx")
+  @@map("creator_draft_assemble_idempotency")
 }
 
 /// M2-T02: structured research-stage output for a completed job (not timeline events — M2-T03).

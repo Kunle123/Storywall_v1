@@ -22,7 +22,8 @@
     "smoke:m2-01": "node ./scripts/smoke-m2-01-research-run.mjs",
     "smoke:m2-02": "node ./scripts/smoke-m2-02-research-package.mjs",
     "smoke:m2-03": "node ./scripts/smoke-m2-03-chronology.mjs",
-    "smoke:m2-04": "node ./scripts/smoke-m2-03-chronology.mjs"
+    "smoke:m2-04": "node ./scripts/smoke-m2-03-chronology.mjs",
+    "smoke:m2-05": "node ./scripts/smoke-m2-05-draft-assemble.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
