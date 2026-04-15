@@ -7,13 +7,77 @@ import {
   listFrames,
   patchStoryDraft,
 } from "../api/creatorClient";
-import type { StoryDraftResponse } from "../api/types";
+import type { PatchStoryDraftBody, StoryDraftResponse } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 
 const AUTOSAVE_MS = 600;
 
+type LocalDraftFields = {
+  title: string;
+  subtitle: string;
+  summary: string;
+  lens: string;
+  conclusion: string;
+};
+
+function normalizeSubtitle(s: string | null | undefined): string {
+  return s ?? "";
+}
+
+function normalizeConclusion(s: string | null | undefined): string {
+  return s ?? "";
+}
+
+function isDirtyVersusServer(draft: StoryDraftResponse, local: LocalDraftFields): boolean {
+  if (local.title !== draft.title) return true;
+  if (local.subtitle !== normalizeSubtitle(draft.subtitle)) return true;
+  if (local.summary !== draft.summary) return true;
+  if (local.lens !== draft.lens) return true;
+  if (local.conclusion !== normalizeConclusion(draft.conclusion)) return true;
+  return false;
+}
+
+/** Partial PATCH body for changed fields only; returns null if nothing to send or if required fields would be invalid. */
+function buildValidPatch(draft: StoryDraftResponse, local: LocalDraftFields): PatchStoryDraftBody | null {
+  const p: PatchStoryDraftBody = {};
+  if (local.title !== draft.title) {
+    p.title = local.title;
+  }
+  if (local.subtitle !== normalizeSubtitle(draft.subtitle)) {
+    p.subtitle = local.subtitle === "" ? null : local.subtitle;
+  }
+  if (local.summary !== draft.summary) {
+    p.summary = local.summary;
+  }
+  if (local.lens !== draft.lens) {
+    p.lens = local.lens;
+  }
+  if (local.conclusion !== normalizeConclusion(draft.conclusion)) {
+    p.conclusion = local.conclusion === "" ? null : local.conclusion;
+  }
+  if (Object.keys(p).length === 0) return null;
+  if (p.title !== undefined && p.title.trim().length < 1) return null;
+  if (p.summary !== undefined && p.summary.trim().length < 1) return null;
+  if (p.lens !== undefined && p.lens.trim().length < 1) return null;
+  return p;
+}
+
+function applyServerDraftToForm(d: StoryDraftResponse, setters: {
+  setTitle: (v: string) => void;
+  setSubtitle: (v: string) => void;
+  setSummary: (v: string) => void;
+  setLens: (v: string) => void;
+  setConclusion: (v: string) => void;
+}) {
+  setters.setTitle(d.title);
+  setters.setSubtitle(normalizeSubtitle(d.subtitle));
+  setters.setSummary(d.summary);
+  setters.setLens(d.lens);
+  setters.setConclusion(normalizeConclusion(d.conclusion));
+}
+
 /**
- * M2-T06 entry + M2-T07 story-level draft autosave (title first; more fields follow).
+ * M2-T06 entry + M2-T07 story-level draft autosave (mutation §12.1).
  */
 export function DraftReadyPage() {
   const { storyId } = useParams<{ storyId: string }>();
@@ -21,9 +85,15 @@ export function DraftReadyPage() {
   const [workflow, setWorkflow] = useState<CreatorWorkflowState | null>(null);
   const [draft, setDraft] = useState<StoryDraftResponse | null>(null);
   const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [lens, setLens] = useState("");
+  const [conclusion, setConclusion] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+
+  const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
   useEffect(() => {
     if (!token || !storyId) return;
@@ -36,8 +106,9 @@ export function DraftReadyPage() {
         setWorkflow(r.data.story_state);
         const d = r.data.story_draft;
         setDraft(d);
-        const t = d?.title ?? "";
-        setTitle(t);
+        if (d) {
+          applyServerDraftToForm(d, { setTitle, setSubtitle, setSummary, setLens, setConclusion });
+        }
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load story.");
@@ -51,13 +122,22 @@ export function DraftReadyPage() {
 
   useEffect(() => {
     if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
-    if (title === draft.title) return;
+    if (!isDirtyVersusServer(draft, localFields)) return;
+    const patch = buildValidPatch(draft, localFields);
+    if (!patch) return;
 
     const t = setTimeout(() => {
       void (async () => {
         try {
-          const res = await patchStoryDraft(token, storyId, draft.last_edited_at, { title });
+          const res = await patchStoryDraft(token, storyId, draft.last_edited_at, patch);
           setDraft(res.data.story_draft);
+          applyServerDraftToForm(res.data.story_draft, {
+            setTitle,
+            setSubtitle,
+            setSummary,
+            setLens,
+            setConclusion,
+          });
           setSaveError(null);
           setSaveOk(true);
           window.setTimeout(() => setSaveOk(false), 2000);
@@ -66,7 +146,13 @@ export function DraftReadyPage() {
             const server = extractConflictDraft(e.body);
             if (server) {
               setDraft(server);
-              setTitle(server.title);
+              applyServerDraftToForm(server, {
+                setTitle,
+                setSubtitle,
+                setSummary,
+                setLens,
+                setConclusion,
+              });
             }
             setSaveError("Version conflict — loaded the latest draft from the server.");
           } else {
@@ -77,7 +163,7 @@ export function DraftReadyPage() {
     }, AUTOSAVE_MS);
 
     return () => clearTimeout(t);
-  }, [token, storyId, draft, workflow, title]);
+  }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion]);
 
   if (!storyId) {
     return (
@@ -129,22 +215,73 @@ export function DraftReadyPage() {
           <p className="draft-ready-badge">ready_for_edit</p>
           <h2 className="draft-ready-title">Your draft workspace is open</h2>
           <p className="muted small">
-            Story title autosaves (mutation §12.1). Sections, events, and sources will connect in later tickets.
+            Story fields autosave (mutation §12.1). Sections, events, and sources will connect in later tickets.
           </p>
           {draft ? (
-            <label className="draft-title-field" style={{ display: "block", marginTop: "1rem" }}>
-              <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                Title
-              </span>
-              <input
-                type="text"
-                className="input"
-                value={title}
-                onChange={(ev) => setTitle(ev.target.value)}
-                autoComplete="off"
-                maxLength={500}
-              />
-            </label>
+            <div className="draft-ready-fields" style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <label>
+                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  Title
+                </span>
+                <input
+                  type="text"
+                  className="input"
+                  value={title}
+                  onChange={(ev) => setTitle(ev.target.value)}
+                  autoComplete="off"
+                  maxLength={500}
+                />
+              </label>
+              <label>
+                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  Subtitle
+                </span>
+                <input
+                  type="text"
+                  className="input"
+                  value={subtitle}
+                  onChange={(ev) => setSubtitle(ev.target.value)}
+                  autoComplete="off"
+                  maxLength={500}
+                />
+              </label>
+              <label>
+                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  Summary
+                </span>
+                <textarea
+                  className="input textarea"
+                  value={summary}
+                  onChange={(ev) => setSummary(ev.target.value)}
+                  rows={5}
+                  maxLength={100_000}
+                />
+              </label>
+              <label>
+                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  Lens
+                </span>
+                <textarea
+                  className="input textarea"
+                  value={lens}
+                  onChange={(ev) => setLens(ev.target.value)}
+                  rows={5}
+                  maxLength={100_000}
+                />
+              </label>
+              <label>
+                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  Conclusion
+                </span>
+                <textarea
+                  className="input textarea"
+                  value={conclusion}
+                  onChange={(ev) => setConclusion(ev.target.value)}
+                  rows={4}
+                  maxLength={100_000}
+                />
+              </label>
+            </div>
           ) : (
             <p className="muted" style={{ marginTop: "0.75rem" }}>
               No story draft row yet — complete framing selection and draft assembly from the brief workspace.
