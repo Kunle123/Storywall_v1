@@ -112,8 +112,13 @@ async function main() {
   const ev0 = ch.data.chronology.events[0];
   assert(ev0.headline && ev0.summary && ev0.event_type, "event shape");
   assert(Array.isArray(ev0.supporting_candidate_source_ids), "grounding ids");
+  assert(Array.isArray(ev0.source_relationships), "M2-T04 source_relationships array");
+  assert(ev0.source_relationships.length >= 1, "M2-T04 at least one corroboration link");
+  const rel0 = ev0.source_relationships[0];
+  assert(rel0.relation_kind && typeof rel0.counts_toward_sufficiency === "boolean", "M2-T04 link shape");
+  assert(rel0.candidate_source?.source_url, "M2-T04 embedded candidate_source");
 
-  console.log("OK: M2-T03 chronology smoke passed.");
+  console.log("OK: M2-T03 chronology + M2-T04 corroboration links smoke passed.");
 }
 
 main().catch((e) => {

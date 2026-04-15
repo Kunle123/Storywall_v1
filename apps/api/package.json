@@ -21,7 +21,8 @@
     "smoke:m13": "node ./scripts/smoke-m13-workflow-transitions.mjs",
     "smoke:m2-01": "node ./scripts/smoke-m2-01-research-run.mjs",
     "smoke:m2-02": "node ./scripts/smoke-m2-02-research-package.mjs",
-    "smoke:m2-03": "node ./scripts/smoke-m2-03-chronology.mjs"
+    "smoke:m2-03": "node ./scripts/smoke-m2-03-chronology.mjs",
+    "smoke:m2-04": "node ./scripts/smoke-m2-03-chronology.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

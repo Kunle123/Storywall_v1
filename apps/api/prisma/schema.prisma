@@ -411,6 +411,7 @@ model Story {
   researchArtifacts         ResearchArtifact[]
   researchCandidateSources    ResearchCandidateSource[]
   chronologyAssemblies      ChronologyAssembly[]
+  chronologyEventSourceLinks ChronologyEventSourceLink[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -568,6 +569,7 @@ model ResearchJob {
   artifact          ResearchArtifact?
   candidateSources  ResearchCandidateSource[]
   chronologyAssembly ChronologyAssembly?
+  chronologyEventSourceLinks ChronologyEventSourceLink[]
 
   @@index([storyId, status], map: "research_job_story_status_idx")
   @@map("research_job")
@@ -617,8 +619,51 @@ model ResearchCandidateSource {
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  chronologyEventSourceLinks ChronologyEventSourceLink[]
+
   @@index([researchJobId, positionIndex], map: "research_cand_src_job_pos_idx")
   @@map("research_candidate_source")
+}
+
+/// M2-T04 — how a candidate source relates to an extracted chronology event (trust standard §5.3).
+enum ChronologySourceRelationKind {
+  documents
+  corroborates
+  contextualizes
+  incidental
+  disputes
+}
+
+/// M2-T04 — first-class corroboration edges (research/chronology layer; not `source_record` / `event_draft`).
+model ChronologyEventSourceLink {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  chronologyExtractedEventId String @map("chronology_extracted_event_id") @db.Uuid
+  chronologyExtractedEvent   ChronologyExtractedEvent @relation(fields: [chronologyExtractedEventId], references: [id], onDelete: Cascade)
+
+  researchCandidateSourceId String @map("research_candidate_source_id") @db.Uuid
+  researchCandidateSource   ResearchCandidateSource @relation(fields: [researchCandidateSourceId], references: [id], onDelete: Cascade)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  researchJobId String      @map("research_job_id") @db.Uuid
+  researchJob   ResearchJob @relation(fields: [researchJobId], references: [id], onDelete: Cascade)
+
+  relationKind ChronologySourceRelationKind @map("relation_kind")
+
+  /// Trust standard §5.3 — decorative or weak ties should not satisfy sufficiency.
+  countsTowardSufficiency Boolean @map("counts_toward_sufficiency")
+
+  orderingIndex Int @map("ordering_index")
+
+  rationaleNote String @map("rationale_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([chronologyExtractedEventId, researchCandidateSourceId], map: "chronology_evt_src_uidx")
+  @@index([storyId, researchJobId], map: "chronology_evt_src_story_job_idx")
+  @@map("chronology_event_source_link")
 }
 
 /// M2-T03 — chronology assembled from the research package (staging; `event_draft` promotion is later).
@@ -676,6 +721,8 @@ model ChronologyExtractedEvent {
   ambiguityNote String? @map("ambiguity_note") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sourceLinks ChronologyEventSourceLink[]
 
   @@index([chronologyAssemblyId, positionIndex], map: "chronology_evt_assembly_pos_idx")
   @@map("chronology_extracted_event")

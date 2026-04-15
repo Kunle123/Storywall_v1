@@ -61,7 +61,7 @@ export class ResearchController {
     private readonly ownership: OwnershipService,
   ) {}
 
-  /** M2-T03 — read assembled chronology (extracted events) after job success. */
+  /** M2-T03 / M2-T04 — read assembled chronology and corroboration links after job success. */
   @Get(":storyId/research/jobs/:jobId/chronology")
   async getChronology(
     @Param("storyId") storyId: string,

@@ -12,6 +12,7 @@ import {
   CHRONOLOGY_EXTRACTION_VERSION,
 } from "@storywall/shared";
 import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
+import { ensureChronologyEventSourceLinks } from "./m2-t04-persist-links.js";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
@@ -140,6 +141,11 @@ const worker = new Worker(
             },
           });
         }
+
+        await ensureChronologyEventSourceLinks(tx, {
+          researchJobId: rj.id,
+          storyId: rj.storyId,
+        });
 
         await tx.researchJob.update({
           where: { id: researchJobId },

@@ -9,6 +9,7 @@ import {
 import type {
   ChronologyAssembly,
   ChronologyExtractedEvent,
+  ChronologyEventSourceLink,
   ResearchArtifact,
   ResearchCandidateSource,
 } from "@prisma/client";
@@ -330,7 +331,7 @@ export class ResearchService {
     };
   }
 
-  /** M2-T03 — assembled chronology for a succeeded job (creator-owned story). */
+  /** M2-T03 / M2-T04 — assembled chronology + corroboration links for a succeeded job (creator-owned story). */
   async getResearchChronology(params: {
     storyId: string;
     jobId: string;
@@ -338,7 +339,13 @@ export class ResearchService {
   }): Promise<{
     jobStatus: string;
     assembly: ChronologyAssembly;
-    events: ChronologyExtractedEvent[];
+    events: Array<
+      ChronologyExtractedEvent & {
+        sourceLinks: (ChronologyEventSourceLink & {
+          researchCandidateSource: ResearchCandidateSource;
+        })[];
+      }
+    >;
   }> {
     const { storyId, jobId, creatorId } = params;
 
@@ -351,7 +358,15 @@ export class ResearchService {
       include: {
         chronologyAssembly: {
           include: {
-            events: { orderBy: { positionIndex: "asc" } },
+            events: {
+              orderBy: { positionIndex: "asc" },
+              include: {
+                sourceLinks: {
+                  orderBy: { orderingIndex: "asc" },
+                  include: { researchCandidateSource: true },
+                },
+              },
+            },
           },
         },
       },

@@ -224,3 +224,12 @@ export type {
   ResearchArtifactExtractionInput,
   ResearchCandidateSourceExtractionInput,
 } from "./chronology-extraction";
+
+// --- M2-T04 chronology ↔ candidate source corroboration links ---
+export {
+  buildChronologyEventSourceLinkRows,
+} from "./chronology-source-links";
+export type {
+  ChronologySourceRelationKind,
+  ResearchCandidateSourceLinkInput,
+} from "./chronology-source-links";
