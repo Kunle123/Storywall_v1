@@ -218,21 +218,12 @@ function SourceDraftRow(props: {
   ]);
 
   return (
-    <div
-      className="source-draft-row"
-      style={{
-        borderTop: "1px dashed var(--border, #e0e0e0)",
-        paddingTop: "0.75rem",
-        marginTop: "0.5rem",
-      }}
-    >
-      <p className="muted small" style={{ marginBottom: "0.35rem" }}>
+    <div className="editor-block editor-block--source">
+      <p className="editor-block__meta">
         Source <code className="inline-code">{source.id.slice(0, 8)}…</code>
       </p>
-      <label>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          URL
-        </span>
+      <label className="field">
+        <span className="label">URL</span>
         <input
           type="url"
           className="input"
@@ -242,10 +233,8 @@ function SourceDraftRow(props: {
           maxLength={8000}
         />
       </label>
-      <label style={{ display: "block", marginTop: "0.5rem" }}>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Title
-        </span>
+      <label className="field">
+        <span className="label">Title</span>
         <input
           type="text"
           className="input"
@@ -255,10 +244,8 @@ function SourceDraftRow(props: {
           maxLength={2000}
         />
       </label>
-      <label style={{ display: "block", marginTop: "0.5rem" }}>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Relevance
-        </span>
+      <label className="field">
+        <span className="label">Relevance</span>
         <textarea
           className="input textarea"
           value={relevanceNote}
@@ -349,21 +336,12 @@ function EventDraftRow(props: {
   ]);
 
   return (
-    <div
-      className="event-draft-row"
-      style={{
-        borderTop: "1px solid var(--border, #e0e0e0)",
-        paddingTop: "1rem",
-        marginTop: "0.5rem",
-      }}
-    >
-      <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+    <div className="editor-block editor-card editor-card--event">
+      <p className="editor-block__meta">
         Event <code className="inline-code">{event.id.slice(0, 8)}…</code>
       </p>
-      <label>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Headline
-        </span>
+      <label className="field">
+        <span className="label">Headline</span>
         <input
           type="text"
           className="input"
@@ -373,10 +351,8 @@ function EventDraftRow(props: {
           maxLength={500}
         />
       </label>
-      <label style={{ display: "block", marginTop: "0.75rem" }}>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Summary
-        </span>
+      <label className="field">
+        <span className="label">Summary</span>
         <textarea
           className="input textarea"
           value={summary}
@@ -386,9 +362,9 @@ function EventDraftRow(props: {
         />
       </label>
 
-      <div style={{ marginTop: "0.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          <span className="muted small">Sources</span>
+      <div className="editor-source-nest">
+        <div className="editor-source-nest__bar">
+          <span className="editor-source-nest__label">Sources</span>
           <button
             type="button"
             className="btn ghost inline"
@@ -419,11 +395,7 @@ function EventDraftRow(props: {
             {addingSource ? "Adding…" : "Add source"}
           </button>
         </div>
-        {sourcesLoadError ? (
-          <p className="muted small" style={{ marginTop: "0.35rem" }}>
-            {sourcesLoadError}
-          </p>
-        ) : null}
+        {sourcesLoadError ? <p className="hint">{sourcesLoadError}</p> : null}
         {sources.map((src) => (
           <SourceDraftRow
             key={src.id}
@@ -496,21 +468,12 @@ function SectionDraftRow(props: {
   ]);
 
   return (
-    <div
-      className="section-draft-row"
-      style={{
-        borderTop: "1px solid var(--border, #e0e0e0)",
-        paddingTop: "1rem",
-        marginTop: "0.5rem",
-      }}
-    >
-      <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+    <div className="editor-block editor-card">
+      <p className="editor-block__meta">
         Section <code className="inline-code">{section.id.slice(0, 8)}…</code>
       </p>
-      <label>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Label
-        </span>
+      <label className="field">
+        <span className="label">Label</span>
         <input
           type="text"
           className="input"
@@ -520,10 +483,8 @@ function SectionDraftRow(props: {
           maxLength={500}
         />
       </label>
-      <label style={{ display: "block", marginTop: "0.75rem" }}>
-        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-          Summary
-        </span>
+      <label className="field">
+        <span className="label">Summary</span>
         <textarea
           className="input textarea"
           value={summary}
@@ -692,8 +653,8 @@ export function DraftReadyPage() {
   }
 
   return (
-    <div className="page">
-      <header className="creator-header">
+    <div className="page draft-workspace-page">
+      <header className="creator-header draft-workspace-header">
         <div>
           <h1 className="page-title">Draft ready</h1>
           <p className="page-lead muted">
@@ -710,11 +671,7 @@ export function DraftReadyPage() {
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}
-      {saveOk ? (
-        <div className="banner" style={{ borderColor: "var(--ok, #2e7d32)" }}>
-          Draft saved.
-        </div>
-      ) : null}
+      {saveOk ? <div className="banner success">Draft saved.</div> : null}
 
       {!loadError && workflow && workflow !== "ready_for_edit" ? (
         <div className="banner warn">
@@ -731,78 +688,89 @@ export function DraftReadyPage() {
       {!loadError && workflow === "ready_for_edit" ? (
         <div className="card draft-ready-card">
           <p className="draft-ready-badge">ready_for_edit</p>
-          <h2 className="draft-ready-title">Your draft workspace is open</h2>
-          <p className="muted small">
-            Story fields (§12.1), sections (§13), events (§14), and per-event sources (§15) autosave on this page.
-          </p>
+          <div className="editor-workspace-intro">
+            <h2 className="draft-ready-title">Your draft workspace is open</h2>
+            <p className="editor-workspace-lead muted small">
+              Edit story copy, outline sections, and build the timeline. Changes save automatically (creator mutations §12–15).
+            </p>
+          </div>
           {draft ? (
-            <div className="draft-ready-fields" style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <label>
-                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                  Title
-                </span>
-                <input
-                  type="text"
-                  className="input"
-                  value={title}
-                  onChange={(ev) => setTitle(ev.target.value)}
-                  autoComplete="off"
-                  maxLength={500}
-                />
-              </label>
-              <label>
-                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                  Subtitle
-                </span>
-                <input
-                  type="text"
-                  className="input"
-                  value={subtitle}
-                  onChange={(ev) => setSubtitle(ev.target.value)}
-                  autoComplete="off"
-                  maxLength={500}
-                />
-              </label>
-              <label>
-                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                  Summary
-                </span>
-                <textarea
-                  className="input textarea"
-                  value={summary}
-                  onChange={(ev) => setSummary(ev.target.value)}
-                  rows={5}
-                  maxLength={100_000}
-                />
-              </label>
-              <label>
-                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                  Lens
-                </span>
-                <textarea
-                  className="input textarea"
-                  value={lens}
-                  onChange={(ev) => setLens(ev.target.value)}
-                  rows={5}
-                  maxLength={100_000}
-                />
-              </label>
-              <label>
-                <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                  Conclusion
-                </span>
-                <textarea
-                  className="input textarea"
-                  value={conclusion}
-                  onChange={(ev) => setConclusion(ev.target.value)}
-                  rows={4}
-                  maxLength={100_000}
-                />
-              </label>
+            <div className="editor-shell">
+              <section className="editor-panel editor-panel--story" aria-labelledby="editor-story-heading">
+                <div className="editor-panel__head">
+                  <p className="editor-panel__eyebrow">Story</p>
+                  <h3 id="editor-story-heading" className="editor-panel__title">
+                    Narrative &amp; discovery
+                  </h3>
+                  <p className="editor-panel__hint">
+                    How this Storywall presents in feeds and search — title through conclusion.
+                  </p>
+                </div>
+                <div className="editor-fields-stack">
+                  <label className="field">
+                    <span className="label">Title</span>
+                    <input
+                      type="text"
+                      className="input"
+                      value={title}
+                      onChange={(ev) => setTitle(ev.target.value)}
+                      autoComplete="off"
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">Subtitle</span>
+                    <input
+                      type="text"
+                      className="input"
+                      value={subtitle}
+                      onChange={(ev) => setSubtitle(ev.target.value)}
+                      autoComplete="off"
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">Summary</span>
+                    <textarea
+                      className="input textarea"
+                      value={summary}
+                      onChange={(ev) => setSummary(ev.target.value)}
+                      rows={5}
+                      maxLength={100_000}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">Lens</span>
+                    <textarea
+                      className="input textarea"
+                      value={lens}
+                      onChange={(ev) => setLens(ev.target.value)}
+                      rows={5}
+                      maxLength={100_000}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">Conclusion</span>
+                    <textarea
+                      className="input textarea"
+                      value={conclusion}
+                      onChange={(ev) => setConclusion(ev.target.value)}
+                      rows={4}
+                      maxLength={100_000}
+                    />
+                  </label>
+                </div>
+              </section>
 
-              <div style={{ marginTop: "1.25rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                  <span className="muted small">Sections</span>
+              <section className="editor-panel editor-panel--outline" aria-labelledby="editor-sections-heading">
+                <div className="editor-panel__bar">
+                  <div className="editor-panel__bar-text">
+                    <p className="editor-panel__eyebrow">Structure</p>
+                    <h3 id="editor-sections-heading" className="editor-panel__title">
+                      Sections
+                    </h3>
+                    <p className="editor-panel__hint">Optional arcs or chapters that group the timeline.</p>
+                  </div>
                   <button
                     type="button"
                     className="btn ghost inline"
@@ -828,11 +796,7 @@ export function DraftReadyPage() {
                     {addingSection ? "Adding…" : "Add section"}
                   </button>
                 </div>
-                {sectionsLoadError ? (
-                  <p className="muted small" style={{ marginTop: "0.5rem" }}>
-                    {sectionsLoadError}
-                  </p>
-                ) : null}
+                {sectionsLoadError ? <p className="hint">{sectionsLoadError}</p> : null}
                 {sections.map((sec) => (
                   <SectionDraftRow
                     key={sec.id}
@@ -844,11 +808,17 @@ export function DraftReadyPage() {
                     onSaveError={handleSectionSaveError}
                   />
                 ))}
-              </div>
+              </section>
 
-              <div style={{ marginTop: "1.25rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                  <span className="muted small">Events</span>
+              <section className="editor-panel editor-panel--timeline" aria-labelledby="editor-events-heading">
+                <div className="editor-panel__bar">
+                  <div className="editor-panel__bar-text">
+                    <p className="editor-panel__eyebrow">Timeline</p>
+                    <h3 id="editor-events-heading" className="editor-panel__title">
+                      Events
+                    </h3>
+                    <p className="editor-panel__hint">Chronology and evidence. Each event can carry sources.</p>
+                  </div>
                   <button
                     type="button"
                     className="btn ghost inline"
@@ -877,11 +847,7 @@ export function DraftReadyPage() {
                     {addingEvent ? "Adding…" : "Add event"}
                   </button>
                 </div>
-                {eventsLoadError ? (
-                  <p className="muted small" style={{ marginTop: "0.5rem" }}>
-                    {eventsLoadError}
-                  </p>
-                ) : null}
+                {eventsLoadError ? <p className="hint">{eventsLoadError}</p> : null}
                 {events.map((ev) => (
                   <EventDraftRow
                     key={ev.id}
@@ -894,14 +860,14 @@ export function DraftReadyPage() {
                     onRefreshEvents={refreshEvents}
                   />
                 ))}
-              </div>
+              </section>
             </div>
           ) : (
             <p className="muted" style={{ marginTop: "0.75rem" }}>
               No story draft row yet — complete framing selection and draft assembly from the brief workspace.
             </p>
           )}
-          <div className="draft-ready-actions" style={{ marginTop: "1.25rem" }}>
+          <div className="draft-ready-actions">
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
               {"Brief & generation actions"}
             </Link>
