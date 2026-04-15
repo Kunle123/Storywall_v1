@@ -3,15 +3,21 @@ import { Link, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import {
   ApiRequestError,
+  createEvent,
   createSection,
   extractConflictDraft,
+  extractConflictEvent,
   extractConflictSection,
+  listEvents,
   listFrames,
   listSections,
+  patchEvent,
   patchSection,
   patchStoryDraft,
 } from "../api/creatorClient";
 import type {
+  EventDraftResponse,
+  PatchEventBody,
   PatchSectionBody,
   PatchStoryDraftBody,
   SectionDraftResponse,
@@ -102,6 +108,119 @@ function buildSectionPatch(
   if (Object.keys(p).length === 0) return null;
   if (p.label !== undefined && p.label.trim().length < 1) return null;
   return p;
+}
+
+function buildEventPatch(
+  server: EventDraftResponse,
+  headline: string,
+  summary: string,
+): PatchEventBody | null {
+  const p: PatchEventBody = {};
+  if (headline !== server.headline) {
+    p.headline = headline;
+  }
+  if (summary !== server.summary) {
+    p.summary = summary;
+  }
+  if (Object.keys(p).length === 0) return null;
+  if (p.headline !== undefined && p.headline.trim().length < 1) return null;
+  if (p.summary !== undefined && p.summary.trim().length < 1) return null;
+  return p;
+}
+
+function EventDraftRow(props: {
+  token: string;
+  storyId: string;
+  event: EventDraftResponse;
+  onPatched: (e: EventDraftResponse) => void;
+  onVersionConflict: () => void;
+  onSaveError: (message: string) => void;
+}) {
+  const { token, storyId, event, onPatched, onVersionConflict, onSaveError } = props;
+  const [headline, setHeadline] = useState(event.headline);
+  const [summary, setSummary] = useState(event.summary);
+
+  useEffect(() => {
+    setHeadline(event.headline);
+    setSummary(event.summary);
+  }, [event.id, event.updated_at]);
+
+  useEffect(() => {
+    if (!token) return;
+    const patch = buildEventPatch(event, headline, summary);
+    if (!patch) return;
+
+    const tm = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await patchEvent(token, storyId, event.id, event.updated_at, patch);
+          onPatched(res.data.event_draft);
+        } catch (e) {
+          if (e instanceof ApiRequestError && e.status === 409) {
+            const snap = extractConflictEvent(e.body);
+            if (snap) onPatched(snap);
+            onVersionConflict();
+          } else {
+            onSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Event save failed.");
+          }
+        }
+      })();
+    }, AUTOSAVE_MS);
+
+    return () => clearTimeout(tm);
+  }, [
+    token,
+    storyId,
+    event.id,
+    event.updated_at,
+    event.headline,
+    event.summary,
+    headline,
+    summary,
+    onPatched,
+    onVersionConflict,
+    onSaveError,
+  ]);
+
+  return (
+    <div
+      className="event-draft-row"
+      style={{
+        borderTop: "1px solid var(--border, #e0e0e0)",
+        paddingTop: "1rem",
+        marginTop: "0.5rem",
+      }}
+    >
+      <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+        Event <code className="inline-code">{event.id.slice(0, 8)}…</code>
+      </p>
+      <label>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Headline
+        </span>
+        <input
+          type="text"
+          className="input"
+          value={headline}
+          onChange={(ev) => setHeadline(ev.target.value)}
+          autoComplete="off"
+          maxLength={500}
+        />
+      </label>
+      <label style={{ display: "block", marginTop: "0.75rem" }}>
+        <span className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
+          Summary
+        </span>
+        <textarea
+          className="input textarea"
+          value={summary}
+          onChange={(ev) => setSummary(ev.target.value)}
+          rows={3}
+          maxLength={100000}
+        />
+      </label>
+    </div>
+  );
 }
 
 function SectionDraftRow(props: {
@@ -218,6 +337,9 @@ export function DraftReadyPage() {
   const [sections, setSections] = useState<SectionDraftResponse[]>([]);
   const [sectionsLoadError, setSectionsLoadError] = useState<string | null>(null);
   const [addingSection, setAddingSection] = useState(false);
+  const [events, setEvents] = useState<EventDraftResponse[]>([]);
+  const [eventsLoadError, setEventsLoadError] = useState<string | null>(null);
+  const [addingEvent, setAddingEvent] = useState(false);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
@@ -232,6 +354,17 @@ export function DraftReadyPage() {
     }
   }, [token, storyId]);
 
+  const refreshEvents = useCallback(async () => {
+    if (!token || !storyId) return;
+    setEventsLoadError(null);
+    try {
+      const r = await listEvents(token, storyId);
+      setEvents(r.data.events);
+    } catch (e) {
+      setEventsLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load events.");
+    }
+  }, [token, storyId]);
+
   const handleSectionPatched = useCallback((s: SectionDraftResponse) => {
     setSections((prev) => prev.map((x) => (x.id === s.id ? s : x)));
   }, []);
@@ -241,6 +374,18 @@ export function DraftReadyPage() {
   }, []);
 
   const handleSectionSaveError = useCallback((message: string) => {
+    setSaveError(message);
+  }, []);
+
+  const handleEventPatched = useCallback((ev: EventDraftResponse) => {
+    setEvents((prev) => prev.map((x) => (x.id === ev.id ? ev : x)));
+  }, []);
+
+  const handleEventConflict = useCallback(() => {
+    setSaveError("Version conflict — event refreshed from the server.");
+  }, []);
+
+  const handleEventSaveError = useCallback((message: string) => {
     setSaveError(message);
   }, []);
 
@@ -272,7 +417,8 @@ export function DraftReadyPage() {
   useEffect(() => {
     if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
     void refreshSections();
-  }, [token, storyId, draft, workflow, refreshSections]);
+    void refreshEvents();
+  }, [token, storyId, draft, workflow, refreshSections, refreshEvents]);
 
   useEffect(() => {
     if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
@@ -369,7 +515,7 @@ export function DraftReadyPage() {
           <p className="draft-ready-badge">ready_for_edit</p>
           <h2 className="draft-ready-title">Your draft workspace is open</h2>
           <p className="muted small">
-            Story fields autosave (mutation §12.1). Section drafts autosave (mutation §13). Events and sources come in later tickets.
+            Story fields autosave (mutation §12.1). Section drafts (§13) and event drafts (§14) autosave here. Source CRUD is a later ticket.
           </p>
           {draft ? (
             <div className="draft-ready-fields" style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -478,6 +624,55 @@ export function DraftReadyPage() {
                     onPatched={handleSectionPatched}
                     onVersionConflict={handleSectionConflict}
                     onSaveError={handleSectionSaveError}
+                  />
+                ))}
+              </div>
+
+              <div style={{ marginTop: "1.25rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span className="muted small">Events</span>
+                  <button
+                    type="button"
+                    className="btn ghost inline"
+                    disabled={!token || addingEvent}
+                    onClick={() => {
+                      if (!token || !storyId) return;
+                      setAddingEvent(true);
+                      void (async () => {
+                        try {
+                          const r = await createEvent(token, storyId, {
+                            headline: "New event",
+                            summary: "Draft event summary.",
+                          });
+                          setEvents((prev) => [...prev, r.data.event_draft]);
+                          setSaveError(null);
+                        } catch (e) {
+                          setSaveError(
+                            e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add event.",
+                          );
+                        } finally {
+                          setAddingEvent(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {addingEvent ? "Adding…" : "Add event"}
+                  </button>
+                </div>
+                {eventsLoadError ? (
+                  <p className="muted small" style={{ marginTop: "0.5rem" }}>
+                    {eventsLoadError}
+                  </p>
+                ) : null}
+                {events.map((ev) => (
+                  <EventDraftRow
+                    key={ev.id}
+                    token={token!}
+                    storyId={storyId}
+                    event={ev}
+                    onPatched={handleEventPatched}
+                    onVersionConflict={handleEventConflict}
+                    onSaveError={handleEventSaveError}
                   />
                 ))}
               </div>

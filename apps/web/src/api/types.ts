@@ -185,6 +185,62 @@ export type PatchSectionBody = Partial<{
   summary: string | null;
 }>;
 
+/** Event draft — mutation §14, editor §12. */
+export interface EventDraftResponse {
+  id: string;
+  story_draft_id: string;
+  section_id: string | null;
+  headline: string;
+  dek: string | null;
+  summary: string;
+  creator_note: string | null;
+  event_type: string;
+  position_index: number;
+  confidence_state: string;
+  claim_risk_level: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListEventsSuccess {
+  ok: true;
+  data: {
+    events: EventDraftResponse[];
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface CreateEventSuccess {
+  ok: true;
+  data: {
+    event_draft: EventDraftResponse;
+    story_state: CreatorWorkflowState;
+  };
+}
+
+export interface PatchEventSuccess {
+  ok: true;
+  data: {
+    event_draft: EventDraftResponse;
+    story_state: CreatorWorkflowState;
+  };
+  meta?: { saved_at?: string };
+}
+
+export interface CreateEventBody {
+  section_id?: string | null;
+  headline: string;
+  summary: string;
+}
+
+export type PatchEventBody = Partial<{
+  headline: string;
+  summary: string;
+  dek: string | null;
+  creator_note: string | null;
+}>;
+
 export interface SelectFrameSuccess {
   ok: true;
   data: {
