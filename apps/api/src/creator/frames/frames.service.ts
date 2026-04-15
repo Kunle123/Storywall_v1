@@ -38,10 +38,11 @@ export class FramesService {
     storyId: string;
     storyState: CreatorWorkflowState;
     frameDrafts: StoryFrameDraft[];
+    storyDraft: StoryDraft | null;
   }> {
     const story = await this.prisma.story.findFirst({
       where: { id: storyId, creatorId },
-      include: { storyBrief: true },
+      include: { storyBrief: { include: { storyDraft: true } } },
     });
     if (!story?.storyBrief) {
       throw new NotFoundException({
@@ -57,6 +58,7 @@ export class FramesService {
       storyId: story.id,
       storyState: story.workflowState,
       frameDrafts,
+      storyDraft: story.storyBrief.storyDraft ?? null,
     };
   }
 

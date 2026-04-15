@@ -96,6 +96,8 @@ export interface ListFramesSuccess {
     story_id: string;
     story_state: CreatorWorkflowState;
     frame_drafts: FrameDraftResponse[];
+    /** Present when a `story_draft` row exists (after frame select / assembly). */
+    story_draft: StoryDraftResponse | null;
   };
 }
 
@@ -107,13 +109,32 @@ export interface StoryDraftResponse {
   subtitle: string | null;
   summary: string;
   lens: string;
+  conclusion?: string | null;
+  subject_type?: string;
+  category_primary?: string;
+  category_secondary?: string | null;
+  time_start?: string | null;
+  time_end?: string | null;
+  time_display?: string | null;
+  lead_priority?: number | null;
+  discovery_mode?: string | null;
   story_status: string;
   visibility_target: string;
   imagery_mode: string;
   generation_mode: string;
+  needs_human_review?: boolean;
   editorial_review_status: string;
   created_at: string;
   last_edited_at: string;
+}
+
+export interface PatchDraftSuccess {
+  ok: true;
+  data: {
+    story_draft: StoryDraftResponse;
+    story_state: CreatorWorkflowState;
+  };
+  meta?: { saved_at?: string };
 }
 
 export interface SelectFrameSuccess {
@@ -212,6 +233,25 @@ export interface CreateStoryBody {
   writing_style_preference?: string;
   creation_mode: CreationMode;
 }
+
+/** PATCH …/draft partial (mutation §12.1). */
+export type PatchStoryDraftBody = Partial<{
+  title: string;
+  subtitle: string | null;
+  summary: string;
+  lens: string;
+  conclusion: string | null;
+  category_primary: string;
+  category_secondary: string | null;
+  lead_priority: number | null;
+  discovery_mode: string | null;
+  time_start: string | null;
+  time_end: string | null;
+  time_display: string | null;
+  visibility_target: string;
+  needs_human_review: boolean;
+  editorial_review_status: string;
+}>;
 
 /** PATCH …/brief partial (M1-T08). */
 export type PatchStoryBriefBody = Partial<{

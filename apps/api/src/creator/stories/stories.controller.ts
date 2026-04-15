@@ -15,6 +15,7 @@ import type { AuthenticatedCreator } from "../../auth/types";
 import { OwnershipService } from "../ownership.service";
 import { CreateStoryDto } from "./dto/create-story.dto";
 import { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
+import { PatchStoryDraftDto } from "./dto/patch-story-draft.dto";
 import { StoriesService } from "./stories.service";
 
 /**
@@ -77,6 +78,37 @@ export class StoriesController {
       },
       meta: {
         saved_at: storyBrief.updatedAt.toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Autosave story draft — mutation §12.1 (`If-Match` = last `story_draft.last_edited_at`).
+   */
+  @Patch(":storyId/draft")
+  async patchDraft(
+    @Param("storyId") storyId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: PatchStoryDraftDto,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const { storyDraft, storyState } = await this.stories.patchStoryDraft({
+      storyId,
+      creatorId: creator.id,
+      ifMatchRaw: ifMatch,
+      dto: body,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        story_draft: this.stories.draftToResponsePayload(storyDraft),
+        story_state: storyState,
+      },
+      meta: {
+        saved_at: storyDraft.lastEditedAt.toISOString(),
       },
     };
   }

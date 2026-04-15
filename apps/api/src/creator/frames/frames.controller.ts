@@ -73,6 +73,7 @@ export class FramesController {
         story_id: result.storyId,
         story_state: result.storyState,
         frame_drafts: result.frameDrafts.map((f) => storyFrameDraftToApi(f)),
+        story_draft: result.storyDraft ? storyDraftToApi(result.storyDraft) : null,
       },
     };
   }

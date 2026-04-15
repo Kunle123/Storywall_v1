@@ -5,11 +5,14 @@ import type {
   CreateStorySuccess,
   ListFramesSuccess,
   PatchBriefSuccess,
+  PatchDraftSuccess,
   PatchStoryBriefBody,
+  PatchStoryDraftBody,
   PollJobSuccess,
   RunResearchPassBody,
   RunResearchPassSuccess,
   SelectFrameSuccess,
+  StoryDraftResponse,
 } from "./types";
 
 function apiBase(): string {
@@ -121,9 +124,38 @@ export async function patchStoryBrief(
   return data as PatchBriefSuccess;
 }
 
+export async function patchStoryDraft(
+  token: string,
+  storyId: string,
+  ifMatch: string,
+  body: PatchStoryDraftBody,
+): Promise<PatchDraftSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/draft`, {
+    method: "PATCH",
+    headers: {
+      ...authHeaders(token),
+      "If-Match": ifMatch,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (res.status === 409) {
+    throw new ApiRequestError("Conflict", 409, data);
+  }
+  if (!res.ok) {
+    throw new ApiRequestError(`Draft save failed (${res.status})`, res.status, data);
+  }
+  return data as PatchDraftSuccess;
+}
+
 export function extractConflictBrief(body: unknown): import("./types").StoryBriefResponse | null {
   const b = body as { error?: { details?: { story_brief?: import("./types").StoryBriefResponse } } };
   return b?.error?.details?.story_brief ?? null;
+}
+
+export function extractConflictDraft(body: unknown): StoryDraftResponse | null {
+  const b = body as { error?: { details?: { story_draft?: StoryDraftResponse } } };
+  return b?.error?.details?.story_draft ?? null;
 }
 
 export async function listFrames(token: string, storyId: string): Promise<ListFramesSuccess> {

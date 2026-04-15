@@ -8,14 +8,17 @@ import {
   Prisma,
   type StoryBrief,
   type Story,
+  type StoryDraft,
   type CreatorWorkflowState,
   type SubjectType,
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { PrismaService } from "../../prisma/prisma.service";
+import { storyDraftToApi } from "../frames/story-draft-to-api";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
+import type { PatchStoryDraftDto } from "./dto/patch-story-draft.dto";
 import { normalizeIfMatchHeader } from "./if-match";
 
 /** Prisma-required brief columns — must not be cleared with JSON `null` on PATCH. */
@@ -180,6 +183,11 @@ export class StoriesService {
     return storyBriefToApi(brief);
   }
 
+  /** Serialize story draft for API envelope (mutation contract §12.1). */
+  draftToResponsePayload(draft: StoryDraft): Record<string, unknown> {
+    return storyDraftToApi(draft);
+  }
+
   /**
    * PATCH brief — §9.2, §6. Version token = `story_brief.updated_at` ISO string in `If-Match`.
    */
@@ -307,6 +315,192 @@ export class StoriesService {
 
       return { storyBrief, storyState: st.workflowState };
     });
+  }
+
+  /**
+   * PATCH story draft — §12.1, §6. Version token = `story_draft.last_edited_at` ISO string in `If-Match`.
+   */
+  async patchStoryDraft(params: {
+    storyId: string;
+    creatorId: string;
+    ifMatchRaw: string | undefined;
+    dto: PatchStoryDraftDto;
+  }): Promise<{
+    storyDraft: StoryDraft;
+    storyState: CreatorWorkflowState;
+  }> {
+    const { storyId, creatorId, ifMatchRaw, dto } = params;
+
+    if (!this.patchDraftDtoHasContent(dto)) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "validation_failed",
+          message: "At least one story draft field is required",
+        },
+      });
+    }
+
+    const versionToken = normalizeIfMatchHeader(ifMatchRaw);
+    if (!versionToken) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "validation_failed",
+          message:
+            "If-Match header is required with the last story_draft last_edited_at (ISO 8601)",
+        },
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const story = await tx.story.findFirst({
+        where: { id: storyId, creatorId },
+        include: {
+          storyBrief: {
+            include: { storyDraft: true },
+          },
+        },
+      });
+
+      const draft = story?.storyBrief?.storyDraft;
+      if (!story || !draft) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "story_not_found", message: "Story or draft not found" },
+        });
+      }
+
+      const allowedStates: CreatorWorkflowState[] = [
+        "ready_for_edit",
+        "blocked",
+        "ready_to_publish",
+        "published",
+      ];
+      if (!allowedStates.includes(story.workflowState)) {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "invalid_state_transition",
+            message: "Story draft cannot be edited in the current workflow state",
+            details: { story_state: story.workflowState },
+          },
+        });
+      }
+
+      if (draft.lastEditedAt.toISOString() !== versionToken) {
+        const latest = await tx.storyDraft.findUnique({
+          where: { id: draft.id },
+        });
+        throw new ConflictException({
+          ok: false,
+          error: {
+            code: "conflict",
+            message: "Version mismatch or concurrent edit conflict",
+            details: {
+              story_draft: latest ? storyDraftToApi(latest) : null,
+            },
+          },
+        });
+      }
+
+      const draftData: Prisma.StoryDraftUpdateInput = {
+        ...this.buildDraftPatchInput(dto),
+        lastEditedBy: creatorId,
+      };
+
+      const updated = await tx.storyDraft.updateMany({
+        where: {
+          id: draft.id,
+          lastEditedAt: draft.lastEditedAt,
+        },
+        data: draftData,
+      });
+
+      if (updated.count !== 1) {
+        const latest = await tx.storyDraft.findUnique({
+          where: { id: draft.id },
+        });
+        throw new ConflictException({
+          ok: false,
+          error: {
+            code: "conflict",
+            message: "Version mismatch or concurrent edit conflict",
+            details: {
+              story_draft: latest ? storyDraftToApi(latest) : null,
+            },
+          },
+        });
+      }
+
+      const storyDraft = await tx.storyDraft.findUniqueOrThrow({
+        where: { id: draft.id },
+      });
+      const st = await tx.story.findUniqueOrThrow({
+        where: { id: storyId },
+        select: { workflowState: true },
+      });
+
+      return { storyDraft, storyState: st.workflowState };
+    });
+  }
+
+  private patchDraftDtoHasContent(dto: PatchStoryDraftDto): boolean {
+    const keys = Object.keys(dto) as (keyof PatchStoryDraftDto)[];
+    return keys.some((k) => dto[k] !== undefined);
+  }
+
+  private buildDraftPatchInput(dto: PatchStoryDraftDto): Prisma.StoryDraftUpdateInput {
+    const d: Prisma.StoryDraftUpdateInput = {};
+    if (dto.title !== undefined) {
+      d.title = dto.title;
+    }
+    if (dto.subtitle !== undefined) {
+      d.subtitle = dto.subtitle;
+    }
+    if (dto.summary !== undefined) {
+      d.summary = dto.summary;
+    }
+    if (dto.lens !== undefined) {
+      d.lens = dto.lens;
+    }
+    if (dto.conclusion !== undefined) {
+      d.conclusion = dto.conclusion;
+    }
+    if (dto.category_primary !== undefined) {
+      d.categoryPrimary = dto.category_primary;
+    }
+    if (dto.category_secondary !== undefined) {
+      d.categorySecondary = dto.category_secondary;
+    }
+    if (dto.lead_priority !== undefined) {
+      d.leadPriority = dto.lead_priority;
+    }
+    if (dto.discovery_mode !== undefined) {
+      d.discoveryMode = dto.discovery_mode as Prisma.StoryDraftUpdateInput["discoveryMode"];
+    }
+    if (dto.time_start !== undefined) {
+      d.timeStart =
+        dto.time_start === null ? null : new Date(dto.time_start);
+    }
+    if (dto.time_end !== undefined) {
+      d.timeEnd = dto.time_end === null ? null : new Date(dto.time_end);
+    }
+    if (dto.time_display !== undefined) {
+      d.timeDisplay = dto.time_display;
+    }
+    if (dto.visibility_target !== undefined) {
+      d.visibilityTarget =
+        dto.visibility_target as Prisma.StoryDraftUpdateInput["visibilityTarget"];
+    }
+    if (dto.needs_human_review !== undefined) {
+      d.needsHumanReview = dto.needs_human_review;
+    }
+    if (dto.editorial_review_status !== undefined) {
+      d.editorialReviewStatus =
+        dto.editorial_review_status as Prisma.StoryDraftUpdateInput["editorialReviewStatus"];
+    }
+    return d;
   }
 
   private patchDtoHasContent(dto: PatchStoryBriefDto): boolean {
