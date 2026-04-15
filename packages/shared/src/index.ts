@@ -6,7 +6,7 @@
  * storywall_reviewer_permissions_moderation_state_contract.md
  */
 
-export const API_CONTRACT_VERSION = "2026-04-14" as const;
+export const API_CONTRACT_VERSION = "2026-05-01" as const;
 
 /** Public reader + CMS subject classification */
 export type SubjectType =
@@ -138,6 +138,39 @@ export type ChangedObjectType =
   | "image"
   | "validation"
   | "publish";
+
+// --- M3-T01 validation + draft trust metadata (editor §15) — mirrors Prisma enums in apps/api ---
+
+export type ValidationRunType =
+  | "structure"
+  | "trust"
+  | "style"
+  | "publish_readiness"
+  | "full";
+
+export type ValidationRunSource = "system" | "creator_requested" | "reviewer_requested";
+
+export type ValidationOverallResult = "pass" | "warn" | "block";
+
+export type ValidationIssueObjectType = "story" | "section" | "event" | "source" | "image";
+
+export type ValidationIssueType =
+  | "overclaim"
+  | "unsupported"
+  | "duplicate"
+  | "timeline_gap"
+  | "tone_drift"
+  | "missing_source"
+  | "disputed_view_missing"
+  | "imagery_risk"
+  | "missing_synthesis"
+  | "other";
+
+export type ValidationIssueSeverity = "low" | "medium" | "high";
+
+export type ValidationPublishEffect = "none" | "warn" | "block";
+
+export type ValidationResolutionStatus = "open" | "accepted" | "dismissed" | "resolved";
 
 // --- M1-T05 section / event / source / image proposal (editor §11–14) ---
 

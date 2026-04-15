@@ -214,6 +214,76 @@ enum ChangedObjectType {
   publish
 }
 
+// --- M3-T01 validation + draft trust metadata (editor §15; mutation §17 supporting persistence) ---
+
+/// Editor §15.1 `run_type`
+enum ValidationRunType {
+  structure
+  trust
+  style
+  publish_readiness
+  full
+}
+
+/// Editor §15.1 `run_source`
+enum ValidationRunSource {
+  system
+  creator_requested
+  reviewer_requested
+}
+
+/// Editor §15.1 `overall_result`
+enum ValidationOverallResult {
+  pass
+  warn
+  block
+}
+
+/// Editor §15.2 `object_type` — target of an issue
+enum ValidationIssueObjectType {
+  story
+  section
+  event
+  source
+  image
+}
+
+/// Editor §15.2 `issue_type` — taxonomy for M3-T02+
+enum ValidationIssueType {
+  overclaim
+  unsupported
+  duplicate
+  timeline_gap
+  tone_drift
+  missing_source
+  disputed_view_missing
+  imagery_risk
+  missing_synthesis
+  other
+}
+
+/// Editor §15.2 `severity`
+enum ValidationIssueSeverity {
+  low
+  medium
+  high
+}
+
+/// Editor §15.2 `publish_effect`
+enum ValidationPublishEffect {
+  none
+  warn
+  block
+}
+
+/// Editor §15.2 `resolution_status`
+enum ValidationResolutionStatus {
+  open
+  accepted
+  dismissed
+  resolved
+}
+
 // --- M1-T05 timeline + evidence draft layer (editor §11–14) ---
 
 enum SectionDraftStatus {
@@ -873,6 +943,9 @@ model StoryDraft {
   imageProposals  ImageProposal[]
   revisionEntries RevisionEntry[]
 
+  validationReports  ValidationReport[]
+  draftTrustMetadata DraftTrustMetadata?
+
   @@index([selectedFrameId], map: "story_draft_selected_frame_id_idx")
   @@map("story_draft")
 }
@@ -898,6 +971,83 @@ model RevisionEntry {
 
   @@index([storyDraftId, createdAt(sort: Desc)], map: "revision_entry_draft_created_idx")
   @@map("revision_entry")
+}
+
+/// Immutable validation run / report — editor §15.1; created by `POST …/validation/run` in later tickets.
+model ValidationReport {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  runType   ValidationRunType   @map("run_type")
+  runSource ValidationRunSource @map("run_source")
+
+  overallResult ValidationOverallResult @map("overall_result")
+
+  issueCountTotal Int @map("issue_count_total")
+  blockerCount    Int @map("blocker_count")
+  warningCount    Int @map("warning_count")
+
+  summaryNote String @map("summary_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Audit actor (creator, system job, reviewer) — not FK to `creator` (M1-T06 pattern).
+  createdBy String? @map("created_by") @db.Uuid
+
+  issues ValidationIssue[]
+
+  /// At most one draft row may point here as `latest_validation_report_id`.
+  latestForDraftTrustMetadata DraftTrustMetadata? @relation("DraftTrustLatestValidationReport")
+
+  @@index([storyDraftId, createdAt(sort: Desc)], map: "validation_report_draft_created_idx")
+  @@map("validation_report")
+}
+
+/// Child finding for a validation run — editor §15.2.
+model ValidationIssue {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  validationReportId String           @map("validation_report_id") @db.Uuid
+  validationReport   ValidationReport @relation(fields: [validationReportId], references: [id], onDelete: Cascade)
+
+  objectType ValidationIssueObjectType @map("object_type")
+  objectId   String                    @map("object_id") @db.Uuid
+
+  issueType ValidationIssueType @map("issue_type")
+
+  severity       ValidationIssueSeverity @map("severity")
+  publishEffect  ValidationPublishEffect @map("publish_effect")
+  explanation    String                  @map("explanation") @db.Text
+  suggestedFix   String?                 @map("suggested_fix") @db.Text
+
+  resolutionStatus ValidationResolutionStatus @map("resolution_status")
+  resolvedBy       String?                  @map("resolved_by") @db.Uuid
+  resolvedAt       DateTime?                @map("resolved_at") @db.Timestamptz(6)
+
+  @@index([validationReportId], map: "validation_issue_report_idx")
+  @@index([objectType, objectId], map: "validation_issue_object_idx")
+  @@map("validation_issue")
+}
+
+/// Story-draft–scoped trust snapshot for publish gating and later surfaces — complements per-run `validation_report` rows.
+model DraftTrustMetadata {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  storyDraftId String     @unique @map("story_draft_id") @db.Uuid
+  storyDraft   StoryDraft @relation(fields: [storyDraftId], references: [id], onDelete: Cascade)
+
+  /// Denormalized from the latest completed validation the draft trusts for readiness (updated when a run completes).
+  latestValidationReportId String? @unique @map("latest_validation_report_id") @db.Uuid
+  latestValidationReport   ValidationReport? @relation("DraftTrustLatestValidationReport", fields: [latestValidationReportId], references: [id], onDelete: SetNull)
+
+  lastOverallResult ValidationOverallResult? @map("last_overall_result")
+  lastBlockerCount  Int                      @default(0) @map("last_blocker_count")
+  lastWarningCount Int                     @default(0) @map("last_warning_count")
+
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("draft_trust_metadata")
 }
 
 /// Optional timeline grouping — editor §11.
