@@ -5,7 +5,7 @@ export function PublicTrustExplainer() {
         How Storywall shows this publication
       </h2>
       <p className="public-trust-explainer__p">
-        You are reading a published reader view, curated by the story’s creator. The text and timeline reflect what
+        You are reading a published reader view, curated by the story's creator. The text and timeline reflect what
         was released at publication, not day-to-day draft work elsewhere.
       </p>
       <p className="public-trust-explainer__p">
