@@ -80,6 +80,16 @@ Set the deployment **health check path** to `/health` and **port** from `PORT` (
 
 **API start command (staging/production):** Use the package **`start`** script from `apps/api` (for example `pnpm --filter @storywall/api start` or Railway **Start Command** `pnpm start` with root directory `apps/api`). It runs **`prisma migrate deploy`** before `node dist/main.js`, so the database schema is not left behind application code. Avoid a bare `node dist/main.js` start unless you run an equivalent release-phase migration step.
 
+**Railway dashboard (API service):** Confirm **Start Command** is not overriding the migration-aware path with bare `node dist/main.js`. Prefer the **Dockerfile** entrypoint (repo `apps/api/Dockerfile` already runs `prisma migrate deploy` before `node`) or **`pnpm start` / `pnpm --filter @storywall/api start`** from the monorepo root. **Root directory** should match how you build (repo root for `pnpm --filter`, or `apps/api` for `pnpm start` in that package).
+
+**Staging / exemplar readiness check (no secrets):** After deploy, `GET /health/ready` on the API host should return **200** with `database` reachable. Then run the built-in smoke against that host (registers disposable test accounts, calls **POST `/api/v1/creator/stories`**, and exercises brief PATCH semantics):
+
+```bash
+API_URL="https://YOUR-API-HOST" node apps/api/scripts/smoke-creator-slice.mjs
+```
+
+Success ends with `OK: creator slice smoke passed.` A missing `published_body_snapshot` column (or other schema drift) typically surfaces as a **500** on that create path instead. The web client’s configured API base is embedded at build time in `VITE_API_URL`; use that host or your Railway service URL.
+
 ## Docker images
 
 From the repository root:
