@@ -98,7 +98,7 @@ export function CreatorPreviewPanel(props: CreatorPreviewPanelProps) {
           Reader-faithful layout (working draft)
         </h3>
         <p className="editor-panel__kicker muted small">
-          Not the frozen publish snapshot — this canvas mirrors today{"'"}s saved draft and attached references.
+          Not the frozen publish snapshot — this canvas mirrors the current saved draft and attached references.
         </p>
         <p className="editor-panel__hint">
           Scroll the frame below to see how your current draft maps to the same blocks readers see: overview, lens,

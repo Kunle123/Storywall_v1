@@ -197,7 +197,7 @@ function PublishReadinessBlock(props: {
               : "Your workflow is ready for publish from a process standpoint."}
           </p>
         )}
-        {needsRerunNote ? (
+        {needsRerunNote && !validationLoading ? (
           <p className="editor-publish-readiness__detail muted small">
             There is no completed check on file—run <strong>Run checks</strong> above again to confirm nothing changed
             since your workflow advanced.
