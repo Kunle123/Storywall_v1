@@ -51,9 +51,10 @@ export function NewStoryBriefPage() {
     <div className="page">
       <header className="creator-header">
         <div>
-          <h1 className="page-title">New Storywall</h1>
+          <h1 className="page-title">Start a new Storywall</h1>
           <p className="page-lead muted">
-            Structured brief intake — stage <strong>drafting brief</strong> (workflow spec §6).
+            Set the canonical brief—title, summary, angle, and scope—before research or drafting. Workflow:{" "}
+            <strong>drafting brief</strong>.
           </p>
         </div>
         <div className="creator-header-actions">
@@ -66,10 +67,10 @@ export function NewStoryBriefPage() {
 
       <form className="card brief-card" onSubmit={onSubmit}>
         {error ? <div className="banner error">{error}</div> : null}
-        <BriefIntakeFields value={form} onChange={mergeForm} disabled={pending} />
+        <BriefIntakeFields variant="new_story_setup" value={form} onChange={mergeForm} disabled={pending} />
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={pending}>
-            {pending ? "Creating workspace…" : "Create workspace"}
+            {pending ? "Creating story…" : "Create Storywall"}
           </button>
         </div>
       </form>

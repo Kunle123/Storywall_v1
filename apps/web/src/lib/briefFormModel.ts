@@ -11,6 +11,7 @@ export interface BriefFormValues {
   story_type: BriefStoryType;
   research_brief: string;
   desired_angle: string;
+  suggested_time_scope: string;
   time_scope_mode: StoryBriefResponse["time_scope_mode"];
   time_scope_start: string;
   time_scope_end: string;
@@ -28,6 +29,7 @@ export const defaultBriefForm = (): BriefFormValues => ({
   story_type: "biography",
   research_brief: "",
   desired_angle: "",
+  suggested_time_scope: "",
   time_scope_mode: "entire_history",
   time_scope_start: "",
   time_scope_end: "",
@@ -46,6 +48,7 @@ export function briefResponseToForm(b: StoryBriefResponse): BriefFormValues {
     story_type: b.story_type,
     research_brief: b.research_brief ?? "",
     desired_angle: b.desired_angle ?? "",
+    suggested_time_scope: b.suggested_time_scope ?? "",
     time_scope_mode: b.time_scope_mode,
     time_scope_start: b.time_scope_start ? String(b.time_scope_start).slice(0, 10) : "",
     time_scope_end: b.time_scope_end ? String(b.time_scope_end).slice(0, 10) : "",
@@ -103,6 +106,8 @@ export function formToCreateBody(f: BriefFormValues): CreateStoryBody {
   if (f.time_scope_start.trim()) body.time_scope_start = f.time_scope_start.trim();
   if (f.time_scope_end.trim()) body.time_scope_end = f.time_scope_end.trim();
   if (f.audience.trim()) body.audience = f.audience.trim();
+  const sts = f.suggested_time_scope.trim();
+  if (sts) body.suggested_time_scope = sts;
   const src = parseSourceInputsText(f.source_inputs_text);
   if (src.length > 0) body.source_inputs = src;
   const ws = f.writing_style_preference.trim();
@@ -133,6 +138,13 @@ export function diffPatch(from: StoryBriefResponse, form: BriefFormValues): Patc
   if (form.story_type !== from.story_type) patch.story_type = form.story_type;
   if (form.research_brief.trim() !== from.research_brief) patch.research_brief = form.research_brief.trim();
   if (form.desired_angle.trim() !== from.desired_angle) patch.desired_angle = form.desired_angle.trim();
+  {
+    const next = form.suggested_time_scope.trim();
+    const prev = (from.suggested_time_scope ?? "") as string;
+    if (next !== prev) {
+      patch.suggested_time_scope = next === "" ? null : next;
+    }
+  }
   if (form.time_scope_mode !== from.time_scope_mode) patch.time_scope_mode = form.time_scope_mode;
 
   {
@@ -177,8 +189,8 @@ export function diffPatch(from: StoryBriefResponse, form: BriefFormValues): Patc
 }
 
 export function validateCreateForm(f: BriefFormValues): string | null {
-  if (!f.subject.trim()) return "Subject is required.";
-  if (!f.research_brief.trim()) return "Research brief is required.";
-  if (!f.desired_angle.trim()) return "Desired angle is required.";
+  if (!f.subject.trim()) return "Story title is required.";
+  if (!f.research_brief.trim()) return "Working summary is required.";
+  if (!f.desired_angle.trim()) return "Angle or lens is required.";
   return null;
 }

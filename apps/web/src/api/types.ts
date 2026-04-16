@@ -36,6 +36,7 @@ export interface StoryBriefResponse {
   story_type: BriefStoryType;
   research_brief: string;
   desired_angle: string;
+  suggested_time_scope?: string | null;
   time_scope_mode: TimeScopeMode;
   time_scope_start: string | null;
   time_scope_end: string | null;
@@ -402,6 +403,7 @@ export interface CreateStoryBody {
   story_type: BriefStoryType;
   research_brief: string;
   desired_angle: string;
+  suggested_time_scope?: string;
   time_scope_mode: TimeScopeMode;
   time_scope_start?: string;
   time_scope_end?: string;
@@ -439,6 +441,7 @@ export type PatchStoryBriefBody = Partial<{
   story_type: BriefStoryType | null;
   research_brief: string | null;
   desired_angle: string | null;
+  suggested_time_scope: string | null;
   time_scope_mode: TimeScopeMode | null;
   time_scope_start: string | null;
   time_scope_end: string | null;

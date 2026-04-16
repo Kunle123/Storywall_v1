@@ -154,6 +154,7 @@ export class StoriesService {
           storyType: dto.story_type,
           researchBrief: dto.research_brief,
           desiredAngle: dto.desired_angle,
+          suggestedTimeScope: dto.suggested_time_scope?.trim() ? dto.suggested_time_scope.trim() : null,
           timeScopeMode: dto.time_scope_mode,
           timeScopeStart: dto.time_scope_start
             ? new Date(dto.time_scope_start)
@@ -751,6 +752,11 @@ export class StoriesService {
     }
     if (dto.desired_angle !== undefined) {
       d.desiredAngle = dto.desired_angle as string;
+    }
+    if (dto.suggested_time_scope !== undefined) {
+      const raw = dto.suggested_time_scope;
+      d.suggestedTimeScope =
+        raw === null || raw === "" || (typeof raw === "string" && !raw.trim()) ? null : raw.trim();
     }
     if (dto.time_scope_mode !== undefined) {
       d.timeScopeMode = dto.time_scope_mode as Prisma.StoryBriefUpdateInput["timeScopeMode"];

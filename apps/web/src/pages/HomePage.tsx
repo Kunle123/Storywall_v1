@@ -18,7 +18,7 @@ export function HomePage() {
           </p>
           <p style={{ marginTop: "0.75rem" }}>
             <Link to="/creator/stories/new" className="btn primary inline">
-              New Storywall (brief intake)
+              New Storywall
             </Link>
           </p>
         </div>

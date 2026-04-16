@@ -46,6 +46,11 @@ export class CreateStoryDto {
   @MaxLength(20000)
   desired_angle!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  suggested_time_scope?: string;
+
   @IsIn(TIME_SCOPE_MODE)
   time_scope_mode!: (typeof TIME_SCOPE_MODE)[number];
 

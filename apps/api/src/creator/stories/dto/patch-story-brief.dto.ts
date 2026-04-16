@@ -54,6 +54,11 @@ export class PatchStoryBriefDto {
   desired_angle?: string | null;
 
   @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsString()
+  @MaxLength(10000)
+  suggested_time_scope?: string | null;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsIn(TIME_SCOPE_MODE)
   time_scope_mode?: (typeof TIME_SCOPE_MODE)[number] | null;
 
