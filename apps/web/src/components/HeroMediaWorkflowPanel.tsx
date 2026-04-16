@@ -74,7 +74,7 @@ export function HeroMediaWorkflowPanel(props: HeroMediaWorkflowPanelProps) {
         </select>
       </label>
       {disabled ? (
-        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+        <p className="hero-media-panel__note" role="status">
           Imagery policy saves with the story draft. Finish framing and draft assembly from the brief workspace so this
           story loads here, then choose the rule that fits how you want visuals treated.
         </p>

@@ -17,6 +17,20 @@
   --warn-border: #e6c200;
   --radius: 10px;
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* M4-T11 — creator workspace palette (panels + accents; keeps public reader unchanged) */
+  --creator-panel: #f7f7f4;
+  --creator-panel-story: #ffffff;
+  --creator-panel-validation: #ecf1ed;
+  --creator-panel-composition: #fafaf8;
+  --creator-panel-timeline: #f4f4f0;
+  --creator-panel-evidence: #f7f6f1;
+  --creator-panel-hero: #faf9f6;
+  --creator-panel-post: #f1f0ea;
+  --creator-panel-preview: #f3f3ef;
+  --creator-panel-revisions: #f0f1ec;
+  --creator-ink-structure: rgba(0, 0, 0, 0.1);
+  --creator-ink-readiness: #1a4d3a;
+  --creator-ink-preview: #3d5568;
 }
 
 body {
@@ -202,8 +216,8 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 0.85rem 0.95rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  padding: 0.9rem 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
 }
 
 .creator-workspace-rail__block--placeholder {
@@ -432,10 +446,11 @@ body {
 }
 
 .banner {
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  border-radius: calc(var(--radius) - 2px);
   margin-bottom: 1rem;
   font-size: 0.875rem;
+  line-height: 1.45;
 }
 
 .banner.error {
@@ -577,16 +592,22 @@ a:hover {
   display: flex;
   gap: 0.65rem;
   align-items: flex-start;
-  padding: 1rem 1.1rem;
+  padding: 1.05rem 1.1rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) - 1px);
   background: var(--surface);
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.framing-card:hover {
+  border-color: #c9c9c2;
 }
 
 .framing-card.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 8px rgba(26, 77, 58, 0.1);
 }
 
 .framing-card input[type="radio"] {
@@ -734,13 +755,18 @@ a:hover {
 }
 
 .draft-ready-card .draft-ready-badge {
-  display: inline-block;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--accent);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.65rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(26, 77, 58, 0.08);
+  border: 1px solid rgba(26, 77, 58, 0.18);
 }
 
 .draft-ready-title {
@@ -778,7 +804,21 @@ a:hover {
 }
 
 .draft-ready-card {
-  padding: 1.35rem 1.15rem 1.5rem;
+  position: relative;
+  padding: 1.35rem 1.2rem 1.5rem;
+}
+
+.draft-ready-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, var(--accent), transparent 72%);
+  opacity: 0.28;
+  pointer-events: none;
 }
 
 .editor-workspace-intro {
@@ -794,7 +834,7 @@ a:hover {
 .editor-shell {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.35rem;
 }
 
 @media (min-width: 640px) {
@@ -803,32 +843,45 @@ a:hover {
   }
 }
 
+/* M4-T11 — shared creator panel shell (rhythm + state accent) */
 .editor-panel {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 1px);
-  background: #f7f7f4;
-  padding: 1rem 0.95rem 1.1rem;
+  background: var(--creator-panel);
+  padding: 1.05rem 1rem 1.15rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
 }
 
 .editor-panel--story {
-  background: var(--surface);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  background: var(--creator-panel-story);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.02),
+    0 1px 3px rgba(0, 0, 0, 0.045);
 }
 
 .editor-panel--revisions {
-  background: #f3f4f1;
+  background: var(--creator-panel-revisions);
+  box-shadow:
+    inset 2px 0 0 0 var(--creator-ink-structure),
+    0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* M3-T04 — validation snapshot (readiness) */
 .editor-panel--validation {
-  background: #eef0ec;
-  border-style: solid;
+  background: var(--creator-panel-validation);
+  box-shadow:
+    inset 3px 0 0 0 var(--creator-ink-readiness),
+    0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* M4-T04 — narrative section composition (ordered body) */
 .editor-panel--composition {
-  background: #fafaf7;
+  background: var(--creator-panel-composition);
   scroll-margin-top: 0.85rem;
+  box-shadow:
+    inset 2px 0 0 0 var(--creator-ink-structure),
+    0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .narrative-composition__stack {
@@ -840,6 +893,29 @@ a:hover {
 
 .narrative-composition__empty {
   margin: 0.5rem 0 0;
+}
+
+/* M4-T11 — shared empty / orientation callouts (composition, timeline, evidence) */
+.narrative-composition__empty,
+.timeline-mgmt__empty,
+.evidence-workspace__empty {
+  padding: 0.65rem 0.8rem;
+  border-radius: calc(var(--radius) - 3px);
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.55);
+  max-width: 40rem;
+}
+
+.narrative-composition__empty p,
+.timeline-mgmt__empty p,
+.evidence-workspace__empty p {
+  margin: 0;
+}
+
+.narrative-composition__empty p + p,
+.timeline-mgmt__empty p + p,
+.evidence-workspace__empty p + p {
+  margin-top: 0.5rem;
 }
 
 .narrative-section-card__head {
@@ -900,11 +976,12 @@ a:hover {
 }
 
 .editor-publish-readiness__confirm {
-  margin-top: 0.5rem;
-  padding: 0.55rem 0.6rem 0.65rem;
-  border-radius: 8px;
+  margin-top: 0.55rem;
+  padding: 0.65rem 0.75rem 0.75rem;
+  border-radius: calc(var(--radius) - 3px);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .editor-publish-readiness__ack {
@@ -938,8 +1015,8 @@ a:hover {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -983,11 +1060,12 @@ a:hover {
 }
 
 .editor-validation-issue-list__item {
-  padding: 0.55rem 0.65rem;
-  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  border-radius: calc(var(--radius) - 4px);
   border: 1px solid var(--border);
   background: var(--surface);
   font-size: 0.8125rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.025);
 }
 
 .editor-validation-issue-list__scope {
@@ -1053,11 +1131,12 @@ a:hover {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  border-radius: calc(var(--radius) - 4px);
   border: 1px solid var(--border);
   background: var(--surface);
   font-size: 0.8125rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.025);
 }
 
 .editor-revision-list__meta {
@@ -1073,8 +1152,12 @@ a:hover {
 }
 
 .editor-panel--outline,
-.editor-panel--timeline {
-  background: #f3f4f1;
+.editor-panel--timeline,
+.editor-panel--timeline-mgmt {
+  background: var(--creator-panel-timeline);
+  box-shadow:
+    inset 2px 0 0 0 var(--creator-ink-structure),
+    0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* M4-T05 — timeline event management */
@@ -1090,7 +1173,7 @@ a:hover {
 }
 
 .timeline-mgmt__empty {
-  margin: 0.5rem 0 0;
+  margin: 0.55rem 0 0;
 }
 
 .timeline-mgmt__add {
@@ -1160,30 +1243,38 @@ a:hover {
 
 /* M4-T07 — hero imagery policy (story_draft.imagery_mode) */
 .editor-panel--hero-media {
-  background: #faf9f6;
+  background: var(--creator-panel-hero);
   scroll-margin-top: 0.85rem;
-  border-style: solid;
+  box-shadow:
+    inset 2px 0 0 0 var(--creator-ink-structure),
+    0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* M4-T06 — evidence workspace (sources attach to events) */
 .editor-panel--evidence {
-  background: #f8f7f4;
+  background: var(--creator-panel-evidence);
   scroll-margin-top: 0.85rem;
-  border-style: solid;
+  box-shadow:
+    inset 2px 0 0 0 rgba(110, 95, 60, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* M4-T09 — live vs draft orientation for published stories */
 .editor-panel--post-publish {
-  background: #f4f3ef;
+  background: var(--creator-panel-post);
   scroll-margin-top: 0.85rem;
-  border-style: solid;
+  box-shadow:
+    inset 3px 0 0 0 #9a7b2e,
+    0 1px 2px rgba(0, 0, 0, 0.035);
 }
 
 /* M4-T08 — draft-fed reader preview (nested scroll) */
 .editor-panel--creator-preview {
-  background: #f6f6f2;
+  background: var(--creator-panel-preview);
   scroll-margin-top: 0.85rem;
-  border-style: solid;
+  box-shadow:
+    inset 3px 0 0 0 var(--creator-ink-preview),
+    0 1px 2px rgba(0, 0, 0, 0.035);
 }
 
 .creator-preview-frame {
@@ -1194,6 +1285,7 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 2px);
   background: var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .creator-preview-frame .public-story-page {
@@ -1228,13 +1320,35 @@ a:hover {
   margin: 0;
 }
 
+/* M4-T11 — preview + hero helper surfaces */
+.creator-preview-empty {
+  padding: 0.65rem 0.85rem;
+  border-radius: calc(var(--radius) - 3px);
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.5);
+  max-width: 38rem;
+}
+
+.hero-media-panel__note {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: calc(var(--radius) - 3px);
+  border: 1px dashed var(--border);
+  background: rgba(255, 255, 255, 0.4);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .evidence-workspace__empty {
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
 }
 
 .evidence-summary-card {
   margin: 0.75rem 0 1rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
 }
 
 .evidence-summary-card__title {
@@ -1330,11 +1444,12 @@ a:hover {
 }
 
 .editor-panel__title {
-  font-size: 1.02rem;
+  font-size: 1.0625rem;
   font-weight: 650;
   margin: 0;
   letter-spacing: -0.02em;
   color: var(--text);
+  line-height: 1.25;
 }
 
 .editor-panel__hint {
@@ -1436,7 +1551,7 @@ a:hover {
 .editor-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius) - 2px);
   padding: 0.85rem 0.9rem;
 }
 

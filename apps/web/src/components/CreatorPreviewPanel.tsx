@@ -99,7 +99,7 @@ export function CreatorPreviewPanel(props: CreatorPreviewPanelProps) {
       </div>
 
       {!draft ? (
-        <div className="muted small" role="status">
+        <div className="muted small creator-preview-empty" role="status">
           <p>
             <strong>No draft loaded.</strong> Preview reads the same story draft the server stores after framing and
             assembly — it is not available until that row exists.
