@@ -72,6 +72,9 @@ export class FramesController {
       data: {
         story_id: result.storyId,
         story_state: result.storyState,
+        story_lifecycle_status: result.storyLifecycleStatus,
+        published_at: result.publishedAt ? result.publishedAt.toISOString() : null,
+        story_slug: result.storySlug,
         frame_drafts: result.frameDrafts.map((f) => storyFrameDraftToApi(f)),
         story_draft: result.storyDraft ? storyDraftToApi(result.storyDraft) : null,
       },

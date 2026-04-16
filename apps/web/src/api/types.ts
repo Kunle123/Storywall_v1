@@ -96,6 +96,11 @@ export interface ListFramesSuccess {
   data: {
     story_id: string;
     story_state: CreatorWorkflowState;
+    /** `stories.story_status` — live lifecycle anchor (M4-T09). */
+    story_lifecycle_status?: string;
+    published_at?: string | null;
+    /** Public reader slug (same as published URL). */
+    story_slug?: string;
     frame_drafts: FrameDraftResponse[];
     /** Present when a `story_draft` row exists (after frame select / assembly). */
     story_draft: StoryDraftResponse | null;

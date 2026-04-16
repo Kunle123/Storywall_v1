@@ -28,6 +28,8 @@ const ALLOWED_VALIDATION_STATES: CreatorWorkflowState[] = [
   "needs_validation",
   "blocked",
   "ready_to_publish",
+  /** M4-T09 — post-publish maintenance: run checks before republishing while the story stays live. */
+  "published",
 ];
 
 const RUN_TYPE_MAP: Record<string, ValidationRunType> = {

@@ -168,6 +168,18 @@ export function CreatorWorkspaceLayout() {
             </p>
           </section>
           <section className="creator-workspace-rail__block">
+            <h2 className="creator-workspace-rail__h">After publish</h2>
+            <p className="creator-workspace-rail__text muted small">
+              Live stories use a frozen reader snapshot. Run checks, then update the live story from the Draft tab when
+              draft edits should become public.
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#post-publish-live`} className="creator-workspace-rail__link">
+                Live vs draft
+              </Link>
+            </p>
+          </section>
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Checks & publish</h2>
             <p className="creator-workspace-rail__text muted small">
               Run checks, resolve issues, and publish from the <strong>Draft</strong> tab when your story is ready.

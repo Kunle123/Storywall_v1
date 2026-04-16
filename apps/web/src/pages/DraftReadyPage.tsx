@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { BriefImageryMode, CreatorWorkflowState } from "@storywall/shared";
@@ -28,6 +28,7 @@ import type {
   StoryDraftResponse,
   ValidationIssueRow,
   GetLatestValidationSuccess,
+  ListFramesSuccess,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
@@ -46,6 +47,8 @@ type EditorPublishFlowProps = {
   publishBusy: boolean;
   publishError: string | null;
   warnAck: boolean;
+  /** True when the story is already live — publish refreshes the frozen public snapshot (M4-T09). */
+  isRepublish: boolean;
   onWarnAckChange: (v: boolean) => void;
   onOpenConfirm: () => void;
   onCancelConfirm: () => void;
@@ -58,6 +61,8 @@ const EDITORIAL_VALIDATION_WORKFLOWS: CreatorWorkflowState[] = [
   "needs_validation",
   "blocked",
   "ready_to_publish",
+  /** M4-T09 — post-publish draft edits while the reader still sees the last snapshot until republish. */
+  "published",
 ];
 
 function isEditorialValidationWorkspace(w: CreatorWorkflowState | null): boolean {
@@ -71,8 +76,10 @@ function PublishReadinessBlock(props: {
   validationLoading: boolean;
   onScrollToIssues: () => void;
   publishFlow: EditorPublishFlowProps | null;
+  /** Story lifecycle `published` — readers see a frozen snapshot until checks + republish. */
+  storyLivePublished: boolean;
 }): ReactNode {
-  const { workflow, validationData, validationLoading, onScrollToIssues, publishFlow } = props;
+  const { workflow, validationData, validationLoading, onScrollToIssues, publishFlow, storyLivePublished } = props;
   const report = validationData?.validation_report ?? null;
   const hasRun = validationData?.has_validation_run === true;
   const warnRemaining =
@@ -87,6 +94,11 @@ function PublishReadinessBlock(props: {
           Keep shaping your draft. Publishing is not the active step yet. When you want a publish-readiness signal, run
           checks above.
         </p>
+        {storyLivePublished ? (
+          <p className="editor-publish-readiness__detail muted small">
+            The public reader still shows your last published snapshot until you run checks and update the live story.
+          </p>
+        ) : null}
         {validationLoading ? (
           <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
         ) : null}
@@ -102,6 +114,28 @@ function PublishReadinessBlock(props: {
         <p className="editor-publish-readiness__detail muted small">
           Publishing is not available in this workflow state until you run checks and the story can advance. Use{" "}
           <strong>Run checks</strong> above.
+        </p>
+        {storyLivePublished ? (
+          <p className="editor-publish-readiness__detail muted small">
+            While you wait, the live reader still shows your last published snapshot.
+          </p>
+        ) : null}
+        {validationLoading ? (
+          <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (workflow === "published" && storyLivePublished) {
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Live — snapshot refresh pending</p>
+        <p className="editor-publish-readiness__detail muted small">
+          Draft changes in this workspace are <strong>not</strong> on the public reader until you run{" "}
+          <strong>Run checks</strong> and then <strong>Update live story</strong>. Readers still see the frozen snapshot
+          from your last successful publish.
         </p>
         {validationLoading ? (
           <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
@@ -119,6 +153,11 @@ function PublishReadinessBlock(props: {
           Your story cannot move toward publish until blockers from the latest run are addressed. Review the issues
           below, make edits, then run checks again.
         </p>
+        {storyLivePublished ? (
+          <p className="editor-publish-readiness__detail muted small">
+            The live reader view stays on your last successful publish until checks pass again.
+          </p>
+        ) : null}
         <div className="editor-publish-readiness__actions">
           <button type="button" className="btn ghost inline" onClick={onScrollToIssues}>
             View issues list
@@ -133,13 +172,18 @@ function PublishReadinessBlock(props: {
 
   if (workflow === "ready_to_publish") {
     const needsRerunNote = !hasRun;
+    const republish = storyLivePublished;
     return (
       <div className="editor-publish-readiness">
         <p className="editor-panel__eyebrow">Publish</p>
-        <p className="editor-publish-readiness__status">Ready for publish</p>
+        <p className="editor-publish-readiness__status">
+          {republish ? "Ready to update the live story" : "Ready for publish"}
+        </p>
         {hasRun && report ? (
           <p className="editor-publish-readiness__detail muted small">
-            Your workflow allows moving toward publish. The latest recorded check run did not report blockers.
+            {republish
+              ? "Checks allow refreshing the published reader snapshot from your current draft."
+              : "Your workflow allows moving toward publish. The latest recorded check run did not report blockers."}
           </p>
         ) : hasRun && !report ? (
           <p className="editor-publish-readiness__detail muted small">
@@ -148,7 +192,9 @@ function PublishReadinessBlock(props: {
           </p>
         ) : (
           <p className="editor-publish-readiness__detail muted small">
-            Your workflow is ready for publish from a process standpoint.
+            {republish
+              ? "Your workflow is ready to push draft changes to the live reader."
+              : "Your workflow is ready for publish from a process standpoint."}
           </p>
         )}
         {needsRerunNote ? (
@@ -170,8 +216,17 @@ function PublishReadinessBlock(props: {
             <div className="editor-publish-readiness__confirm">
               {publishFlow.publishError ? <p className="hint">{publishFlow.publishError}</p> : null}
               <p className="editor-publish-readiness__detail muted small">
-                Publishing marks this story as published in Storywall. You can keep editing from other flows when
-                available, but this step is meant to be deliberate.
+                {publishFlow.isRepublish ? (
+                  <>
+                    This replaces the <strong>frozen reader snapshot</strong> with your current draft (title, body,
+                    timeline, and public sources). It does not change the story&apos;s public address.
+                  </>
+                ) : (
+                  <>
+                    Publishing marks this story as published in Storywall. You can keep editing from other flows when
+                    available, but this step is meant to be deliberate.
+                  </>
+                )}
               </p>
               {publishFlow.needsWarningAck ? (
                 <label className="editor-publish-readiness__ack">
@@ -201,7 +256,13 @@ function PublishReadinessBlock(props: {
                   }
                   onClick={publishFlow.onConfirmPublish}
                 >
-                  {publishFlow.publishBusy ? "Publishing…" : "Confirm publish"}
+                  {publishFlow.publishBusy
+                    ? publishFlow.isRepublish
+                      ? "Updating…"
+                      : "Publishing…"
+                    : publishFlow.isRepublish
+                      ? "Confirm update to live story"
+                      : "Confirm publish"}
                 </button>
               </div>
             </div>
@@ -213,7 +274,7 @@ function PublishReadinessBlock(props: {
                 disabled={validationLoading}
                 onClick={publishFlow.onOpenConfirm}
               >
-                Publish story
+                {publishFlow.isRepublish ? "Update live story" : "Publish story"}
               </button>
             </div>
           )
@@ -390,6 +451,10 @@ export function DraftReadyPage() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishWarnAck, setPublishWarnAck] = useState(false);
   const [publishOk, setPublishOk] = useState(false);
+  const [storyLifecycleStatus, setStoryLifecycleStatus] = useState<string | null>(null);
+  const [publishedAtIso, setPublishedAtIso] = useState<string | null>(null);
+  const [storySlug, setStorySlug] = useState<string | null>(null);
+  const publishOutcomeKindRef = useRef<"first" | "republish">("first");
   const scrollValidationIssuesIntoView = useCallback(() => {
     const target =
       document.getElementById("editor-validation-issue-list") ??
@@ -404,6 +469,25 @@ export function DraftReadyPage() {
     () => (draft ? mergeDraftWithLocalForPreview(draft, localFields) : null),
     [draft, title, subtitle, summary, lens, conclusion, imageryMode],
   );
+
+  const ingestFramesData = useCallback((data: ListFramesSuccess["data"]) => {
+    setWorkflow(data.story_state);
+    setStoryLifecycleStatus(data.story_lifecycle_status ?? null);
+    setPublishedAtIso(data.published_at ?? null);
+    setStorySlug(data.story_slug ?? null);
+    const d = data.story_draft;
+    setDraft(d);
+    if (d) {
+      applyServerDraftToForm(d, {
+        setTitle,
+        setSubtitle,
+        setSummary,
+        setLens,
+        setConclusion,
+        setImageryMode,
+      });
+    }
+  }, []);
 
   const refreshSections = useCallback(async () => {
     if (!token || !storyId) return;
@@ -585,19 +669,7 @@ export function DraftReadyPage() {
       try {
         await restoreRevision(token, storyId, rev.id, ifMatch);
         const rFrames = await listFrames(token, storyId);
-        setWorkflow(rFrames.data.story_state);
-        const d = rFrames.data.story_draft;
-        setDraft(d);
-        if (d) {
-          applyServerDraftToForm(d, {
-            setTitle,
-            setSubtitle,
-            setSummary,
-            setLens,
-            setConclusion,
-            setImageryMode,
-          });
-        }
+        ingestFramesData(rFrames.data);
         await refreshSections();
         await refreshEvents();
         setSaveOk(true);
@@ -610,7 +682,7 @@ export function DraftReadyPage() {
         setRestoringRevisionId(null);
       }
     },
-    [draft, events, refreshEvents, refreshSections, sections, storyId, token],
+    [draft, events, ingestFramesData, refreshEvents, refreshSections, sections, storyId, token],
   );
 
   const startScopedSectionRegenerate = useCallback(
@@ -661,19 +733,7 @@ export function DraftReadyPage() {
       try {
         const r = await listFrames(token, storyId);
         if (cancelled) return;
-        setWorkflow(r.data.story_state);
-        const d = r.data.story_draft;
-        setDraft(d);
-        if (d) {
-          applyServerDraftToForm(d, {
-            setTitle,
-            setSubtitle,
-            setSummary,
-            setLens,
-            setConclusion,
-            setImageryMode,
-          });
-        }
+        ingestFramesData(r.data);
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load story.");
@@ -683,7 +743,7 @@ export function DraftReadyPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, storyId]);
+  }, [token, storyId, ingestFramesData]);
 
   useEffect(() => {
     if (!token || !storyId || !draft || !isEditorialValidationWorkspace(workflow)) return;
@@ -778,19 +838,7 @@ export function DraftReadyPage() {
         include_dispute_checks: true,
       });
       const fr = await listFrames(token, storyId);
-      setWorkflow(fr.data.story_state);
-      const d = fr.data.story_draft;
-      setDraft(d);
-      if (d) {
-        applyServerDraftToForm(d, {
-          setTitle,
-          setSubtitle,
-          setSummary,
-          setLens,
-          setConclusion,
-          setImageryMode,
-        });
-      }
+      ingestFramesData(fr.data);
       await refreshSections();
       await refreshEvents();
       const latest = await getLatestValidation(token, storyId);
@@ -802,7 +850,7 @@ export function DraftReadyPage() {
     } finally {
       setRunValidationBusy(false);
     }
-  }, [token, storyId, refreshSections, refreshEvents]);
+  }, [token, storyId, ingestFramesData, refreshSections, refreshEvents]);
 
   const needsValidationWarningAck =
     validationData?.validation_report?.overall_result === "warn";
@@ -815,24 +863,13 @@ export function DraftReadyPage() {
     }
     setPublishBusy(true);
     setPublishError(null);
+    publishOutcomeKindRef.current = storyLifecycleStatus === "published" ? "republish" : "first";
     try {
       await publishStory(token, storyId, crypto.randomUUID(), {
         acknowledge_validation_warnings: needsValidationWarningAck ? true : undefined,
       });
       const fr = await listFrames(token, storyId);
-      setWorkflow(fr.data.story_state);
-      const d = fr.data.story_draft;
-      setDraft(d);
-      if (d) {
-        applyServerDraftToForm(d, {
-          setTitle,
-          setSubtitle,
-          setSummary,
-          setLens,
-          setConclusion,
-          setImageryMode,
-        });
-      }
+      ingestFramesData(fr.data);
       await refreshSections();
       await refreshEvents();
       setPublishConfirmOpen(false);
@@ -849,8 +886,10 @@ export function DraftReadyPage() {
   }, [
     token,
     storyId,
+    storyLifecycleStatus,
     needsValidationWarningAck,
     publishWarnAck,
+    ingestFramesData,
     refreshSections,
     refreshEvents,
   ]);
@@ -885,6 +924,8 @@ export function DraftReadyPage() {
     );
   }
 
+  const storyLivePublished = storyLifecycleStatus === "published";
+
   return (
     <div className="page draft-workspace-page">
       <h2 className="page-title">Draft ready</h2>
@@ -895,21 +936,20 @@ export function DraftReadyPage() {
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}
       {saveOk ? <div className="banner success">Draft saved.</div> : null}
-      {publishOk ? <div className="banner success">Story published.</div> : null}
+      {publishOk ? (
+        <div className="banner success">
+          {publishOutcomeKindRef.current === "republish"
+            ? "Published reader snapshot updated from your current draft."
+            : "Story published."}
+        </div>
+      ) : null}
 
       {!loadError && workflow && !isEditorialValidationWorkspace(workflow) ? (
         <div className="banner warn">
-          {workflow === "published" ? (
-            <p>
-              This story is <strong>published</strong>. The draft workspace is closed for this lifecycle state. Use the
-              brief workspace for other story actions.
-            </p>
-          ) : (
-            <p>
-              Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
-              workspace to run research or draft assembly, or open generation status if you have a job link.
-            </p>
-          )}
+          <p>
+            Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
+            workspace to run research or draft assembly, or open generation status if you have a job link.
+          </p>
           <div style={{ marginTop: "0.75rem" }}>
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
               Brief workspace
@@ -928,11 +968,48 @@ export function DraftReadyPage() {
               timeline, <strong>Sources &amp; coverage</strong> for evidence, <strong>Hero imagery policy</strong> for
               how visuals are treated, <strong>Reader preview</strong> to see draft content in the public reader layout,
               and deck fields for discovery copy. Changes save automatically.
+              {storyLivePublished ? (
+                <>
+                  {" "}
+                  This story is <strong>already live</strong>: the public reader uses a frozen snapshot until you run
+                  checks and update the live story.
+                </>
+              ) : null}
             </p>
           </div>
           {draft ? (
             <>
               <div className="editor-shell">
+              {storyLivePublished && storySlug ? (
+                <section
+                  className="editor-panel editor-panel--post-publish"
+                  id="post-publish-live"
+                  aria-labelledby="post-publish-live-heading"
+                >
+                  <div className="editor-panel__head">
+                    <p className="editor-panel__eyebrow">Live story</p>
+                    <h3 id="post-publish-live-heading" className="editor-panel__title">
+                      What readers see today
+                    </h3>
+                    <p className="editor-panel__hint">
+                      The reader page is built from the last successful publish, not from unsaved draft edits. Open the
+                      public story in another tab to compare; Storywall does not yet show an automatic diff between
+                      snapshot and draft.
+                    </p>
+                  </div>
+                  <p className="muted small">
+                    Last published{" "}
+                    {publishedAtIso
+                      ? new Date(publishedAtIso).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "—"}
+                    . Public address:{" "}
+                    <Link to={`/stories/${encodeURIComponent(storySlug)}`}>/stories/{storySlug}</Link>
+                  </p>
+                </section>
+              ) : null}
               <section
                 className="editor-panel editor-panel--validation"
                 aria-labelledby="editor-validation-heading"
@@ -960,6 +1037,7 @@ export function DraftReadyPage() {
                     validationData={validationData}
                     validationLoading={validationLoading}
                     onScrollToIssues={scrollValidationIssuesIntoView}
+                    storyLivePublished={storyLivePublished}
                     publishFlow={
                       workflow === "ready_to_publish"
                         ? {
@@ -969,6 +1047,7 @@ export function DraftReadyPage() {
                             publishBusy,
                             publishError,
                             warnAck: publishWarnAck,
+                            isRepublish: storyLivePublished,
                             onWarnAckChange: setPublishWarnAck,
                             onOpenConfirm: () => {
                               setPublishError(null);

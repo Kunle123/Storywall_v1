@@ -1172,6 +1172,13 @@ a:hover {
   border-style: solid;
 }
 
+/* M4-T09 — live vs draft orientation for published stories */
+.editor-panel--post-publish {
+  background: #f4f3ef;
+  scroll-margin-top: 0.85rem;
+  border-style: solid;
+}
+
 /* M4-T08 — draft-fed reader preview (nested scroll) */
 .editor-panel--creator-preview {
   background: #f6f6f2;

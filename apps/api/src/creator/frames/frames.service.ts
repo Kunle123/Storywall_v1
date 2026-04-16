@@ -37,6 +37,10 @@ export class FramesService {
   async listFrames(storyId: string, creatorId: string): Promise<{
     storyId: string;
     storyState: CreatorWorkflowState;
+    /** Story lifecycle (`stories.story_status`) — distinct from creator workflow. M4-T09 post-publish UX. */
+    storyLifecycleStatus: string;
+    publishedAt: Date | null;
+    storySlug: string;
     frameDrafts: StoryFrameDraft[];
     storyDraft: StoryDraft | null;
   }> {
@@ -57,6 +61,9 @@ export class FramesService {
     return {
       storyId: story.id,
       storyState: story.workflowState,
+      storyLifecycleStatus: story.storyStatus,
+      publishedAt: story.publishedAt,
+      storySlug: story.slug,
       frameDrafts,
       storyDraft: story.storyBrief.storyDraft ?? null,
     };

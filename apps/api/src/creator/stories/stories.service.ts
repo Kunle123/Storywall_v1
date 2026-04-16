@@ -466,8 +466,8 @@ export class StoriesService {
   }
 
   /**
-   * M3-T07 + M3-T09 + M3-T10 + M3-T11 — creator publish: sets lifecycle + workflow to published with durable idempotency
-   * and freezes `published_body_snapshot` (body, timeline, story-level sources, per-event references) for public reads.
+   * M3-T07 + M3-T10 + M3-T11 — first publish: lifecycle + workflow `published`, frozen `published_body_snapshot`.
+   * M4-T09 — republish: when `story_status` is already `published` and workflow is `ready_to_publish`, refresh snapshot + `published_at`, keep live.
    */
   async publishStory(params: {
     storyId: string;
@@ -544,25 +544,35 @@ export class StoriesService {
         });
       }
 
-      if (storyRow.workflowState === "published" || storyRow.storyStatus === "published") {
-        throw new ConflictException({
+      const storyIsLive = storyRow.storyStatus === "published";
+      const isRepublish = storyIsLive && storyRow.workflowState === "ready_to_publish";
+
+      if (storyIsLive && !isRepublish) {
+        throw new BadRequestException({
           ok: false,
           error: {
-            code: "already_published",
-            message: "This story is already published. Use a new Idempotency-Key only for the first publish.",
+            code: "republish_not_ready",
+            message:
+              "This story is already live. Readers still see your last published snapshot until you run checks and the workflow reaches ready_to_publish, then publish again to refresh the public snapshot.",
+            details: {
+              story_state: storyRow.workflowState,
+              story_lifecycle_status: storyRow.storyStatus,
+            },
           },
         });
       }
 
-      if (storyRow.workflowState !== "ready_to_publish") {
-        throw new BadRequestException({
-          ok: false,
-          error: {
-            code: "publish_not_allowed",
-            message: "Publish is only available when the story workflow is ready_to_publish",
-            details: { story_state: storyRow.workflowState },
-          },
-        });
+      if (!storyIsLive) {
+        if (storyRow.workflowState !== "ready_to_publish") {
+          throw new BadRequestException({
+            ok: false,
+            error: {
+              code: "publish_not_allowed",
+              message: "Publish is only available when the story workflow is ready_to_publish",
+              details: { story_state: storyRow.workflowState },
+            },
+          });
+        }
       }
 
       const report = storyRow.storyBrief.storyDraft.draftTrustMetadata?.latestValidationReport;
@@ -605,39 +615,74 @@ export class StoriesService {
         eventDrafts: draftForSnap.eventDrafts,
       });
 
-      const updated = await tx.story.updateMany({
-        where: {
-          id: storyId,
-          creatorId,
-          workflowState: "ready_to_publish",
-          storyStatus: { not: "published" },
-        },
-        data: {
-          workflowState: "published",
-          storyStatus: "published",
-          publishedAt,
-          publishedBodySnapshot,
-        },
-      });
-
-      if (updated.count !== 1) {
-        throw new ConflictException({
-          ok: false,
-          error: {
-            code: "publish_conflict",
-            message: "Could not publish; story state may have changed. Refresh and try again.",
+      if (isRepublish) {
+        const updated = await tx.story.updateMany({
+          where: {
+            id: storyId,
+            creatorId,
+            storyStatus: "published",
+            workflowState: "ready_to_publish",
+          },
+          data: {
+            publishedAt,
+            publishedBodySnapshot,
+            workflowState: "published",
           },
         });
-      }
 
-      await this.workflowTransitions.appendIfChanged(tx, {
-        storyId,
-        fromState: fromWf,
-        toState: "published",
-        actorType: "creator",
-        actorId: creatorId,
-        trigger: "creator_publish",
-      });
+        if (updated.count !== 1) {
+          throw new ConflictException({
+            ok: false,
+            error: {
+              code: "publish_conflict",
+              message: "Could not update the published snapshot; story state may have changed. Refresh and try again.",
+            },
+          });
+        }
+
+        await this.workflowTransitions.appendIfChanged(tx, {
+          storyId,
+          fromState: "ready_to_publish",
+          toState: "published",
+          actorType: "creator",
+          actorId: creatorId,
+          trigger: "creator_republish",
+        });
+      } else {
+        const updated = await tx.story.updateMany({
+          where: {
+            id: storyId,
+            creatorId,
+            workflowState: "ready_to_publish",
+            storyStatus: { not: "published" },
+          },
+          data: {
+            workflowState: "published",
+            storyStatus: "published",
+            publishedAt,
+            publishedBodySnapshot,
+          },
+        });
+
+        if (updated.count !== 1) {
+          throw new ConflictException({
+            ok: false,
+            error: {
+              code: "publish_conflict",
+              message: "Could not publish; story state may have changed. Refresh and try again.",
+            },
+          });
+        }
+
+        await this.workflowTransitions.appendIfChanged(tx, {
+          storyId,
+          fromState: fromWf,
+          toState: "published",
+          actorType: "creator",
+          actorId: creatorId,
+          trigger: "creator_publish",
+        });
+      }
 
       await tx.creatorStoryPublishIdempotency.create({
         data: {
