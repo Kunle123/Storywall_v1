@@ -625,6 +625,48 @@ a:hover {
   border-style: solid;
 }
 
+/* M3-T06 — publish readiness + entry (workflow-primary) */
+.editor-publish-readiness {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.editor-publish-readiness__status {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0.2rem 0 0.35rem;
+  color: var(--text);
+}
+
+.editor-publish-readiness__detail {
+  margin: 0 0 0.45rem;
+  max-width: 40rem;
+}
+
+.editor-publish-readiness__meta {
+  margin: 0 0 0.35rem;
+}
+
+.editor-publish-readiness__placeholder {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin: 0.5rem 0 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text);
+}
+
+.editor-publish-readiness__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.15rem;
+}
+
 .editor-validation-body {
   margin-top: 0.35rem;
 }

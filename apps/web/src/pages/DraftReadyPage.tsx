@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import {
@@ -52,6 +53,121 @@ const EDITORIAL_VALIDATION_WORKFLOWS: CreatorWorkflowState[] = [
 
 function isEditorialValidationWorkspace(w: CreatorWorkflowState | null): boolean {
   return w !== null && EDITORIAL_VALIDATION_WORKFLOWS.includes(w);
+}
+
+/** M3-T06 — publish readiness copy; `workflow` is primary; validation snapshot is explanatory only. */
+function PublishReadinessBlock(props: {
+  workflow: CreatorWorkflowState;
+  validationData: GetLatestValidationSuccess["data"] | null;
+  validationLoading: boolean;
+  onScrollToIssues: () => void;
+}): ReactNode {
+  const { workflow, validationData, validationLoading, onScrollToIssues } = props;
+  const report = validationData?.validation_report ?? null;
+  const hasRun = validationData?.has_validation_run === true;
+  const warnRemaining =
+    workflow === "ready_to_publish" && report?.overall_result === "warn";
+
+  if (workflow === "ready_for_edit") {
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Editing in progress</p>
+        <p className="editor-publish-readiness__detail muted small">
+          Keep shaping your draft. Publishing is not the active step yet. When you want a publish-readiness signal, run
+          checks above.
+        </p>
+        {validationLoading ? (
+          <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (workflow === "needs_validation") {
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Checks required</p>
+        <p className="editor-publish-readiness__detail muted small">
+          Publishing is not available in this workflow state until you run checks and the story can advance. Use{" "}
+          <strong>Run checks</strong> above.
+        </p>
+        {validationLoading ? (
+          <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (workflow === "blocked") {
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Publishing blocked</p>
+        <p className="editor-publish-readiness__detail muted small">
+          Your story cannot move toward publish until blockers from the latest run are addressed. Review the issues
+          below, make edits, then run checks again.
+        </p>
+        <div className="editor-publish-readiness__actions">
+          <button type="button" className="btn ghost inline" onClick={onScrollToIssues}>
+            View issues list
+          </button>
+        </div>
+        {validationLoading ? (
+          <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (workflow === "ready_to_publish") {
+    const needsRerunNote = !hasRun;
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Ready for publish</p>
+        {hasRun && report ? (
+          <p className="editor-publish-readiness__detail muted small">
+            Your workflow allows moving toward publish. The latest recorded check run did not report blockers.
+          </p>
+        ) : hasRun && !report ? (
+          <p className="editor-publish-readiness__detail muted small">
+            Your workflow allows moving toward publish. Check details were not returned; run <strong>Run checks</strong>{" "}
+            above again if anything changed.
+          </p>
+        ) : (
+          <p className="editor-publish-readiness__detail muted small">
+            Your workflow is ready for publish from a process standpoint.
+          </p>
+        )}
+        {needsRerunNote ? (
+          <p className="editor-publish-readiness__detail muted small">
+            There is no completed check on file—run <strong>Run checks</strong> above again to confirm nothing changed
+            since your workflow advanced.
+          </p>
+        ) : null}
+        {warnRemaining ? (
+          <p className="editor-publish-readiness__detail muted small">
+            Warnings still appear in the list below; they do not block publishing when your workflow is ready.
+          </p>
+        ) : null}
+        {validationLoading ? (
+          <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
+        ) : null}
+        <p className="editor-publish-readiness__placeholder">
+          This story is ready for publish, but the publish action is not wired on this branch yet.
+        </p>
+        <div className="editor-publish-readiness__actions">
+          <button type="button" className="btn primary inline" disabled aria-disabled="true">
+            Publish story
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function validationObjectLabel(issue: ValidationIssueRow): string {
@@ -698,6 +814,13 @@ export function DraftReadyPage() {
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [runValidationBusy, setRunValidationBusy] = useState(false);
+  const scrollValidationIssuesIntoView = useCallback(() => {
+    const target =
+      document.getElementById("editor-validation-issue-list") ??
+      document.getElementById("editor-validation-report-start") ??
+      document.getElementById("editor-validation-heading");
+    target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
@@ -1115,6 +1238,14 @@ export function DraftReadyPage() {
                     {runValidationBusy ? "Running checks…" : "Run checks"}
                   </button>
                 </div>
+                {workflow ? (
+                  <PublishReadinessBlock
+                    workflow={workflow}
+                    validationData={validationData}
+                    validationLoading={validationLoading}
+                    onScrollToIssues={scrollValidationIssuesIntoView}
+                  />
+                ) : null}
                 {validationLoading ? (
                   <p className="muted small">Loading validation…</p>
                 ) : validationError ? (
@@ -1122,7 +1253,7 @@ export function DraftReadyPage() {
                 ) : validationData && !validationData.has_validation_run ? (
                   <p className="muted small">No validation run yet. Run checks when you are ready to review publish readiness.</p>
                 ) : validationData?.validation_report ? (
-                  <div className="editor-validation-body">
+                  <div className="editor-validation-body" id="editor-validation-report-start">
                     <div className="editor-validation-summary">
                       <span
                         className={`editor-validation-badge editor-validation-badge--${validationData.validation_report.overall_result}`}
@@ -1142,7 +1273,7 @@ export function DraftReadyPage() {
                       {validationData.validation_report.run_type} · {validationData.validation_report.run_source}
                     </p>
                     {validationData.issues.length > 0 ? (
-                      <ul className="editor-validation-issue-list">
+                      <ul className="editor-validation-issue-list" id="editor-validation-issue-list">
                         {validationData.issues.map((issue) => (
                           <li key={issue.id} className="editor-validation-issue-list__item">
                             <div className="editor-validation-issue-list__scope">
