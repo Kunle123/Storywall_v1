@@ -249,6 +249,8 @@ export type PatchEventBody = Partial<{
   summary: string;
   dek: string | null;
   creator_note: string | null;
+  /** Reader-visible timeline date line; empty string clears to null on the server. */
+  display_date: string;
 }>;
 
 /** Source record — mutation §15, editor §13. */
@@ -322,6 +324,7 @@ export type PatchSourceBody = Partial<{
   verification_status: string;
   is_primary: boolean;
   is_public: boolean;
+  status: "draft" | "approved" | "rejected";
 }>;
 
 export interface SelectFrameSuccess {

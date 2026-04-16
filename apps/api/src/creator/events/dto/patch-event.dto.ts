@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength, ValidateIf } from "class-validator";
+import { IsOptional, IsString, MaxLength, MinLength, ValidateIf } from "class-validator";
 
 /**
  * PATCH …/events/:eventId — mutation §14.2; partial update (narrative slice).
@@ -26,4 +26,10 @@ export class PatchEventDto {
   @IsString()
   @MaxLength(100000)
   creator_note?: string | null;
+
+  /** Human-readable timeline label for readers (e.g. “January 28, 1986 (EST)”). Empty string clears. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  display_date?: string;
 }

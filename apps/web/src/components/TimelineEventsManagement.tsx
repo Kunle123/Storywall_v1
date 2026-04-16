@@ -13,12 +13,17 @@ function normalizeDek(s: string | null | undefined): string {
   return s ?? "";
 }
 
+function normalizeDisplayDate(s: string | null | undefined): string {
+  return (s ?? "").trim();
+}
+
 function buildEventPatch(
   server: EventDraftResponse,
   headline: string,
   summary: string,
   creatorNote: string,
   dek: string,
+  displayDate: string,
 ): PatchEventBody | null {
   const p: PatchEventBody = {};
   if (headline !== server.headline) {
@@ -35,6 +40,11 @@ function buildEventPatch(
   const prevDek = server.dek == null || server.dek === "" ? null : server.dek;
   if (nextDek !== prevDek) {
     p.dek = nextDek;
+  }
+  const serverWhen = normalizeDisplayDate(server.display_date);
+  const nextWhen = displayDate.trim();
+  if (nextWhen !== serverWhen) {
+    p.display_date = nextWhen;
   }
   if (Object.keys(p).length === 0) return null;
   if (p.headline !== undefined && p.headline.trim().length < 1) return null;
@@ -76,17 +86,19 @@ function TimelineEventDraftRow(props: {
   const [dek, setDek] = useState(normalizeDek(event.dek));
   const [summary, setSummary] = useState(event.summary);
   const [creatorNote, setCreatorNote] = useState(normalizeCreatorNote(event.creator_note));
+  const [displayDate, setDisplayDate] = useState(normalizeDisplayDate(event.display_date));
 
   useEffect(() => {
     setHeadline(event.headline);
     setDek(normalizeDek(event.dek));
     setSummary(event.summary);
     setCreatorNote(normalizeCreatorNote(event.creator_note));
+    setDisplayDate(normalizeDisplayDate(event.display_date));
   }, [event.id, event.updated_at]);
 
   useEffect(() => {
     if (!token) return;
-    const patch = buildEventPatch(event, headline, summary, creatorNote, dek);
+    const patch = buildEventPatch(event, headline, summary, creatorNote, dek, displayDate);
     if (!patch) return;
 
     const tm = setTimeout(() => {
@@ -116,10 +128,12 @@ function TimelineEventDraftRow(props: {
     event.summary,
     event.creator_note,
     event.dek,
+    event.display_date,
     headline,
     dek,
     summary,
     creatorNote,
+    displayDate,
     onPatched,
     onVersionConflict,
     onSaveError,
@@ -175,6 +189,21 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setDek(ev.target.value)}
             autoComplete="off"
             maxLength={2000}
+          />
+        </label>
+        <label className="field">
+          <span className="label">When (reader)</span>
+          <span className="field__hint">
+            Shown on the public timeline instead of “Date TBC” (e.g. <kbd>January 28, 1986</kbd> or{" "}
+            <kbd>1985 (program context)</kbd>).
+          </span>
+          <input
+            type="text"
+            className="input"
+            value={displayDate}
+            onChange={(ev) => setDisplayDate(ev.target.value)}
+            autoComplete="off"
+            maxLength={500}
           />
         </label>
         <label className="field">

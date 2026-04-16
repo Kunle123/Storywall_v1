@@ -264,6 +264,7 @@ export class SourcesService {
     if (dto.verification_status !== undefined) d.verificationStatus = dto.verification_status;
     if (dto.is_primary !== undefined) d.isPrimary = dto.is_primary;
     if (dto.is_public !== undefined) d.isPublic = dto.is_public;
+    if (dto.status !== undefined) d.status = dto.status;
     return d;
   }
 }

@@ -140,12 +140,20 @@ export function buildPublishedBodySnapshotV1(params: {
     }));
   const sources: PublishedPublicSourceRowV1[] = [];
   let sourcePosition = 0;
+  const seenSourceKeys = new Set<string>();
   for (const ev of [...eventDrafts].sort((a, b) => a.positionIndex - b.positionIndex)) {
     for (const src of ev.sources) {
+      const outbound_url = publicOutboundUrl(src.sourceUrl);
+      const title = src.sourceTitle.trim();
+      const publisher_name = publicPublisherName(src.publisherName);
+      const dedupeKey =
+        outbound_url ?? `${title}\u0000${publisher_name ?? ""}`;
+      if (seenSourceKeys.has(dedupeKey)) continue;
+      seenSourceKeys.add(dedupeKey);
       sources.push({
-        title: src.sourceTitle,
-        outbound_url: publicOutboundUrl(src.sourceUrl),
-        publisher_name: publicPublisherName(src.publisherName),
+        title,
+        outbound_url,
+        publisher_name,
         position_index: sourcePosition++,
       });
     }

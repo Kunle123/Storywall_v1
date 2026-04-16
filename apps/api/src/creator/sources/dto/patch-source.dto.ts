@@ -12,6 +12,8 @@ const RELIABILITY = ["high", "medium", "low", "unrated"] as const;
 
 const VERIFICATION = ["verified", "partially_verified", "unreviewed", "contested", "rejected"] as const;
 
+const SOURCE_RECORD_STATUS = ["draft", "approved", "rejected"] as const;
+
 /**
  * PATCH …/sources/:sourceId — mutation §15.2; partial update.
  * Version token: `If-Match` = `updated_at` (ISO 8601).
@@ -65,4 +67,8 @@ export class PatchSourceDto {
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsBoolean()
   is_public?: boolean;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsIn(SOURCE_RECORD_STATUS)
+  status?: (typeof SOURCE_RECORD_STATUS)[number];
 }

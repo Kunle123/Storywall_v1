@@ -245,7 +245,10 @@ export class EventsService {
         changedObjectId: event.id,
         changeSummary: `Autosave: event (${Object.keys(dto).filter((k) => dto[k as keyof typeof dto] !== undefined).join(", ")})`,
         isMaterialPublicChange:
-          dto.headline !== undefined || dto.summary !== undefined || dto.creator_note !== undefined,
+          dto.headline !== undefined ||
+          dto.summary !== undefined ||
+          dto.creator_note !== undefined ||
+          dto.display_date !== undefined,
         createdBy: creatorId,
         recoverySnapshot: buildEventRecoverySnapshot(event),
       });
@@ -279,6 +282,10 @@ export class EventsService {
     }
     if (dto.creator_note !== undefined) {
       d.creatorNote = dto.creator_note;
+    }
+    if (dto.display_date !== undefined) {
+      const t = dto.display_date.trim();
+      d.displayDate = t.length === 0 ? null : t;
     }
     return d;
   }
