@@ -44,6 +44,8 @@ model Creator {
   draftAssemblyJobs          DraftAssemblyJob[]
   /// M3-T02: `POST …/validation/run` idempotent replay (mutation §17.1).
   validationRunIdempotencyRows CreatorValidationRunIdempotency[]
+  /// M3-T05: `PATCH …/validation/issues/:issueId` idempotent replay.
+  validationIssueResolutionIdempotencyRows CreatorValidationIssueResolutionIdempotency[]
 
   @@map("creator")
 }
@@ -489,6 +491,7 @@ model Story {
   chronologyEventSourceLinks ChronologyEventSourceLink[]
   draftAssemblyJobs          DraftAssemblyJob[]
   validationRunIdempotencyRows CreatorValidationRunIdempotency[]
+  validationIssueResolutionIdempotencyRows CreatorValidationIssueResolutionIdempotency[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -1077,6 +1080,29 @@ model CreatorValidationRunIdempotency {
   @@unique([creatorId, storyId, requestKey], map: "creator_validation_run_idem_uidx")
   @@index([storyId], map: "creator_validation_run_idem_story_idx")
   @@map("creator_validation_run_idempotency")
+}
+
+/// M3-T05 — durable idempotency for `PATCH …/validation/issues/:issueId` (resolution_status only).
+model CreatorValidationIssueResolutionIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  validationIssueId String @map("validation_issue_id") @db.Uuid
+
+  requestKey String @map("request_key") @db.VarChar(255)
+
+  acceptedResolutionStatus ValidationResolutionStatus @map("accepted_resolution_status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, validationIssueId, requestKey], map: "creator_val_issue_res_idem_uidx")
+  @@index([storyId], map: "creator_val_issue_res_idem_story_idx")
+  @@map("creator_validation_issue_resolution_idempotency")
 }
 
 /// Optional timeline grouping — editor §11.

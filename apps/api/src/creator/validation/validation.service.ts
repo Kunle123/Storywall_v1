@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import type {
   CreatorWorkflowState,
+  Prisma,
   ValidationOverallResult,
+  ValidationResolutionStatus,
   ValidationRunType,
 } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -414,6 +417,183 @@ export class ValidationService {
         createdBy: report.createdBy,
       },
       issues,
+    };
+  }
+
+  /**
+   * M3-T05 — creator updates `resolution_status` on one issue from the latest validation snapshot only.
+   * Does not re-run validation or recompute report aggregates.
+   */
+  async patchIssueResolution(params: {
+    storyId: string;
+    issueId: string;
+    creatorId: string;
+    resolutionStatus: "open" | "resolved";
+    idempotencyKey: string;
+  }): Promise<{
+    issue: {
+      id: string;
+      objectType: string;
+      objectId: string;
+      issueType: string;
+      severity: string;
+      publishEffect: string;
+      explanation: string;
+      suggestedFix: string | null;
+      resolutionStatus: string;
+      eventLabel: string | null;
+    };
+    idempotencyReplayed: boolean;
+  }> {
+    const { storyId, issueId, creatorId, resolutionStatus, idempotencyKey } = params;
+    const targetStatus: ValidationResolutionStatus = resolutionStatus === "resolved" ? "resolved" : "open";
+
+    return this.prisma.$transaction(async (tx) => {
+      const story = await tx.story.findFirst({
+        where: { id: storyId, creatorId },
+        select: {
+          storyBrief: {
+            select: {
+              storyDraft: {
+                select: {
+                  id: true,
+                  draftTrustMetadata: { select: { latestValidationReportId: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const storyDraftId = story?.storyBrief?.storyDraft?.id ?? null;
+      const latestReportId = story?.storyBrief?.storyDraft?.draftTrustMetadata?.latestValidationReportId ?? null;
+
+      if (!storyDraftId || !latestReportId) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "validation_issue_not_found", message: "No latest validation snapshot for this story" },
+        });
+      }
+
+      const issue = await tx.validationIssue.findFirst({
+        where: { id: issueId, validationReportId: latestReportId },
+        include: { validationReport: { select: { storyDraftId: true } } },
+      });
+
+      if (!issue || issue.validationReport.storyDraftId !== storyDraftId) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "validation_issue_not_found", message: "Validation issue not found on latest snapshot" },
+        });
+      }
+
+      const existingIdem = await tx.creatorValidationIssueResolutionIdempotency.findFirst({
+        where: {
+          creatorId,
+          storyId,
+          validationIssueId: issueId,
+          requestKey: idempotencyKey,
+        },
+      });
+
+      if (existingIdem) {
+        if (existingIdem.acceptedResolutionStatus !== targetStatus) {
+          throw new ConflictException({
+            ok: false,
+            error: {
+              code: "idempotency_key_mismatch",
+              message:
+                "This Idempotency-Key was already used with a different resolution payload for this issue",
+            },
+          });
+        }
+        const fresh = await tx.validationIssue.findUniqueOrThrow({ where: { id: issueId } });
+        return {
+          issue: await this.mapSingleIssueRow(tx, storyDraftId, fresh),
+          idempotencyReplayed: true,
+        };
+      }
+
+      const now = new Date();
+      await tx.validationIssue.update({
+        where: { id: issueId },
+        data:
+          targetStatus === "resolved"
+            ? {
+                resolutionStatus: "resolved",
+                resolvedBy: creatorId,
+                resolvedAt: now,
+              }
+            : {
+                resolutionStatus: "open",
+                resolvedBy: null,
+                resolvedAt: null,
+              },
+      });
+
+      await tx.creatorValidationIssueResolutionIdempotency.create({
+        data: {
+          creatorId,
+          storyId,
+          validationIssueId: issueId,
+          requestKey: idempotencyKey,
+          acceptedResolutionStatus: targetStatus,
+        },
+      });
+
+      const fresh = await tx.validationIssue.findUniqueOrThrow({ where: { id: issueId } });
+      return {
+        issue: await this.mapSingleIssueRow(tx, storyDraftId, fresh),
+        idempotencyReplayed: false,
+      };
+    });
+  }
+
+  private async mapSingleIssueRow(
+    tx: Prisma.TransactionClient,
+    storyDraftId: string,
+    issue: {
+      id: string;
+      objectType: string;
+      objectId: string;
+      issueType: string;
+      severity: string;
+      publishEffect: string;
+      explanation: string;
+      suggestedFix: string | null;
+      resolutionStatus: string;
+    },
+  ): Promise<{
+    id: string;
+    objectType: string;
+    objectId: string;
+    issueType: string;
+    severity: string;
+    publishEffect: string;
+    explanation: string;
+    suggestedFix: string | null;
+    resolutionStatus: string;
+    eventLabel: string | null;
+  }> {
+    let eventLabel: string | null = null;
+    if (issue.objectType === "event") {
+      const ev = await tx.eventDraft.findFirst({
+        where: { storyDraftId, id: issue.objectId },
+        select: { headline: true },
+      });
+      eventLabel = ev?.headline ?? null;
+    }
+    return {
+      id: issue.id,
+      objectType: issue.objectType,
+      objectId: issue.objectId,
+      issueType: issue.issueType,
+      severity: issue.severity,
+      publishEffect: issue.publishEffect,
+      explanation: issue.explanation,
+      suggestedFix: issue.suggestedFix,
+      resolutionStatus: issue.resolutionStatus,
+      eventLabel,
     };
   }
 }

@@ -5,6 +5,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from "@nestjs/common";
@@ -14,10 +15,43 @@ import { API_CONTRACT_VERSION } from "@storywall/shared";
 import { CurrentCreator } from "../../auth/current-creator.decorator";
 import type { AuthenticatedCreator } from "../../auth/types";
 import { OwnershipService } from "../ownership.service";
+import { PatchValidationIssueResolutionDto } from "./dto/patch-validation-issue-resolution.dto";
 import { RunValidationDto } from "./dto/run-validation.dto";
 import { ValidationService } from "./validation.service";
 
 const IDEMPOTENCY_KEY_MAX = 255;
+
+function normalizeIssueResolutionIdempotencyKey(raw: string | undefined): string {
+  if (raw === undefined || raw === null) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for validation issue resolution",
+      },
+    });
+  }
+  const t = raw.trim();
+  if (!t) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for validation issue resolution",
+      },
+    });
+  }
+  if (t.length > IDEMPOTENCY_KEY_MAX) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_invalid",
+        message: `Idempotency-Key must be at most ${IDEMPOTENCY_KEY_MAX} characters`,
+      },
+    });
+  }
+  return t;
+}
 
 function normalizeValidationIdempotencyKey(raw: string | undefined): string {
   if (raw === undefined || raw === null) {
@@ -131,6 +165,49 @@ export class ValidationController {
       meta: {
         idempotency_key: idempotencyKey,
         ...(result.idempotencyReplayed ? { idempotency_replayed: true as const } : {}),
+      },
+    };
+  }
+
+  /** M3-T05 — creator resolution on a single validation issue (latest snapshot only). */
+  @Patch(":storyId/validation/issues/:issueId")
+  async patchIssueResolution(
+    @Param("storyId") storyId: string,
+    @Param("issueId") issueId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: PatchValidationIssueResolutionDto,
+    @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const idempotencyKey = normalizeIssueResolutionIdempotencyKey(idempotencyKeyHeader);
+    const r = await this.validation.patchIssueResolution({
+      storyId,
+      issueId,
+      creatorId: creator.id,
+      resolutionStatus: body.resolution_status,
+      idempotencyKey,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        issue: {
+          id: r.issue.id,
+          object_type: r.issue.objectType,
+          object_id: r.issue.objectId,
+          issue_type: r.issue.issueType,
+          severity: r.issue.severity,
+          publish_effect: r.issue.publishEffect,
+          explanation: r.issue.explanation,
+          suggested_fix: r.issue.suggestedFix,
+          resolution_status: r.issue.resolutionStatus,
+          event_label: r.issue.eventLabel,
+        },
+      },
+      meta: {
+        idempotency_key: idempotencyKey,
+        ...(r.idempotencyReplayed ? { idempotency_replayed: true as const } : {}),
       },
     };
   }

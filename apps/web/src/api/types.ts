@@ -517,6 +517,18 @@ export interface GetLatestValidationSuccess {
   };
 }
 
+/** PATCH …/validation/issues/:issueId — M3-T05 */
+export interface PatchValidationIssueResolutionSuccess {
+  ok: true;
+  data: {
+    issue: ValidationIssueRow;
+  };
+  meta?: {
+    idempotency_key?: string;
+    idempotency_replayed?: boolean;
+  };
+}
+
 /** POST …/validation/run — M3-T02 */
 export interface RunValidationSuccess {
   ok: true;

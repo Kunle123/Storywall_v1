@@ -13,6 +13,7 @@ import {
   extractConflictSection,
   extractConflictSource,
   getLatestValidation,
+  patchValidationIssueResolution,
   listEvents,
   listFrames,
   listRevisions,
@@ -814,6 +815,7 @@ export function DraftReadyPage() {
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [runValidationBusy, setRunValidationBusy] = useState(false);
+  const [resolutionBusyIssueId, setResolutionBusyIssueId] = useState<string | null>(null);
   const scrollValidationIssuesIntoView = useCallback(() => {
     const target =
       document.getElementById("editor-validation-issue-list") ??
@@ -1164,6 +1166,28 @@ export function DraftReadyPage() {
     }
   }, [token, storyId, refreshSections, refreshEvents]);
 
+  const handlePatchIssueResolution = useCallback(
+    async (issueId: string, resolution_status: "open" | "resolved") => {
+      if (!token || !storyId) return;
+      setResolutionBusyIssueId(issueId);
+      setValidationError(null);
+      try {
+        await patchValidationIssueResolution(token, storyId, issueId, crypto.randomUUID(), {
+          resolution_status,
+        });
+        const latest = await getLatestValidation(token, storyId);
+        setValidationData(latest.data);
+      } catch (e) {
+        setValidationError(
+          e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not update issue resolution.",
+        );
+      } finally {
+        setResolutionBusyIssueId(null);
+      }
+    },
+    [token, storyId],
+  );
+
   if (!storyId) {
     return (
       <div className="page narrow">
@@ -1293,6 +1317,37 @@ export function DraftReadyPage() {
                                 {issue.suggested_fix}
                               </p>
                             ) : null}
+                            <div className="editor-validation-issue-list__actions">
+                              {issue.resolution_status === "resolved" ? (
+                                <button
+                                  type="button"
+                                  className="btn ghost inline"
+                                  disabled={
+                                    !token ||
+                                    resolutionBusyIssueId === issue.id ||
+                                    runValidationBusy ||
+                                    validationLoading
+                                  }
+                                  onClick={() => void handlePatchIssueResolution(issue.id, "open")}
+                                >
+                                  {resolutionBusyIssueId === issue.id ? "Updating…" : "Reopen"}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn ghost inline"
+                                  disabled={
+                                    !token ||
+                                    resolutionBusyIssueId === issue.id ||
+                                    runValidationBusy ||
+                                    validationLoading
+                                  }
+                                  onClick={() => void handlePatchIssueResolution(issue.id, "resolved")}
+                                >
+                                  {resolutionBusyIssueId === issue.id ? "Updating…" : "Mark resolved"}
+                                </button>
+                              )}
+                            </div>
                           </li>
                         ))}
                       </ul>

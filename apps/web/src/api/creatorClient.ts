@@ -34,6 +34,7 @@ import type {
   ListRevisionsSuccess,
   RestoreRevisionSuccess,
   GetLatestValidationSuccess,
+  PatchValidationIssueResolutionSuccess,
   RunValidationSuccess,
 } from "./types";
 
@@ -510,6 +511,33 @@ export async function getLatestValidation(token: string, storyId: string): Promi
     throw new ApiRequestError(`Latest validation failed (${res.status})`, res.status, data);
   }
   return data as GetLatestValidationSuccess;
+}
+
+/** M3-T05 — PATCH …/validation/issues/:issueId */
+export async function patchValidationIssueResolution(
+  token: string,
+  storyId: string,
+  issueId: string,
+  idempotencyKey: string,
+  body: { resolution_status: "open" | "resolved" },
+): Promise<PatchValidationIssueResolutionSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/validation/issues/${encodeURIComponent(issueId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...authHeaders(token),
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Validation issue resolution failed (${res.status})`, res.status, data);
+  }
+  return data as PatchValidationIssueResolutionSuccess;
 }
 
 /** M3-T02 — POST …/validation/run (mutation §17.1) */
