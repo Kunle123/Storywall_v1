@@ -17,4 +17,5 @@ RUN pnpm --filter @storywall/api build
 ENV NODE_ENV=production
 EXPOSE 3001
 WORKDIR /app/apps/api
-CMD ["node", "dist/main.js"]
+# Apply pending migrations before serving (staging/production schema parity).
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]

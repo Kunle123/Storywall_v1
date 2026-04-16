@@ -78,6 +78,8 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
 
 Set the deployment **health check path** to `/health` and **port** from `PORT` (default `3001`).
 
+**API start command (staging/production):** Use the package **`start`** script from `apps/api` (for example `pnpm --filter @storywall/api start` or Railway **Start Command** `pnpm start` with root directory `apps/api`). It runs **`prisma migrate deploy`** before `node dist/main.js`, so the database schema is not left behind application code. Avoid a bare `node dist/main.js` start unless you run an equivalent release-phase migration step.
+
 ## Docker images
 
 From the repository root:

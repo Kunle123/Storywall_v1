@@ -47,7 +47,7 @@ Monorepo is managed with **pnpm workspaces** (`package.json`, `pnpm-workspace.ya
 
 ### Railway deployment posture
 
-- **API service:** Node process; listen on **`PORT`**; **health check `GET /health`** returns JSON including `ok`, `service`, `api_version`, `generated_at` (consistent with success-envelope fields in `storywall_api_response_contracts_homepage_timeline.md` §3).
+- **API service:** Node process; listen on **`PORT`**; **`prisma migrate deploy` runs before the HTTP server starts** (package `start` script and API container entrypoint) so staging/production schema stays aligned with checked-in migrations; **health check `GET /health`** returns JSON including `ok`, `service`, `api_version`, `generated_at` (consistent with success-envelope fields in `storywall_api_response_contracts_homepage_timeline.md` §3).
 - **Worker service:** separate process consuming Redis (`REDIS_URL`); no HTTP requirement for liveness beyond platform defaults.
 - **Web:** static build served via container image (e.g. nginx) or Railway static configuration; details per environment.
 - **Add-ons:** Railway-managed **PostgreSQL** and **Redis** map directly to the above variables.

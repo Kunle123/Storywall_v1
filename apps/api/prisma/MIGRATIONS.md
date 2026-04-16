@@ -23,4 +23,4 @@ Run from `apps/api` or via root scripts in `package.json`.
 
 ## Railway
 
-Use `prisma migrate deploy` before starting the API process so schema matches code. Keep `GET /health` for liveness; use `GET /health/ready` to verify database connectivity after deploy.
+Use `prisma migrate deploy` before starting the API process so schema matches code. The **`@storywall/api` `start` / `start:prod` scripts** and the **API Dockerfile** run `prisma migrate deploy` automatically before the Nest process binds. If you override the start command in Railway, keep that step or add a **Release** command that runs `pnpm db:deploy` (repo root) or `pnpm exec prisma migrate deploy` from `apps/api`. Keep `GET /health` for liveness; use `GET /health/ready` to verify database connectivity after deploy.
