@@ -456,6 +456,14 @@ export class StoriesService {
       const storyDraft = await tx.storyDraft.findUniqueOrThrow({
         where: { id: draft.id },
       });
+
+      if (dto.visibility_target !== undefined && story.storyStatus === "published") {
+        await tx.story.update({
+          where: { id: storyId },
+          data: { visibility: dto.visibility_target },
+        });
+      }
+
       const st = await tx.story.findUniqueOrThrow({
         where: { id: storyId },
         select: { workflowState: true },
@@ -627,6 +635,7 @@ export class StoriesService {
             publishedAt,
             publishedBodySnapshot,
             workflowState: "published",
+            visibility: draftForSnap.visibilityTarget,
           },
         });
 
@@ -661,6 +670,7 @@ export class StoriesService {
             storyStatus: "published",
             publishedAt,
             publishedBodySnapshot,
+            visibility: draftForSnap.visibilityTarget,
           },
         });
 
