@@ -122,10 +122,15 @@ export function CreatorWorkspaceLayout() {
               </Link>
             </p>
           </section>
-          <section className="creator-workspace-rail__block creator-workspace-rail__block--placeholder">
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Timeline</h2>
             <p className="creator-workspace-rail__text muted small">
-              Event ordering and timeline tools will attach here from the Draft surface as that work lands.
+              Manage ordered events in the Draft tab under <strong>Events</strong>.
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#timeline-events`} className="creator-workspace-rail__link">
+                Open timeline
+              </Link>
             </p>
           </section>
           <section className="creator-workspace-rail__block">
