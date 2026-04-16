@@ -1030,3 +1030,118 @@ a:hover {
 .editor-field-gap:first-of-type {
   margin-top: 0;
 }
+
+/* --- M3-T08 public read surface --- */
+.public-story-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.public-story-page--loading {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-story-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.public-story-eyebrow {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+
+.public-story-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1.2;
+  margin: 0 0 0.35rem;
+}
+
+.public-story-subtitle {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.public-story-meta {
+  margin: 0.5rem 0 0;
+}
+
+.public-story-block {
+  margin-top: 1.35rem;
+}
+
+.public-story-block__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+}
+
+.public-story-prose {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.public-story-prose--compact {
+  font-size: 0.875rem;
+  margin-top: 0.35rem;
+}
+
+.public-story-section-list,
+.public-story-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.public-story-section-list__item,
+.public-story-event-list__item {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.public-story-section-list__heading,
+.public-story-event-list__headline {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+}
+
+.public-story-event-list__when {
+  margin: 0 0 0.25rem;
+}
+
+.public-story-event-list__dek {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.public-story-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.public-story-back {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.public-story-unavailable {
+  margin-bottom: 1rem;
+}

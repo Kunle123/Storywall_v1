@@ -10,12 +10,14 @@ import { SourcesModule } from "./creator/sources/sources.module";
 import { StoriesModule } from "./creator/stories/stories.module";
 import { ValidationModule } from "./creator/validation/validation.module";
 import { HealthModule } from "./health/health.module";
+import { PublicModule } from "./public/public.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
   imports: [
     PrismaModule,
     HealthModule,
+    PublicModule,
     AuthModule,
     CreatorModule,
     StoriesModule,
