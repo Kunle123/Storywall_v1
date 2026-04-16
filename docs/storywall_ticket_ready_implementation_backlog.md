@@ -2,7 +2,7 @@
 
 **Author:** Manus AI  
 **Date:** 2026-04-14  
-**M4 update:** 2026-04-16 — Milestone M4 redefined as **Creator Workflow Foundation**; see `docs/storywall_m4_creator_workflow_foundation.md`.
+**M4 update:** 2026-04-16 — Milestone M4 redefined as **Creator Workflow Foundation**; see `docs/storywall_m4_creator_workflow_foundation.md`. **M4 closure (T01–T11):** canonical `staging` commit line recorded in `docs/storywall_repo_ready_backlog_update.md`.
 
 ## 1. Purpose
 
@@ -155,6 +155,8 @@ This milestone turns Storywall into a governed publishing system. It should end 
 ### Milestone M4 — Creator Workflow Foundation
 
 **Canonical detail:** `docs/storywall_m4_creator_workflow_foundation.md` (milestone intent, guardrails, dependency phases, gap coverage, superseded reader-discovery note).
+
+**Implementation closure (formal sequence):** The approved line **M4-T01 → M4-T11** is recorded with reference SHAs on `staging` in `docs/storywall_repo_ready_backlog_update.md`. Formal M4 planning ends at **M4-T11**; later milestones are out of scope for that file.
 
 **Bridge from M3 / public track:** **M4-T01** — Public story share cards / Open Graph metadata (client-side share metadata for published public stories). Treated as **merge-ready**; planning pauses before further post-M3 tickets until M4-T02 starts.
 

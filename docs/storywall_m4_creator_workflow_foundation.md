@@ -1,6 +1,6 @@
 # Storywall M4 — Creator Workflow Foundation
 
-**Status:** Canonical backlog continuation **after M4-T01** (April 2026).  
+**Status:** Canonical backlog continuation **after M4-T01** (April 2026). **Formal M4 (T01–T11) closure** is recorded for the repo in `docs/storywall_repo_ready_backlog_update.md` (reference commits on `staging`).  
 **Related:** `docs/storywall_ticket_ready_implementation_backlog.md` (milestone table and ticket index).
 
 ## Status note
@@ -82,11 +82,11 @@ This milestone stays focused on the **creator workflow**. It should **not** drif
 
 An earlier draft of `storywall_ticket_ready_implementation_backlog.md` labeled **M4 — Reader Discovery, Pilot, and Launch Readiness** with different ticket IDs (homepage feed, discovery rails, analytics, pilot triage, etc.). That ordering is **superseded** for M4 numbering by this document. Discovery, pilot instrumentation, and launch-readiness packaging should be **re-proposed under a later milestone** once the creator workflow foundation is in place, if still required by product strategy.
 
-## Immediate next action
+## Implementation status (M4 closure)
 
-1. **Merge M4-T01** when ready.  
-2. Treat this document as the approved backlog continuation for planning and implementation.  
-3. **Next implementation ticket:** **M4-T02 — New story setup / brief creation flow**.
+The approved sequence **M4-T01 through M4-T11** is the full formal M4 line. Repository reference commits for each ticket on `staging` are listed in **`docs/storywall_repo_ready_backlog_update.md`**.
+
+Further engineering milestones (for example a future **M5**) are **not** defined here; they require a separate approved planning update.
 
 ## References (repository)
 
