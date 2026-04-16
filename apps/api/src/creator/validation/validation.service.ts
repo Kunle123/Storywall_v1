@@ -286,4 +286,134 @@ export class ValidationService {
       idempotencyReplayed: false,
     };
   }
+
+  /**
+   * Latest validation snapshot for the story draft (from `draft_trust_metadata` pointer + issues).
+   * Empty result when no run yet — not an error.
+   */
+  async getLatestValidation(params: { storyId: string; creatorId: string }): Promise<{
+    storyState: CreatorWorkflowState;
+    hasValidationRun: boolean;
+    validationReport: null | {
+      id: string;
+      runType: string;
+      runSource: string;
+      overallResult: string;
+      issueCountTotal: number;
+      blockerCount: number;
+      warningCount: number;
+      summaryNote: string;
+      createdAt: Date;
+      createdBy: string | null;
+    };
+    issues: Array<{
+      id: string;
+      objectType: string;
+      objectId: string;
+      issueType: string;
+      severity: string;
+      publishEffect: string;
+      explanation: string;
+      suggestedFix: string | null;
+      resolutionStatus: string;
+      eventLabel: string | null;
+    }>;
+  }> {
+    const { storyId, creatorId } = params;
+
+    const story = await this.prisma.story.findFirst({
+      where: { id: storyId, creatorId },
+      select: {
+        workflowState: true,
+        storyBrief: {
+          select: {
+            storyDraft: {
+              select: {
+                id: true,
+                draftTrustMetadata: {
+                  select: { latestValidationReportId: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!story?.storyBrief?.storyDraft) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "story_not_found", message: "Story or draft not found" },
+      });
+    }
+
+    const storyDraftId = story.storyBrief.storyDraft.id;
+    const reportId = story.storyBrief.storyDraft.draftTrustMetadata?.latestValidationReportId ?? null;
+
+    if (!reportId) {
+      return {
+        storyState: story.workflowState,
+        hasValidationRun: false,
+        validationReport: null,
+        issues: [],
+      };
+    }
+
+    const report = await this.prisma.validationReport.findFirst({
+      where: { id: reportId, storyDraftId },
+      include: {
+        issues: { orderBy: { id: "asc" } },
+      },
+    });
+
+    if (!report) {
+      return {
+        storyState: story.workflowState,
+        hasValidationRun: false,
+        validationReport: null,
+        issues: [],
+      };
+    }
+
+    const eventObjectIds = report.issues.filter((i) => i.objectType === "event").map((i) => i.objectId);
+    const eventRows =
+      eventObjectIds.length > 0
+        ? await this.prisma.eventDraft.findMany({
+            where: { storyDraftId, id: { in: eventObjectIds } },
+            select: { id: true, headline: true },
+          })
+        : [];
+    const headlineByEventId = new Map(eventRows.map((e) => [e.id, e.headline]));
+
+    const issues = report.issues.map((i) => ({
+      id: i.id,
+      objectType: i.objectType,
+      objectId: i.objectId,
+      issueType: i.issueType,
+      severity: i.severity,
+      publishEffect: i.publishEffect,
+      explanation: i.explanation,
+      suggestedFix: i.suggestedFix,
+      resolutionStatus: i.resolutionStatus,
+      eventLabel: i.objectType === "event" ? (headlineByEventId.get(i.objectId) ?? null) : null,
+    }));
+
+    return {
+      storyState: story.workflowState,
+      hasValidationRun: true,
+      validationReport: {
+        id: report.id,
+        runType: report.runType,
+        runSource: report.runSource,
+        overallResult: report.overallResult,
+        issueCountTotal: report.issueCountTotal,
+        blockerCount: report.blockerCount,
+        warningCount: report.warningCount,
+        summaryNote: report.summaryNote,
+        createdAt: report.createdAt,
+        createdBy: report.createdBy,
+      },
+      issues,
+    };
+  }
 }

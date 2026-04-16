@@ -11,6 +11,7 @@ import {
   extractConflictEvent,
   extractConflictSection,
   extractConflictSource,
+  getLatestValidation,
   listEvents,
   listFrames,
   listRevisions,
@@ -21,6 +22,7 @@ import {
   patchSource,
   patchStoryDraft,
   restoreRevision,
+  runStoryValidation,
 } from "../api/creatorClient";
 import type {
   EventDraftResponse,
@@ -32,11 +34,36 @@ import type {
   SourceRecordResponse,
   RevisionEntryResponse,
   StoryDraftResponse,
+  ValidationIssueRow,
+  GetLatestValidationSuccess,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
+
+/** M3-T04 — editorial workspace states where validation UI and draft editing apply. */
+const EDITORIAL_VALIDATION_WORKFLOWS: CreatorWorkflowState[] = [
+  "ready_for_edit",
+  "needs_validation",
+  "blocked",
+  "ready_to_publish",
+];
+
+function isEditorialValidationWorkspace(w: CreatorWorkflowState | null): boolean {
+  return w !== null && EDITORIAL_VALIDATION_WORKFLOWS.includes(w);
+}
+
+function validationObjectLabel(issue: ValidationIssueRow): string {
+  if (issue.object_type === "story") return "Story";
+  if (issue.object_type === "event") {
+    return issue.event_label ? `Event — ${issue.event_label}` : "Event";
+  }
+  if (issue.object_type === "section") return "Section";
+  if (issue.object_type === "source") return "Reference";
+  if (issue.object_type === "image") return "Image";
+  return issue.object_type;
+}
 
 function resolveIfMatchFromSnapshot(
   snapshot: unknown,
@@ -667,6 +694,10 @@ export function DraftReadyPage() {
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [restoringRevisionId, setRestoringRevisionId] = useState<string | null>(null);
+  const [validationData, setValidationData] = useState<GetLatestValidationSuccess["data"] | null>(null);
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [runValidationBusy, setRunValidationBusy] = useState(false);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
 
@@ -895,13 +926,41 @@ export function DraftReadyPage() {
   }, [token, storyId]);
 
   useEffect(() => {
-    if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
+    if (!token || !storyId || !draft || !isEditorialValidationWorkspace(workflow)) return;
     void refreshSections();
     void refreshEvents();
   }, [token, storyId, draft, workflow, refreshSections, refreshEvents]);
 
   useEffect(() => {
-    if (!token || !storyId || !draft || workflow !== "ready_for_edit") return;
+    if (!token || !storyId || !isEditorialValidationWorkspace(workflow)) return;
+    let cancelled = false;
+    void (async () => {
+      setValidationLoading(true);
+      setValidationError(null);
+      try {
+        const r = await getLatestValidation(token, storyId);
+        if (!cancelled) {
+          setValidationData(r.data);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setValidationError(
+            e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load validation results.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setValidationLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, storyId, workflow]);
+
+  useEffect(() => {
+    if (!token || !storyId || !draft || !isEditorialValidationWorkspace(workflow)) return;
     if (!isDirtyVersusServer(draft, localFields)) return;
     const patch = buildValidPatch(draft, localFields);
     if (!patch) return;
@@ -945,6 +1004,43 @@ export function DraftReadyPage() {
     return () => clearTimeout(t);
   }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion]);
 
+  const handleRunValidation = useCallback(async () => {
+    if (!token || !storyId) return;
+    setRunValidationBusy(true);
+    setValidationError(null);
+    try {
+      await runStoryValidation(token, storyId, crypto.randomUUID(), {
+        run_type: "full",
+        include_style_checks: true,
+        include_imagery_checks: true,
+        include_dispute_checks: true,
+      });
+      const fr = await listFrames(token, storyId);
+      setWorkflow(fr.data.story_state);
+      const d = fr.data.story_draft;
+      setDraft(d);
+      if (d) {
+        applyServerDraftToForm(d, {
+          setTitle,
+          setSubtitle,
+          setSummary,
+          setLens,
+          setConclusion,
+        });
+      }
+      await refreshSections();
+      await refreshEvents();
+      const latest = await getLatestValidation(token, storyId);
+      setValidationData(latest.data);
+    } catch (e) {
+      setValidationError(
+        e instanceof ApiRequestError ? JSON.stringify(e.body) : "Validation run failed.",
+      );
+    } finally {
+      setRunValidationBusy(false);
+    }
+  }, [token, storyId, refreshSections, refreshEvents]);
+
   if (!storyId) {
     return (
       <div className="page narrow">
@@ -974,9 +1070,9 @@ export function DraftReadyPage() {
       {saveError ? <div className="banner error">{saveError}</div> : null}
       {saveOk ? <div className="banner success">Draft saved.</div> : null}
 
-      {!loadError && workflow && workflow !== "ready_for_edit" ? (
+      {!loadError && workflow && !isEditorialValidationWorkspace(workflow) ? (
         <div className="banner warn">
-          Current workflow is <strong>{workflow}</strong>, not <code className="inline-code">ready_for_edit</code>. Use the brief
+          Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
           workspace to run research or draft assembly, or open generation status if you have a job link.
           <div style={{ marginTop: "0.75rem" }}>
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
@@ -986,9 +1082,9 @@ export function DraftReadyPage() {
         </div>
       ) : null}
 
-      {!loadError && workflow === "ready_for_edit" ? (
+      {!loadError && isEditorialValidationWorkspace(workflow) ? (
         <div className="card draft-ready-card">
-          <p className="draft-ready-badge">ready_for_edit</p>
+          <p className="draft-ready-badge">{workflow}</p>
           <div className="editor-workspace-intro">
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
@@ -998,6 +1094,83 @@ export function DraftReadyPage() {
           {draft ? (
             <>
               <div className="editor-shell">
+              <section
+                className="editor-panel editor-panel--validation"
+                aria-labelledby="editor-validation-heading"
+              >
+                <div className="editor-panel__head">
+                  <p className="editor-panel__eyebrow">Readiness</p>
+                  <h3 id="editor-validation-heading" className="editor-panel__title">
+                    Validation
+                  </h3>
+                  <p className="editor-panel__hint">
+                    Latest checks against Storywall baseline and reference rules. Re-run after you edit.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn ghost inline"
+                    disabled={!token || runValidationBusy || validationLoading}
+                    onClick={() => void handleRunValidation()}
+                  >
+                    {runValidationBusy ? "Running checks…" : "Run checks"}
+                  </button>
+                </div>
+                {validationLoading ? (
+                  <p className="muted small">Loading validation…</p>
+                ) : validationError ? (
+                  <p className="hint">{validationError}</p>
+                ) : validationData && !validationData.has_validation_run ? (
+                  <p className="muted small">No validation run yet. Run checks when you are ready to review publish readiness.</p>
+                ) : validationData?.validation_report ? (
+                  <div className="editor-validation-body">
+                    <div className="editor-validation-summary">
+                      <span
+                        className={`editor-validation-badge editor-validation-badge--${validationData.validation_report.overall_result}`}
+                      >
+                        {validationData.validation_report.overall_result}
+                      </span>
+                      <span className="editor-validation-counts muted small">
+                        {validationData.validation_report.blocker_count} blocker
+                        {validationData.validation_report.blocker_count === 1 ? "" : "s"} ·{" "}
+                        {validationData.validation_report.warning_count} warning
+                        {validationData.validation_report.warning_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <p className="editor-validation-note">{validationData.validation_report.summary_note}</p>
+                    <p className="muted small editor-validation-meta">
+                      {new Date(validationData.validation_report.created_at).toLocaleString()} ·{" "}
+                      {validationData.validation_report.run_type} · {validationData.validation_report.run_source}
+                    </p>
+                    {validationData.issues.length > 0 ? (
+                      <ul className="editor-validation-issue-list">
+                        {validationData.issues.map((issue) => (
+                          <li key={issue.id} className="editor-validation-issue-list__item">
+                            <div className="editor-validation-issue-list__scope">
+                              <span
+                                className={`editor-validation-issue-type editor-validation-issue-type--${issue.object_type}`}
+                              >
+                                {validationObjectLabel(issue)}
+                              </span>
+                              <span className="muted small">
+                                {issue.issue_type} · {issue.publish_effect}
+                              </span>
+                            </div>
+                            <p className="editor-validation-issue-list__explain">{issue.explanation}</p>
+                            {issue.suggested_fix ? (
+                              <p className="editor-validation-issue-list__fix">
+                                <span className="muted small">Suggested: </span>
+                                {issue.suggested_fix}
+                              </p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="muted small">No individual issues recorded for this run.</p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
               <section className="editor-panel editor-panel--story" aria-labelledby="editor-story-heading">
                 <div className="editor-panel__head">
                   <p className="editor-panel__eyebrow">Story</p>

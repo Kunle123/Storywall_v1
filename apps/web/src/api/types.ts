@@ -479,3 +479,56 @@ export interface RestoreRevisionSuccess {
     story_state: CreatorWorkflowState;
   };
 }
+
+/** GET …/validation/latest — M3-T04 */
+export interface ValidationIssueRow {
+  id: string;
+  object_type: string;
+  object_id: string;
+  issue_type: string;
+  severity: string;
+  publish_effect: string;
+  explanation: string;
+  suggested_fix: string | null;
+  resolution_status: string;
+  event_label: string | null;
+}
+
+export interface ValidationReportSummary {
+  id: string;
+  run_type: string;
+  run_source: string;
+  overall_result: string;
+  issue_count_total: number;
+  blocker_count: number;
+  warning_count: number;
+  summary_note: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface GetLatestValidationSuccess {
+  ok: true;
+  data: {
+    story_state: CreatorWorkflowState;
+    has_validation_run: boolean;
+    validation_report: ValidationReportSummary | null;
+    issues: ValidationIssueRow[];
+  };
+}
+
+/** POST …/validation/run — M3-T02 */
+export interface RunValidationSuccess {
+  ok: true;
+  data: {
+    validation_report_id: string;
+    overall_result: string;
+    blocker_count: number;
+    warning_count: number;
+    story_state: CreatorWorkflowState;
+  };
+  meta?: {
+    idempotency_key?: string;
+    idempotency_replayed?: boolean;
+  };
+}

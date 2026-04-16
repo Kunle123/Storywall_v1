@@ -33,6 +33,8 @@ import type {
   StoryDraftResponse,
   ListRevisionsSuccess,
   RestoreRevisionSuccess,
+  GetLatestValidationSuccess,
+  RunValidationSuccess,
 } from "./types";
 
 function apiBase(): string {
@@ -493,4 +495,46 @@ export async function restoreRevision(
     throw new ApiRequestError(`Restore revision failed (${res.status})`, res.status, data);
   }
   return data as RestoreRevisionSuccess;
+}
+
+/** M3-T04 — GET …/validation/latest */
+export async function getLatestValidation(token: string, storyId: string): Promise<GetLatestValidationSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/validation/latest`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Latest validation failed (${res.status})`, res.status, data);
+  }
+  return data as GetLatestValidationSuccess;
+}
+
+/** M3-T02 — POST …/validation/run (mutation §17.1) */
+export async function runStoryValidation(
+  token: string,
+  storyId: string,
+  idempotencyKey: string,
+  body: {
+    run_type: string;
+    include_style_checks?: boolean;
+    include_imagery_checks?: boolean;
+    include_dispute_checks?: boolean;
+  },
+): Promise<RunValidationSuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/validation/run`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Validation run failed (${res.status})`, res.status, data);
+  }
+  return data as RunValidationSuccess;
 }

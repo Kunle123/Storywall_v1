@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   Param,
   Post,
@@ -57,6 +58,48 @@ export class ValidationController {
     private readonly validation: ValidationService,
     private readonly ownership: OwnershipService,
   ) {}
+
+  /** M3-T04 — latest validation snapshot for editorial UI (supporting read; complements mutation §17). */
+  @Get(":storyId/validation/latest")
+  async latest(@Param("storyId") storyId: string, @CurrentCreator() creator: AuthenticatedCreator) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const r = await this.validation.getLatestValidation({ storyId, creatorId: creator.id });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        story_state: r.storyState,
+        has_validation_run: r.hasValidationRun,
+        validation_report: r.validationReport
+          ? {
+              id: r.validationReport.id,
+              run_type: r.validationReport.runType,
+              run_source: r.validationReport.runSource,
+              overall_result: r.validationReport.overallResult,
+              issue_count_total: r.validationReport.issueCountTotal,
+              blocker_count: r.validationReport.blockerCount,
+              warning_count: r.validationReport.warningCount,
+              summary_note: r.validationReport.summaryNote,
+              created_at: r.validationReport.createdAt.toISOString(),
+              created_by: r.validationReport.createdBy,
+            }
+          : null,
+        issues: r.issues.map((i) => ({
+          id: i.id,
+          object_type: i.objectType,
+          object_id: i.objectId,
+          issue_type: i.issueType,
+          severity: i.severity,
+          publish_effect: i.publishEffect,
+          explanation: i.explanation,
+          suggested_fix: i.suggestedFix,
+          resolution_status: i.resolutionStatus,
+          event_label: i.eventLabel,
+        })),
+      },
+    };
+  }
 
   /** Mutation §17.1 */
   @Post(":storyId/validation/run")
