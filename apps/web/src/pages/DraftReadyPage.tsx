@@ -10,7 +10,6 @@ import {
   createSource,
   extractConflictDraft,
   extractConflictEvent,
-  extractConflictSection,
   extractConflictSource,
   getLatestValidation,
   publishStory,
@@ -21,7 +20,6 @@ import {
   listSections,
   listSourcesForEvent,
   patchEvent,
-  patchSection,
   patchSource,
   patchStoryDraft,
   restoreRevision,
@@ -30,7 +28,6 @@ import {
 import type {
   EventDraftResponse,
   PatchEventBody,
-  PatchSectionBody,
   PatchSourceBody,
   PatchStoryDraftBody,
   SectionDraftResponse,
@@ -41,6 +38,7 @@ import type {
   GetLatestValidationSuccess,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
@@ -331,25 +329,6 @@ function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setters.setSummary(d.summary);
   setters.setLens(d.lens);
   setters.setConclusion(normalizeConclusion(d.conclusion));
-}
-
-function buildSectionPatch(
-  server: SectionDraftResponse,
-  label: string,
-  summary: string,
-): PatchSectionBody | null {
-  const p: PatchSectionBody = {};
-  if (label !== server.label) {
-    p.label = label;
-  }
-  const localSum = summary ?? "";
-  const srvSum = server.summary ?? "";
-  if (localSum !== srvSum) {
-    p.summary = localSum === "" ? null : summary;
-  }
-  if (Object.keys(p).length === 0) return null;
-  if (p.label !== undefined && p.label.trim().length < 1) return null;
-  return p;
 }
 
 function normalizeCreatorNote(s: string | null | undefined): string {
@@ -720,125 +699,6 @@ function EventDraftRow(props: {
   );
 }
 
-function SectionDraftRow(props: {
-  token: string;
-  storyId: string;
-  section: SectionDraftResponse;
-  onPatched: (s: SectionDraftResponse) => void;
-  onVersionConflict: () => void;
-  onSaveError: (message: string) => void;
-  regenInFlight: boolean;
-  regenActive: boolean;
-  onScopedSectionRegenerate: () => void | Promise<void>;
-}) {
-  const {
-    token,
-    storyId,
-    section,
-    onPatched,
-    onVersionConflict,
-    onSaveError,
-    regenInFlight,
-    regenActive,
-    onScopedSectionRegenerate,
-  } = props;
-  const [label, setLabel] = useState(section.label);
-  const [summary, setSummary] = useState(section.summary ?? "");
-
-  useEffect(() => {
-    setLabel(section.label);
-    setSummary(section.summary ?? "");
-  }, [section.id, section.updated_at]);
-
-  useEffect(() => {
-    if (!token) return;
-    const patch = buildSectionPatch(section, label, summary);
-    if (!patch) return;
-
-    const tm = setTimeout(() => {
-      void (async () => {
-        try {
-          const res = await patchSection(token, storyId, section.id, section.updated_at, patch);
-          onPatched(res.data.section_draft);
-        } catch (e) {
-          if (e instanceof ApiRequestError && e.status === 409) {
-            const snap = extractConflictSection(e.body);
-            if (snap) onPatched(snap);
-            onVersionConflict();
-          } else {
-            onSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Section save failed.");
-          }
-        }
-      })();
-    }, AUTOSAVE_MS);
-
-    return () => clearTimeout(tm);
-  }, [
-    token,
-    storyId,
-    section.id,
-    section.updated_at,
-    section.label,
-    section.summary,
-    label,
-    summary,
-    onPatched,
-    onVersionConflict,
-    onSaveError,
-  ]);
-
-  return (
-    <div className="editor-block editor-card">
-      <p className="editor-block__meta">
-        Section <code className="inline-code">{section.id.slice(0, 8)}…</code>
-      </p>
-      <div className="editor-fieldgroup">
-        <p className="editor-fieldgroup__title">Section outline</p>
-        <p className="editor-fieldgroup__lead muted small">
-          Structural labels and factual framing for this arc. Use story lens or event creator notes for interpretive voice.
-        </p>
-        <label className="field">
-          <span className="label">Label</span>
-          <span className="field__hint">Section title (e.g. Origins, Fallout).</span>
-          <input
-            type="text"
-            className="input"
-            value={label}
-            onChange={(ev) => setLabel(ev.target.value)}
-            autoComplete="off"
-            maxLength={500}
-          />
-        </label>
-        <label className="field">
-          <span className="label">Summary</span>
-          <span className="field__hint">Optional factual framing text for this section.</span>
-          <textarea
-            className="input textarea"
-            value={summary}
-            onChange={(ev) => setSummary(ev.target.value)}
-            rows={3}
-            maxLength={100000}
-          />
-        </label>
-      </div>
-
-      <div className="editor-regenerate-bar">
-        <button
-          type="button"
-          className="btn ghost inline"
-          disabled={!token || regenInFlight}
-          onClick={() => void onScopedSectionRegenerate()}
-        >
-          {regenActive ? "Starting…" : "Regenerate section from framing"}
-        </button>
-        <span className="field__hint">
-          Reloads label and summary from the selected frame’s section candidate for this slot; timeline events stay as edited.
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /**
  * M2-T06 entry + M2-T07 story-level draft autosave (mutation §12.1).
  */
@@ -924,6 +784,22 @@ export function DraftReadyPage() {
   const handleSectionSaveError = useCallback((message: string) => {
     setSaveError(message);
   }, []);
+
+  const handleAddSection = useCallback(() => {
+    if (!token || !storyId) return;
+    setAddingSection(true);
+    void (async () => {
+      try {
+        const r = await createSection(token, storyId, { label: "New section" });
+        setSections((prev) => [...prev, r.data.section_draft]);
+        setSaveError(null);
+      } catch (e) {
+        setSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add section.");
+      } finally {
+        setAddingSection(false);
+      }
+    })();
+  }, [token, storyId]);
 
   const handleEventPatched = useCallback((ev: EventDraftResponse) => {
     setEvents((prev) => prev.map((x) => (x.id === ev.id ? ev : x)));
@@ -1350,7 +1226,8 @@ export function DraftReadyPage() {
           <div className="editor-workspace-intro">
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
-              Factual fields and creator-voice fields are labeled separately. Changes save automatically.
+              Use <strong>Narrative sections</strong> for the ordered story body; deck and synthesis fields are labeled
+              separately below. Changes save automatically.
             </p>
           </div>
           {draft ? (
@@ -1495,14 +1372,30 @@ export function DraftReadyPage() {
                   </div>
                 ) : null}
               </section>
+
+              <NarrativeSectionsCompositionPanel
+                token={token!}
+                storyId={storyId}
+                sections={sections}
+                sectionsLoadError={sectionsLoadError}
+                addingSection={addingSection}
+                onAddSection={handleAddSection}
+                onSectionPatched={handleSectionPatched}
+                onSectionVersionConflict={handleSectionConflict}
+                onSectionSaveError={handleSectionSaveError}
+                regenInFlight={scopedRegenBusy}
+                regenSectionId={scopedRegenTarget?.kind === "section" ? scopedRegenTarget.id : null}
+                onScopedSectionRegenerate={startScopedSectionRegenerate}
+              />
+
               <section className="editor-panel editor-panel--story" aria-labelledby="editor-story-heading">
                 <div className="editor-panel__head">
                   <p className="editor-panel__eyebrow">Story</p>
                   <h3 id="editor-story-heading" className="editor-panel__title">
-                    Narrative &amp; discovery
+                    Deck &amp; discovery
                   </h3>
                   <p className="editor-panel__hint">
-                    How this Storywall presents in feeds and search — title through conclusion.
+                    Title, deck, and synthesis for discovery and feeds — distinct from ordered narrative sections above.
                   </p>
                 </div>
                 <div className="editor-fields-stack">
@@ -1578,59 +1471,6 @@ export function DraftReadyPage() {
                 </div>
               </section>
 
-              <section className="editor-panel editor-panel--outline" aria-labelledby="editor-sections-heading">
-                <div className="editor-panel__bar">
-                  <div className="editor-panel__bar-text">
-                    <p className="editor-panel__eyebrow">Structure</p>
-                    <h3 id="editor-sections-heading" className="editor-panel__title">
-                      Sections
-                    </h3>
-                    <p className="editor-panel__hint">Optional arcs or chapters that group the timeline.</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn ghost inline"
-                    disabled={!token || addingSection}
-                    onClick={() => {
-                      if (!token || !storyId) return;
-                      setAddingSection(true);
-                      void (async () => {
-                        try {
-                          const r = await createSection(token, storyId, { label: "New section" });
-                          setSections((prev) => [...prev, r.data.section_draft]);
-                          setSaveError(null);
-                        } catch (e) {
-                          setSaveError(
-                            e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add section.",
-                          );
-                        } finally {
-                          setAddingSection(false);
-                        }
-                      })();
-                    }}
-                  >
-                    {addingSection ? "Adding…" : "Add section"}
-                  </button>
-                </div>
-                {sectionsLoadError ? <p className="hint">{sectionsLoadError}</p> : null}
-                {sections.map((sec) => (
-                  <SectionDraftRow
-                    key={sec.id}
-                    token={token!}
-                    storyId={storyId}
-                    section={sec}
-                    onPatched={handleSectionPatched}
-                    onVersionConflict={handleSectionConflict}
-                    onSaveError={handleSectionSaveError}
-                    regenInFlight={scopedRegenBusy}
-                    regenActive={
-                      scopedRegenBusy && scopedRegenTarget?.kind === "section" && scopedRegenTarget.id === sec.id
-                    }
-                    onScopedSectionRegenerate={() => void startScopedSectionRegenerate(sec.id)}
-                  />
-                ))}
-              </section>
-
               <section className="editor-panel editor-panel--timeline" aria-labelledby="editor-events-heading">
                 <div className="editor-panel__bar">
                   <div className="editor-panel__bar-text">
@@ -1638,7 +1478,9 @@ export function DraftReadyPage() {
                     <h3 id="editor-events-heading" className="editor-panel__title">
                       Events
                     </h3>
-                    <p className="editor-panel__hint">Chronology and evidence. Each event can carry sources.</p>
+                    <p className="editor-panel__hint">
+                      Chronology and evidence; main narrative prose lives in <strong>Narrative sections</strong> above.
+                    </p>
                   </div>
                   <button
                     type="button"

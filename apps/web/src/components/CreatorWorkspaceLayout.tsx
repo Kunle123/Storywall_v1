@@ -111,10 +111,15 @@ export function CreatorWorkspaceLayout() {
               </Link>
             </p>
           </section>
-          <section className="creator-workspace-rail__block creator-workspace-rail__block--placeholder">
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Composition</h2>
             <p className="creator-workspace-rail__text muted small">
-              Section-level narrative editing will live in the Draft workspace in a later milestone.
+              Write ordered narrative sections in the Draft tab under <strong>Narrative sections</strong>.
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#narrative-composition`} className="creator-workspace-rail__link">
+                Open composition
+              </Link>
             </p>
           </section>
           <section className="creator-workspace-rail__block creator-workspace-rail__block--placeholder">

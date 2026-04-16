@@ -825,6 +825,38 @@ a:hover {
   border-style: solid;
 }
 
+/* M4-T04 — narrative section composition (ordered body) */
+.editor-panel--composition {
+  background: #fafaf7;
+  scroll-margin-top: 0.85rem;
+}
+
+.narrative-composition__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.narrative-composition__empty {
+  margin: 0.5rem 0 0;
+}
+
+.narrative-section-card__head {
+  margin-bottom: 0.35rem;
+}
+
+.narrative-section-card__sequence {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.narrative-section-card__body {
+  min-height: 10rem;
+  line-height: 1.5;
+}
+
 /* M3-T06 — publish readiness + entry (workflow-primary) */
 .editor-publish-readiness {
   margin-top: 0.85rem;
