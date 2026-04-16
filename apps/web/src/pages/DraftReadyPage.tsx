@@ -31,6 +31,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
+import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
@@ -878,7 +879,8 @@ export function DraftReadyPage() {
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
               Use <strong>Narrative sections</strong> for the ordered story body, <strong>Events</strong> for the
-              timeline, and deck fields below for discovery copy. Changes save automatically.
+              timeline, <strong>Sources &amp; coverage</strong> for evidence, and deck fields below for discovery copy.
+              Changes save automatically.
             </p>
           </div>
           {draft ? (
@@ -1137,6 +1139,16 @@ export function DraftReadyPage() {
                 regenInFlight={scopedRegenBusy}
                 regenEventId={scopedRegenTarget?.kind === "event" ? scopedRegenTarget.id : null}
                 onScopedEventRegenerate={startScopedEventRegenerate}
+              />
+
+              <EvidenceWorkspacePanel
+                token={token!}
+                storyId={storyId}
+                events={events}
+                sections={sections}
+                onSaveError={handleEventSaveError}
+                onVersionConflict={handleEventConflict}
+                onRefreshEvents={refreshEvents}
               />
             </div>
 

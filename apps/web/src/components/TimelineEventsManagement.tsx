@@ -1,20 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ApiRequestError,
-  createSource,
-  extractConflictEvent,
-  extractConflictSource,
-  listSourcesForEvent,
-  patchEvent,
-  patchSource,
-} from "../api/creatorClient";
-import type {
-  EventDraftResponse,
-  PatchEventBody,
-  PatchSourceBody,
-  SectionDraftResponse,
-  SourceRecordResponse,
-} from "../api/types";
+import { useEffect, useMemo, useState } from "react";
+import { ApiRequestError, extractConflictEvent, patchEvent } from "../api/creatorClient";
+import type { EventDraftResponse, PatchEventBody, SectionDraftResponse } from "../api/types";
+import { EventSourcesBlock } from "./EventSourcesBlock";
 
 const AUTOSAVE_MS = 600;
 
@@ -55,135 +42,6 @@ function buildEventPatch(
   return p;
 }
 
-function buildSourcePatch(
-  server: SourceRecordResponse,
-  sourceTitle: string,
-  relevanceNote: string,
-  sourceUrl: string,
-): PatchSourceBody | null {
-  const p: PatchSourceBody = {};
-  if (sourceTitle !== server.source_title) {
-    p.source_title = sourceTitle;
-  }
-  if (relevanceNote !== server.relevance_note) {
-    p.relevance_note = relevanceNote;
-  }
-  if (sourceUrl !== server.source_url) {
-    p.source_url = sourceUrl;
-  }
-  if (Object.keys(p).length === 0) return null;
-  if (p.source_title !== undefined && p.source_title.trim().length < 1) return null;
-  if (p.relevance_note !== undefined && p.relevance_note.trim().length < 1) return null;
-  if (p.source_url !== undefined && p.source_url.trim().length < 8) return null;
-  return p;
-}
-
-function SourceDraftRow(props: {
-  token: string;
-  storyId: string;
-  eventId: string;
-  source: SourceRecordResponse;
-  onPatched: (s: SourceRecordResponse) => void;
-  onVersionConflict: () => void;
-  onSaveError: (message: string) => void;
-}) {
-  const { token, storyId, eventId, source, onPatched, onVersionConflict, onSaveError } = props;
-  const [sourceTitle, setSourceTitle] = useState(source.source_title);
-  const [relevanceNote, setRelevanceNote] = useState(source.relevance_note);
-  const [sourceUrl, setSourceUrl] = useState(source.source_url);
-
-  useEffect(() => {
-    setSourceTitle(source.source_title);
-    setRelevanceNote(source.relevance_note);
-    setSourceUrl(source.source_url);
-  }, [source.id, source.updated_at]);
-
-  useEffect(() => {
-    if (!token) return;
-    const patch = buildSourcePatch(source, sourceTitle, relevanceNote, sourceUrl);
-    if (!patch) return;
-
-    const tm = setTimeout(() => {
-      void (async () => {
-        try {
-          const res = await patchSource(token, storyId, eventId, source.id, source.updated_at, patch);
-          onPatched(res.data.source_record);
-        } catch (e) {
-          if (e instanceof ApiRequestError && e.status === 409) {
-            const snap = extractConflictSource(e.body);
-            if (snap) onPatched(snap);
-            onVersionConflict();
-          } else {
-            onSaveError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Source save failed.");
-          }
-        }
-      })();
-    }, AUTOSAVE_MS);
-
-    return () => clearTimeout(tm);
-  }, [
-    token,
-    storyId,
-    eventId,
-    source.id,
-    source.updated_at,
-    source.source_title,
-    source.relevance_note,
-    source.source_url,
-    sourceTitle,
-    relevanceNote,
-    sourceUrl,
-    onPatched,
-    onVersionConflict,
-    onSaveError,
-  ]);
-
-  return (
-    <div className="editor-block editor-block--source">
-      <p className="editor-block__meta">
-        Source <code className="inline-code">{source.id.slice(0, 8)}…</code>
-      </p>
-      <label className="field">
-        <span className="label">URL</span>
-        <span className="field__hint">Canonical evidence link.</span>
-        <input
-          type="url"
-          className="input"
-          value={sourceUrl}
-          onChange={(ev) => setSourceUrl(ev.target.value)}
-          autoComplete="off"
-          maxLength={8000}
-        />
-      </label>
-      <label className="field">
-        <span className="label">Title</span>
-        <span className="field__hint">Human-readable citation title.</span>
-        <input
-          type="text"
-          className="input"
-          value={sourceTitle}
-          onChange={(ev) => setSourceTitle(ev.target.value)}
-          autoComplete="off"
-          maxLength={2000}
-        />
-      </label>
-      <label className="field">
-        <span className="label">Relevance to this event</span>
-        <span className="field__hint">
-          How this source supports the factual claim — evidence note, not general commentary.
-        </span>
-        <textarea
-          className="input textarea"
-          value={relevanceNote}
-          onChange={(ev) => setRelevanceNote(ev.target.value)}
-          rows={2}
-          maxLength={100000}
-        />
-      </label>
-    </div>
-  );
-}
-
 function TimelineEventDraftRow(props: {
   token: string;
   storyId: string;
@@ -218,9 +76,6 @@ function TimelineEventDraftRow(props: {
   const [dek, setDek] = useState(normalizeDek(event.dek));
   const [summary, setSummary] = useState(event.summary);
   const [creatorNote, setCreatorNote] = useState(normalizeCreatorNote(event.creator_note));
-  const [sources, setSources] = useState<SourceRecordResponse[]>([]);
-  const [sourcesLoadError, setSourcesLoadError] = useState<string | null>(null);
-  const [addingSource, setAddingSource] = useState(false);
 
   useEffect(() => {
     setHeadline(event.headline);
@@ -228,25 +83,6 @@ function TimelineEventDraftRow(props: {
     setSummary(event.summary);
     setCreatorNote(normalizeCreatorNote(event.creator_note));
   }, [event.id, event.updated_at]);
-
-  const loadSources = useCallback(async () => {
-    if (!token) return;
-    setSourcesLoadError(null);
-    try {
-      const r = await listSourcesForEvent(token, storyId, event.id);
-      setSources(r.data.sources);
-    } catch (e) {
-      setSourcesLoadError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load sources.");
-    }
-  }, [token, storyId, event.id]);
-
-  useEffect(() => {
-    void loadSources();
-  }, [loadSources]);
-
-  const handleSourcePatched = useCallback((s: SourceRecordResponse) => {
-    setSources((prev) => prev.map((x) => (x.id === s.id ? s : x)));
-  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -290,7 +126,10 @@ function TimelineEventDraftRow(props: {
   ]);
 
   return (
-    <article className="timeline-event-card editor-block editor-card editor-card--event">
+    <article
+      id={`timeline-event-${event.id}`}
+      className="timeline-event-card editor-block editor-card editor-card--event"
+    >
       <header className="timeline-event-card__head">
         <p className="timeline-event-card__sequence">
           Event {ordinal} of {total}
@@ -384,52 +223,15 @@ function TimelineEventDraftRow(props: {
 
       <details className="timeline-event-card__sources">
         <summary className="timeline-event-card__sources-summary">Sources on this event</summary>
-        <div className="editor-source-nest timeline-event-card__sources-body">
-          <div className="editor-source-nest__bar">
-            <span className="editor-source-nest__label">Evidence rows</span>
-            <button
-              type="button"
-              className="btn ghost inline"
-              disabled={!token || addingSource}
-              onClick={() => {
-                if (!token || !storyId) return;
-                setAddingSource(true);
-                void (async () => {
-                  try {
-                    const r = await createSource(token, storyId, event.id, {
-                      source_url: "https://example.com/evidence",
-                      source_title: "New source",
-                      publisher_name: "Publisher",
-                      relevance_note: "Why this source supports the event.",
-                    });
-                    setSources((prev) => [...prev, r.data.source_record]);
-                    void onRefreshEvents();
-                  } catch (e) {
-                    onSaveError(
-                      e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not add source.",
-                    );
-                  } finally {
-                    setAddingSource(false);
-                  }
-                })();
-              }}
-            >
-              {addingSource ? "Adding…" : "Add source"}
-            </button>
-          </div>
-          {sourcesLoadError ? <p className="hint">{sourcesLoadError}</p> : null}
-          {sources.map((src) => (
-            <SourceDraftRow
-              key={src.id}
-              token={token}
-              storyId={storyId}
-              eventId={event.id}
-              source={src}
-              onPatched={handleSourcePatched}
-              onVersionConflict={onVersionConflict}
-              onSaveError={onSaveError}
-            />
-          ))}
+        <div className="timeline-event-card__sources-body">
+          <EventSourcesBlock
+            token={token}
+            storyId={storyId}
+            eventId={event.id}
+            onSaveError={onSaveError}
+            onVersionConflict={onVersionConflict}
+            onAfterMutation={onRefreshEvents}
+          />
         </div>
       </details>
     </article>

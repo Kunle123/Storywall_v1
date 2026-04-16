@@ -134,6 +134,17 @@ export function CreatorWorkspaceLayout() {
             </p>
           </section>
           <section className="creator-workspace-rail__block">
+            <h2 className="creator-workspace-rail__h">Evidence</h2>
+            <p className="creator-workspace-rail__text muted small">
+              Review source rows per event and see coverage in <strong>Sources &amp; coverage</strong> on the Draft tab.
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#evidence-workspace`} className="creator-workspace-rail__link">
+                Open evidence
+              </Link>
+            </p>
+          </section>
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Checks & publish</h2>
             <p className="creator-workspace-rail__text muted small">
               Run checks, resolve issues, and publish from the <strong>Draft</strong> tab when your story is ready.
