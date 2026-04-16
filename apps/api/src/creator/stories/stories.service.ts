@@ -465,8 +465,8 @@ export class StoriesService {
   }
 
   /**
-   * M3-T07 + M3-T09 — creator publish: sets lifecycle + workflow to published with durable idempotency
-   * and freezes `published_body_snapshot` for public reads.
+   * M3-T07 + M3-T09 + M3-T10 — creator publish: sets lifecycle + workflow to published with durable idempotency
+   * and freezes `published_body_snapshot` (body, timeline, public sources) for public reads.
    */
   async publishStory(params: {
     storyId: string;
@@ -522,6 +522,11 @@ export class StoriesService {
                       locationName: true,
                       contextLabel: true,
                       positionIndex: true,
+                      sources: {
+                        where: { isPublic: true, status: { not: "rejected" } },
+                        orderBy: { createdAt: "asc" },
+                        select: { sourceTitle: true, sourceUrl: true, publisherName: true },
+                      },
                     },
                   },
                 },

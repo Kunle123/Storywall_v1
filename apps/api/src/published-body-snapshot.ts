@@ -1,7 +1,14 @@
 import type { Prisma } from "@prisma/client";
 
-/** M3-T09 — versioned JSON written at publish and read by the public story route. */
+/** M3-T09 + M3-T10 — versioned JSON written at publish and read by the public story route. */
 export const PUBLISHED_BODY_SNAPSHOT_VERSION = 1 as const;
+
+export type PublishedPublicSourceRowV1 = {
+  title: string;
+  outbound_url: string | null;
+  publisher_name: string | null;
+  position_index: number;
+};
 
 export type PublishedBodySnapshotV1 = {
   snapshot_version: typeof PUBLISHED_BODY_SNAPSHOT_VERSION;
@@ -27,10 +34,29 @@ export type PublishedBodySnapshotV1 = {
     context_label: string | null;
     position_index: number;
   }>;
+  sources: PublishedPublicSourceRowV1[];
 };
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+/** Only http(s) URLs become outbound links; everything else stays text-only in the reader. */
+export function publicOutboundUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  try {
+    const u = new URL(t);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+function publicPublisherName(raw: string): string | null {
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
 }
 
 /** Build snapshot from live story + draft rows at publish time (transaction-safe caller). */
@@ -54,6 +80,7 @@ export function buildPublishedBodySnapshotV1(params: {
     locationName: string | null;
     contextLabel: string | null;
     positionIndex: number;
+    sources: Array<{ sourceTitle: string; sourceUrl: string; publisherName: string }>;
   }>;
 }): Prisma.InputJsonValue {
   const { story, sectionDrafts, eventDrafts } = params;
@@ -75,6 +102,18 @@ export function buildPublishedBodySnapshotV1(params: {
       context_label: e.contextLabel,
       position_index: e.positionIndex,
     }));
+  const sources: PublishedPublicSourceRowV1[] = [];
+  let sourcePosition = 0;
+  for (const ev of [...eventDrafts].sort((a, b) => a.positionIndex - b.positionIndex)) {
+    for (const src of ev.sources) {
+      sources.push({
+        title: src.sourceTitle,
+        outbound_url: publicOutboundUrl(src.sourceUrl),
+        publisher_name: publicPublisherName(src.publisherName),
+        position_index: sourcePosition++,
+      });
+    }
+  }
   const snap: PublishedBodySnapshotV1 = {
     snapshot_version: PUBLISHED_BODY_SNAPSHOT_VERSION,
     title: story.title,
@@ -87,6 +126,7 @@ export function buildPublishedBodySnapshotV1(params: {
     time_end: story.timeEnd ? story.timeEnd.toISOString() : null,
     sections,
     events,
+    sources,
   };
   return snap as unknown as Prisma.InputJsonValue;
 }
@@ -133,6 +173,28 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
       position_index: row.position_index,
     });
   }
+  const sources: PublishedPublicSourceRowV1[] = [];
+  if (Array.isArray(raw.sources)) {
+    let si = 0;
+    for (const row of raw.sources) {
+      if (!isRecord(row)) continue;
+      if (typeof row.title !== "string" || row.title.trim().length === 0) continue;
+      const outbound_url =
+        row.outbound_url === null || row.outbound_url === undefined
+          ? null
+          : typeof row.outbound_url === "string"
+            ? publicOutboundUrl(row.outbound_url)
+            : null;
+      const publisher_name =
+        row.publisher_name === null || row.publisher_name === undefined
+          ? null
+          : typeof row.publisher_name === "string"
+            ? publicPublisherName(row.publisher_name)
+            : null;
+      sources.push({ title: row.title.trim(), outbound_url, publisher_name, position_index: si });
+      si += 1;
+    }
+  }
   return {
     title: raw.title as string,
     subtitle: typeof raw.subtitle === "string" || raw.subtitle === null ? (raw.subtitle as string | null) : null,
@@ -147,5 +209,6 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
     time_end: typeof raw.time_end === "string" || raw.time_end === null ? (raw.time_end as string | null) : null,
     sections,
     events,
+    sources,
   };
 }

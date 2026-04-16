@@ -148,6 +148,39 @@ export function PublicStoryPage() {
         </section>
       ) : null}
 
+      <section className="public-story-block" aria-labelledby="public-story-sources-label">
+        <h2 id="public-story-sources-label" className="public-story-block__title">
+          Sources
+        </h2>
+        {(story.sources ?? []).length > 0 ? (
+          <ul className="public-story-source-list">
+            {(story.sources ?? []).map((src) => (
+              <li key={`src-${src.position_index}`} className="public-story-source-list__item">
+                <p className="public-story-source-list__title">
+                  {src.outbound_url ? (
+                    <a
+                      href={src.outbound_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="public-story-source-list__link"
+                    >
+                      {src.title}
+                    </a>
+                  ) : (
+                    <span className="public-story-source-list__text">{src.title}</span>
+                  )}
+                </p>
+                {src.publisher_name ? (
+                  <p className="public-story-source-list__meta muted small">{src.publisher_name}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted small">No public sources are listed for this story.</p>
+        )}
+      </section>
+
       {story.conclusion ? (
         <section className="public-story-block" aria-labelledby="public-story-conclusion-label">
           <h2 id="public-story-conclusion-label" className="public-story-block__title">

@@ -1,4 +1,11 @@
-/** M3-T08 — public story read envelope (matches API snake_case). */
+/** M3-T08 + M3-T10 — public story read envelope (matches API snake_case). */
+
+export interface PublicStorySource {
+  title: string;
+  outbound_url: string | null;
+  publisher_name: string | null;
+  position_index: number;
+}
 
 export interface PublicStorySection {
   label: string;
@@ -29,6 +36,7 @@ export interface PublicStoryData {
   published_at: string;
   sections: PublicStorySection[];
   events: PublicStoryEvent[];
+  sources: PublicStorySource[];
 }
 
 export interface GetPublicStorySuccess {
