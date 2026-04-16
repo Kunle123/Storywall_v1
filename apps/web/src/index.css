@@ -1249,3 +1249,32 @@ a:hover {
   margin: 0 0 0.4rem;
   line-height: 1.35;
 }
+
+/* M3-T13 — compact methodology note (static copy only) */
+.public-trust-explainer {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.public-trust-explainer__title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+}
+
+.public-trust-explainer__p {
+  margin: 0 0 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.public-trust-explainer__p:last-child {
+  margin-bottom: 0;
+}

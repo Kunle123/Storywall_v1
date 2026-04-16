@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { PublicTrustExplainer } from "../components/PublicTrustExplainer";
 import { getPublicStoryReferences } from "../api/publicClient";
 import type { PublicStoryReferencesData } from "../api/publicTypes";
 
@@ -102,6 +103,8 @@ export function PublicStoryReferencesPage() {
             : null}
         </p>
       </header>
+
+      <PublicTrustExplainer />
 
       {!hasAnyRefs ? (
         <section className="public-story-block">

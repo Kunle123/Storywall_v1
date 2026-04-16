@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { PublicTrustExplainer } from "../components/PublicTrustExplainer";
 import { ApiRequestError } from "../api/creatorClient";
 import { getPublicStory } from "../api/publicClient";
 import type { PublicStoryData } from "../api/publicTypes";
@@ -91,6 +92,8 @@ export function PublicStoryPage() {
           {story.time_display ? ` · ${story.time_display}` : null}
         </p>
       </header>
+
+      <PublicTrustExplainer />
 
       {story.summary ? (
         <section className="public-story-block" aria-labelledby="public-story-summary-label">
