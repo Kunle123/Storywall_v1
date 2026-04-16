@@ -188,6 +188,24 @@ async function main() {
     }
   }
 
+  const evAfterSources = await j(await fetch(`${API}/api/v1/creator/stories/${STORY}/events`, { headers: auth }));
+  for (const e of evAfterSources.data?.events ?? []) {
+    const srcRes = await j(
+      await fetch(`${API}/api/v1/creator/stories/${STORY}/events/${e.id}/sources`, { headers: auth }),
+    );
+    for (const s of srcRes.data?.sources ?? []) {
+      if (s.status === "approved") continue;
+      const pr = await j(
+        await fetch(`${API}/api/v1/creator/stories/${STORY}/events/${e.id}/sources/${s.id}`, {
+          method: "PATCH",
+          headers: { ...auth, "If-Match": s.updated_at },
+          body: JSON.stringify({ status: "approved" }),
+        }),
+      );
+      console.log("approve source", s.id.slice(0, 8), pr.ok, pr.error?.message);
+    }
+  }
+
   const val = await j(
     await fetch(`${API}/api/v1/creator/stories/${STORY}/validation/run`, {
       method: "POST",
