@@ -691,6 +691,9 @@ export class StoriesService {
     if (dto.discovery_mode !== undefined) {
       d.discoveryMode = dto.discovery_mode as Prisma.StoryDraftUpdateInput["discoveryMode"];
     }
+    if (dto.imagery_mode !== undefined) {
+      d.imageryMode = dto.imagery_mode as Prisma.StoryDraftUpdateInput["imageryMode"];
+    }
     if (dto.time_start !== undefined) {
       d.timeStart =
         dto.time_start === null ? null : new Date(dto.time_start);

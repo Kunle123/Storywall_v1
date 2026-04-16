@@ -426,6 +426,7 @@ export type PatchStoryDraftBody = Partial<{
   category_secondary: string | null;
   lead_priority: number | null;
   discovery_mode: string | null;
+  imagery_mode: BriefImageryMode;
   time_start: string | null;
   time_end: string | null;
   time_display: string | null;

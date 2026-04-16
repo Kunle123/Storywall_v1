@@ -134,6 +134,17 @@ export function CreatorWorkspaceLayout() {
             </p>
           </section>
           <section className="creator-workspace-rail__block">
+            <h2 className="creator-workspace-rail__h">Hero imagery</h2>
+            <p className="creator-workspace-rail__text muted small">
+              Set story-level <strong>imagery mode</strong> on the Draft tab (policy, not file upload).
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#hero-media-workflow`} className="creator-workspace-rail__link">
+                Open visuals
+              </Link>
+            </p>
+          </section>
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Evidence</h2>
             <p className="creator-workspace-rail__text muted small">
               Review source rows per event and see coverage in <strong>Sources &amp; coverage</strong> on the Draft tab.

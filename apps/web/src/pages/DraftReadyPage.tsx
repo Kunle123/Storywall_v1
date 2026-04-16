@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { CreatorWorkflowState } from "@storywall/shared";
+import type { BriefImageryMode, CreatorWorkflowState } from "@storywall/shared";
 import {
   ApiRequestError,
   assembleDraft,
@@ -32,6 +32,7 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
 import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
+import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
@@ -267,6 +268,7 @@ type LocalDraftFields = {
   summary: string;
   lens: string;
   conclusion: string;
+  imageryMode: BriefImageryMode;
 };
 
 function normalizeSubtitle(s: string | null | undefined): string {
@@ -283,6 +285,7 @@ function isDirtyVersusServer(draft: StoryDraftResponse, local: LocalDraftFields)
   if (local.summary !== draft.summary) return true;
   if (local.lens !== draft.lens) return true;
   if (local.conclusion !== normalizeConclusion(draft.conclusion)) return true;
+  if (local.imageryMode !== (draft.imagery_mode as BriefImageryMode)) return true;
   return false;
 }
 
@@ -304,6 +307,9 @@ function buildValidPatch(draft: StoryDraftResponse, local: LocalDraftFields): Pa
   if (local.conclusion !== normalizeConclusion(draft.conclusion)) {
     p.conclusion = local.conclusion === "" ? null : local.conclusion;
   }
+  if (local.imageryMode !== (draft.imagery_mode as BriefImageryMode)) {
+    p.imagery_mode = local.imageryMode;
+  }
   if (Object.keys(p).length === 0) return null;
   if (p.title !== undefined && p.title.trim().length < 1) return null;
   if (p.summary !== undefined && p.summary.trim().length < 1) return null;
@@ -317,12 +323,14 @@ function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setSummary: (v: string) => void;
   setLens: (v: string) => void;
   setConclusion: (v: string) => void;
+  setImageryMode: (v: BriefImageryMode) => void;
 }) {
   setters.setTitle(d.title);
   setters.setSubtitle(normalizeSubtitle(d.subtitle));
   setters.setSummary(d.summary);
   setters.setLens(d.lens);
   setters.setConclusion(normalizeConclusion(d.conclusion));
+  setters.setImageryMode(d.imagery_mode as BriefImageryMode);
 }
 
 /**
@@ -339,6 +347,7 @@ export function DraftReadyPage() {
   const [summary, setSummary] = useState("");
   const [lens, setLens] = useState("");
   const [conclusion, setConclusion] = useState("");
+  const [imageryMode, setImageryMode] = useState<BriefImageryMode>("selective_editorial");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
@@ -375,7 +384,7 @@ export function DraftReadyPage() {
     target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
-  const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion };
+  const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion, imageryMode };
 
   const refreshSections = useCallback(async () => {
     if (!token || !storyId) return;
@@ -561,7 +570,14 @@ export function DraftReadyPage() {
         const d = rFrames.data.story_draft;
         setDraft(d);
         if (d) {
-          applyServerDraftToForm(d, { setTitle, setSubtitle, setSummary, setLens, setConclusion });
+          applyServerDraftToForm(d, {
+            setTitle,
+            setSubtitle,
+            setSummary,
+            setLens,
+            setConclusion,
+            setImageryMode,
+          });
         }
         await refreshSections();
         await refreshEvents();
@@ -630,7 +646,14 @@ export function DraftReadyPage() {
         const d = r.data.story_draft;
         setDraft(d);
         if (d) {
-          applyServerDraftToForm(d, { setTitle, setSubtitle, setSummary, setLens, setConclusion });
+          applyServerDraftToForm(d, {
+            setTitle,
+            setSubtitle,
+            setSummary,
+            setLens,
+            setConclusion,
+            setImageryMode,
+          });
         }
       } catch (e) {
         if (!cancelled) {
@@ -694,6 +717,7 @@ export function DraftReadyPage() {
             setSummary,
             setLens,
             setConclusion,
+            setImageryMode,
           });
           setSaveError(null);
           setSaveOk(true);
@@ -709,6 +733,7 @@ export function DraftReadyPage() {
                 setSummary,
                 setLens,
                 setConclusion,
+                setImageryMode,
               });
             }
             setSaveError("Version conflict — loaded the latest draft from the server.");
@@ -720,7 +745,7 @@ export function DraftReadyPage() {
     }, AUTOSAVE_MS);
 
     return () => clearTimeout(t);
-  }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion]);
+  }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion, imageryMode]);
 
   const handleRunValidation = useCallback(async () => {
     if (!token || !storyId) return;
@@ -744,6 +769,7 @@ export function DraftReadyPage() {
           setSummary,
           setLens,
           setConclusion,
+          setImageryMode,
         });
       }
       await refreshSections();
@@ -785,6 +811,7 @@ export function DraftReadyPage() {
           setSummary,
           setLens,
           setConclusion,
+          setImageryMode,
         });
       }
       await refreshSections();
@@ -879,8 +906,8 @@ export function DraftReadyPage() {
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
               Use <strong>Narrative sections</strong> for the ordered story body, <strong>Events</strong> for the
-              timeline, <strong>Sources &amp; coverage</strong> for evidence, and deck fields below for discovery copy.
-              Changes save automatically.
+              timeline, <strong>Sources &amp; coverage</strong> for evidence, <strong>Hero imagery policy</strong> for
+              how visuals are treated, and deck fields for discovery copy. Changes save automatically.
             </p>
           </div>
           {draft ? (
@@ -1123,6 +1150,12 @@ export function DraftReadyPage() {
                   </div>
                 </div>
               </section>
+
+              <HeroMediaWorkflowPanel
+                value={imageryMode}
+                onChange={setImageryMode}
+                disabled={!token || !draft}
+              />
 
               <TimelineEventsManagementPanel
                 token={token!}

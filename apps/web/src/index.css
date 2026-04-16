@@ -1158,6 +1158,13 @@ a:hover {
   margin-top: 0.65rem;
 }
 
+/* M4-T07 — hero imagery policy (story_draft.imagery_mode) */
+.editor-panel--hero-media {
+  background: #faf9f6;
+  scroll-margin-top: 0.85rem;
+  border-style: solid;
+}
+
 /* M4-T06 — evidence workspace (sources attach to events) */
 .editor-panel--evidence {
   background: #f8f7f4;

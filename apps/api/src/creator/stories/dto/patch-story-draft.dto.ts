@@ -9,6 +9,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { BRIEF_IMAGERY_MODE } from "../brief-enums";
 import {
   DISCOVERY_MODE,
   EDITORIAL_REVIEW_STATUS,
@@ -67,6 +68,10 @@ export class PatchStoryDraftDto {
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsIn(DISCOVERY_MODE)
   discovery_mode?: (typeof DISCOVERY_MODE)[number] | null;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsIn(BRIEF_IMAGERY_MODE)
+  imagery_mode?: (typeof BRIEF_IMAGERY_MODE)[number];
 
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsDateString()
