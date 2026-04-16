@@ -4,6 +4,7 @@ import { PublicTrustExplainer } from "../components/PublicTrustExplainer";
 import { ApiRequestError } from "../api/creatorClient";
 import { getPublicStory } from "../api/publicClient";
 import type { PublicStoryData } from "../api/publicTypes";
+import { applyPublicStoryShareMeta, clearPublicStoryShareMeta } from "../lib/publicShareMeta";
 
 export function PublicStoryPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -45,6 +46,17 @@ export function PublicStoryPage() {
       cancelled = true;
     };
   }, [slug]);
+
+  useEffect(() => {
+    if (!slug || !story || story.slug !== slug) {
+      clearPublicStoryShareMeta();
+      return;
+    }
+    applyPublicStoryShareMeta(story, slug);
+    return () => {
+      clearPublicStoryShareMeta();
+    };
+  }, [slug, story]);
 
   if (!slug) {
     return (
