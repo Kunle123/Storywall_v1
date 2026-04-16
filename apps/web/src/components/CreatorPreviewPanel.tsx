@@ -81,6 +81,11 @@ export function CreatorPreviewPanel(props: CreatorPreviewPanelProps) {
     });
   }, [draft, events, sections, sourcesByEventId, storyId]);
 
+  const referenceRowCount = useMemo(
+    () => Object.values(sourcesByEventId).reduce((n, rows) => n + rows.length, 0),
+    [sourcesByEventId],
+  );
+
   return (
     <section
       className="editor-panel editor-panel--creator-preview"
@@ -90,12 +95,39 @@ export function CreatorPreviewPanel(props: CreatorPreviewPanelProps) {
       <div className="editor-panel__head">
         <p className="editor-panel__eyebrow">Preview</p>
         <h3 id="creator-preview-heading" className="editor-panel__title">
-          Reader layout (draft-fed)
+          Reader-faithful layout (working draft)
         </h3>
+        <p className="editor-panel__kicker muted small">
+          Not the frozen publish snapshot — this canvas mirrors today{"'"}s saved draft and attached references.
+        </p>
         <p className="editor-panel__hint">
           Scroll the frame below to see how your current draft maps to the same blocks readers see: overview, lens,
           sections, timeline with references, sources list, and closing.
         </p>
+        {draft ? (
+          <p className="creator-preview-meta" role="status">
+            <span>
+              <strong>{sections.length}</strong> section{sections.length === 1 ? "" : "s"}
+            </span>
+            <span className="creator-preview-meta__sep" aria-hidden="true">
+              ·
+            </span>
+            <span>
+              <strong>{events.length}</strong> timeline row{events.length === 1 ? "" : "s"}
+            </span>
+            {events.length > 0 ? (
+              <>
+                <span className="creator-preview-meta__sep" aria-hidden="true">
+                  ·
+                </span>
+                <span>
+                  <strong>{referenceRowCount}</strong> reference row{referenceRowCount === 1 ? "" : "s"} loaded for
+                  preview
+                </span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
       </div>
 
       {!draft ? (

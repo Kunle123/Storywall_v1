@@ -977,6 +977,31 @@ export function DraftReadyPage() {
               ) : null}
             </p>
           </div>
+          {!loadError && workflow && isEditorialValidationWorkspace(workflow) ? (
+            <div className="draft-atlas" aria-label="Composition and readiness snapshot">
+              <div className="draft-atlas__cell">
+                <span className="draft-atlas__label">Narrative sections</span>
+                <span className="draft-atlas__value">{sections.length}</span>
+                <span className="draft-atlas__hint muted small">Ordered body blocks</span>
+              </div>
+              <div className="draft-atlas__cell">
+                <span className="draft-atlas__label">Timeline events</span>
+                <span className="draft-atlas__value">{events.length}</span>
+                <span className="draft-atlas__hint muted small">Dated story beats</span>
+              </div>
+              <div className="draft-atlas__cell draft-atlas__cell--wide">
+                <span className="draft-atlas__label">Latest checks</span>
+                <span className="draft-atlas__value draft-atlas__value--text">
+                  {validationLoading
+                    ? "Loading…"
+                    : validationData?.has_validation_run && validationData.validation_report
+                      ? `${validationData.validation_report.overall_result} · ${validationData.validation_report.blocker_count} blocker${validationData.validation_report.blocker_count === 1 ? "" : "s"} · ${validationData.validation_report.warning_count} warning${validationData.validation_report.warning_count === 1 ? "" : "s"}`
+                      : "No validation run stored yet"}
+                </span>
+                <span className="draft-atlas__hint muted small">Run checks after substantive edits</span>
+              </div>
+            </div>
+          ) : null}
           {draft ? (
             <>
               <div className="editor-shell">
@@ -991,6 +1016,9 @@ export function DraftReadyPage() {
                     <h3 id="post-publish-live-heading" className="editor-panel__title">
                       What readers see today
                     </h3>
+                    <p className="editor-panel__kicker muted small">
+                      Frozen reader snapshot — distinct from the working draft you are editing in this workspace.
+                    </p>
                     <p className="editor-panel__hint">
                       The reader page is built from the last successful publish, not from unsaved draft edits. Open the
                       public story in another tab to compare; Storywall does not yet show an automatic diff between
@@ -1021,8 +1049,11 @@ export function DraftReadyPage() {
                 <div className="editor-panel__head">
                   <p className="editor-panel__eyebrow">Readiness</p>
                   <h3 id="editor-validation-heading" className="editor-panel__title">
-                    Validation
+                    Validation &amp; publish gate
                   </h3>
+                  <p className="editor-panel__kicker muted small">
+                    This panel is the contract with readers: checks must reflect the manuscript you intend to ship.
+                  </p>
                   <p className="editor-panel__hint">
                     Latest checks against Storywall baseline and reference rules. Re-run after you edit — results decide
                     whether you can publish or refresh the live reader snapshot, and list concrete issues when the engine
