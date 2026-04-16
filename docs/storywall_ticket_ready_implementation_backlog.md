@@ -1,7 +1,8 @@
 # Storywall Ticket-Ready Implementation Backlog
 
 **Author:** Manus AI  
-**Date:** 2026-04-14
+**Date:** 2026-04-14  
+**M4 update:** 2026-04-16 — Milestone M4 redefined as **Creator Workflow Foundation**; see `docs/storywall_m4_creator_workflow_foundation.md`.
 
 ## 1. Purpose
 
@@ -40,7 +41,7 @@ The cleanest execution path is to group the work into five milestones. These cor
 | **M1 — Data and Core Authoring Foundation** | Persist Storywall’s core records and enable the earliest creator flow | A creator can start a story and save structured editorial state |
 | **M2 — AI Draft Assembly and Editorial Workspace** | Produce and edit a full Storywall draft | A creator can go from approved brief to editable complete draft |
 | **M3 — Trust, Review, and Publication** | Enforce publication rules and reviewer governance | A validated story can be reviewed and published safely |
-| **M4 — Reader Discovery, Pilot, and Launch Readiness** | Connect public surfaces and prove the system with real use | Pilot users can create and publish without staff reconstructing the flow |
+| **M4 — Creator Workflow Foundation** | Make the creator editorial loop explicit end-to-end (setup → compose → evidence → preview → maintain) | A creator can define, structure, compose, evidence, preview, and maintain a Storywall in one coherent workflow (see `docs/storywall_m4_creator_workflow_foundation.md`) |
 
 ## 4. Dependency Ordering Summary
 
@@ -54,7 +55,7 @@ The backlog should be executed in the following dependency order. This ordering 
 | **4** | AI orchestration for research and draft assembly | The product premise depends on full-draft quality |
 | **5** | Editorial workspace and autosave mutations | Human ownership depends on reliable editing surfaces |
 | **6** | Validation, trust model, imagery rules, reviewer overlays | Storywall cannot publish responsibly without them |
-| **7** | Publish flow, public read models, homepage merchandising | These depend on stable story outputs and trust-bearing metadata |
+| **7** | Publish flow, public read surfaces, then creator-workflow foundation (M4) | Public reader credibility is in place; M4 closes explicit creator-side gaps before broad discovery or pilot expansion |
 | **8** | Pilot hardening, analytics, launch gate | These matter only after the loop actually works |
 
 ## 5. Epic Map
@@ -151,24 +152,30 @@ This milestone turns Storywall into a governed publishing system. It should end 
 | **M3-T13** | E7 | Implement publish command with workflow and moderation gate enforcement | Publish only succeeds when both creator and reviewer conditions are satisfied | M3-T07, M3-T11 |
 | **M3-T14** | E7 | Build publish-readiness summary and confirmation UI | Creator can see exactly what blocks or permits publication | M3-T13 |
 
-### Milestone M4 — Reader Discovery, Pilot, and Launch Readiness
+### Milestone M4 — Creator Workflow Foundation
 
-This milestone connects the editorial engine to public reading surfaces and proves the product through real usage before wider launch.[1] [4] [5] [10]
+**Canonical detail:** `docs/storywall_m4_creator_workflow_foundation.md` (milestone intent, guardrails, dependency phases, gap coverage, superseded reader-discovery note).
 
-| Ticket ID | Epic | Title | Outcome | Depends on |
-|---|---|---|---|---|
-| **M4-T01** | E8 | Create public story read model projection | Published story data can be served efficiently to public routes | M3-T13 |
-| **M4-T02** | E8 | Implement homepage feed and discovery-rail projections | Discovery surfaces can be populated from published stories | M4-T01 |
-| **M4-T03** | E8 | Implement homepage endpoint contract | Public homepage API matches the approved envelope and field definitions | M4-T02 |
-| **M4-T04** | E8 | Implement timeline/story-detail endpoint contract | Story detail reads match the approved public contract | M4-T01 |
-| **M4-T05** | E8 | Build public homepage discovery UI against live data | Homepage stops being seeded and starts rendering real stories | M4-T03 |
-| **M4-T06** | E8 | Build public story route against live timeline payload | Reader can consume published Storywalls with trust cues and references | M4-T04 |
-| **M4-T07** | E8 | Add share metadata and teaser derivative generation | Published stories have usable discovery and share surfaces | M3-T13, M4-T02 |
-| **M4-T08** | E9 | Implement post-publish visibility intervention actions | Published stories can be restricted or restored under reviewer control | M3-T11, M3-T13 |
-| **M4-T09** | E9 | Add analytics and operational event instrumentation | Team can measure creation, validation, review, and publish behavior | M3-T13, M4-T05, M4-T06 |
-| **M4-T10** | E9 | Prepare pilot onboarding and internal QA checklist | Internal alpha can run against a repeatable checklist | M4-T05, M4-T06 |
-| **M4-T11** | E9 | Run creator pilot triage loop and backlog burn-down | Real usage drives bug fixing and workflow hardening | M4-T10 |
-| **M4-T12** | E9 | Produce launch readiness scorecard and go/no-go review | Leadership can decide whether Storywall is ready to become the default experience | M4-T11 |
+**Bridge from M3 / public track:** **M4-T01** — Public story share cards / Open Graph metadata (client-side share metadata for published public stories). Treated as **merge-ready**; planning pauses before further post-M3 tickets until M4-T02 starts.
+
+**Formal sequence after M4-T01** (creator editorial loop; execute in dependency order per the foundation doc):
+
+| Ticket ID | Priority | Title | Outcome (summary) |
+|---|---|---|---|
+| **M4-T02** | Must-have | New story setup / brief creation flow | Real starting point for title, angle, scope, framing, working summary |
+| **M4-T03** | Must-have | Creator workspace information architecture | Shell, navigation, panels, mode clarity for draft work |
+| **M4-T04** | Must-have | Narrative section composition editor | Editorial surface to compose and order sections |
+| **M4-T05** | Must-have | Timeline event management UX | Add, edit, order, inspect events in a clear timeline workflow |
+| **M4-T06** | Must-have | Source attachment and evidence organization surface | Evidence workflow: sources ↔ story elements |
+| **M4-T07** | Should-have | Visual asset and hero-media workflow | Imagery selection, preview, visual coherence |
+| **M4-T08** | Must-have | Creator preview parity surface | Honest preview of public result before publish |
+| **M4-T09** | Should-have | Post-publish update / republish workflow | Safe edit and republish for published stories |
+| **M4-T10** | Nice-to-have | Creator empty states and onboarding copy pass | Clarity for new, incomplete, blocked, or waiting states |
+| **M4-T11** | Should-have | Creator-side design system polish pass | Unified hierarchy, spacing, panels, editorial language |
+
+**Epic mapping (working):** M4-T02–T06 align primarily with **E4 / E6** (creator intake, editorial workspace); M4-T07–T09 with **E6 / E8** as needed; M4-T10–T11 are cross-cutting creator UX. Refine epic labels when tickets are written.
+
+**Deferred:** Homepage discovery, pilot instrumentation, launch scorecard, and related items from the **superseded** “M4 — Reader Discovery, Pilot, and Launch Readiness” draft are **not** part of this M4 numbering; reintroduce under a **later milestone** if required.
 
 ## 7. Immediate Build-Start Tickets
 
@@ -199,7 +206,7 @@ Certain dependencies are easy to underestimate because they cut across multiple 
 | **Draft-version persistence** | M1-T04 | Autosave, revision history, and conflict handling depend on it |
 | **Background job model** | M0-T07 | Research, draft assembly, and validation are long-running actions |
 | **Validation issue taxonomy** | M3-T02 | Creator trust UI and reviewer intervention both rely on common issue types |
-| **Public read-model projection** | M4-T01 | Homepage and story-detail surfaces should not read directly from authoring tables |
+| **Public reader + share metadata bridge** | M4-T01 | Published public routes and client share metadata use publish-safe data; further **creator** workflow work continues at **M4-T02** per `docs/storywall_m4_creator_workflow_foundation.md` |
 
 ## 9. Acceptance Criteria for the Backlog Itself
 
@@ -219,6 +226,8 @@ This backlog should be treated as implementation-ready only if the team agrees t
 The best next move is to treat **M0 and M1 as the build kickoff package** and begin implementation there immediately. That means freezing the baseline, upgrading the project to a full-stack shape, introducing the migration framework, defining the shared domain vocabulary, and then building the creator brief-and-framing flow as the first user-facing capability.[2] [4] [6] [10]
 
 The team should resist the temptation to start with homepage polish or isolated discovery features. Storywall’s differentiator is the creator-to-publish engine. If the team proves that vertical slice first, the rest of the product becomes execution. If it does not, the rest of the work becomes decoration around an unproven core.[3] [4] [10]
+
+**Post-M3 / M4-T01:** Trust, publish, public reader surfaces, and the M4-T01 share-metadata bridge address a large part of the reader-and-publish story. **Next approved build focus:** merge **M4-T01**, then execute **M4 — Creator Workflow Foundation** starting at **M4-T02**, as defined in `docs/storywall_m4_creator_workflow_foundation.md`.
 
 ## References
 

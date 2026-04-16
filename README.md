@@ -90,11 +90,11 @@ docker build -f apps/worker/Dockerfile -t storywall-worker .
 
 ## Implementation order
 
-Follow `docs/storywall_ticket_ready_implementation_backlog.md` (M0 → M1 → …). Do not prioritize homepage polish before the creator-to-publish vertical slice (`storywall_cursor_master_prompt_and_workflow.md`).
+Follow `docs/storywall_ticket_ready_implementation_backlog.md` (M0 → M1 → …). After trust/public work through **M3-T14** and bridge **M4-T01**, milestone **M4** is **Creator Workflow Foundation** — see `docs/storywall_m4_creator_workflow_foundation.md` (next ticket **M4-T02**). Do not prioritize homepage polish before the creator-to-publish vertical slice (`storywall_cursor_master_prompt_and_workflow.md`).
 
 ## Doc conflict note
 
-`storywall_sprint_by_sprint_build_matrix.md` orders an early “reader foundation” sprint before creator intake; the **ticket backlog** and **master prompt** prioritize backend + creator workflow before broad reader polish. Treat the backlog sequence as authoritative for implementation.
+`storywall_sprint_by_sprint_build_matrix.md` orders an early “reader foundation” sprint before creator intake; the **ticket backlog** and **master prompt** prioritize backend + creator workflow before broad reader polish. Treat the backlog sequence as authoritative for implementation. The matrix header notes alignment with the updated **M4** definition (April 2026).
 
 ## Repository checkpoint (review)
 

@@ -1,7 +1,8 @@
 # Storywall Sprint-by-Sprint Build Matrix
 
 **Author:** Manus AI  
-**Date:** 2026-04-14
+**Date:** 2026-04-14  
+**Note (2026-04-16):** Milestone **M4** in the ticket backlog is now **Creator Workflow Foundation** (post **M4-T01**). See `docs/storywall_m4_creator_workflow_foundation.md`. Sprint rows below remain historical sequencing context; align future sprints with the updated M4 ticket list when planning.
 
 ## 1. Purpose
 
@@ -311,3 +312,7 @@ The biggest risk to this build matrix is not underestimation of coding effort. I
 The practical Storywall sequence is therefore straightforward. **Lock the model, prove the reader object, prove the creator flow, enforce the trust layer, then launch through a controlled pilot.**
 
 That sequence gives the team the best chance of replacing the current product with something that is not only more visually coherent, but actually more useful, more creator-friendly, and more trustworthy.
+
+## 19. Alignment with M4 Creator Workflow Foundation
+
+After public reader trust work and **M4-T01** (share metadata), the **formal M4 ticket queue** is defined in **`docs/storywall_m4_creator_workflow_foundation.md`**: story setup (**M4-T02**), workspace IA (**M4-T03**), section editor (**M4-T04**), timeline UX (**M4-T05**), evidence surface (**M4-T06**), imagery (**M4-T07**), preview parity (**M4-T08**), republish (**M4-T09**), empty states (**M4-T10**), design polish (**M4-T11**). When updating sprint plans, map those tickets onto upcoming sprints rather than the superseded “reader discovery first” M4 draft in older backlog snapshots.
