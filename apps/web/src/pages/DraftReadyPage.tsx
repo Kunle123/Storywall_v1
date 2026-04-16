@@ -996,6 +996,10 @@ export function DraftReadyPage() {
                       public story in another tab to compare; Storywall does not yet show an automatic diff between
                       snapshot and draft.
                     </p>
+                    <p className="editor-panel__hint muted small">
+                      When draft edits should go live, run <strong>Run checks</strong>, then use <strong>Update live story</strong>{" "}
+                      from publish readiness — that is the only path here to refresh the frozen snapshot.
+                    </p>
                   </div>
                   <p className="muted small">
                     Last published{" "}
@@ -1020,7 +1024,9 @@ export function DraftReadyPage() {
                     Validation
                   </h3>
                   <p className="editor-panel__hint">
-                    Latest checks against Storywall baseline and reference rules. Re-run after you edit.
+                    Latest checks against Storywall baseline and reference rules. Re-run after you edit — results decide
+                    whether you can publish or refresh the live reader snapshot, and list concrete issues when the engine
+                    finds them.
                   </p>
                   <button
                     type="button"
@@ -1069,7 +1075,11 @@ export function DraftReadyPage() {
                 ) : validationError ? (
                   <p className="hint">{validationError}</p>
                 ) : validationData && !validationData.has_validation_run ? (
-                  <p className="muted small">No validation run yet. Run checks when you are ready to review publish readiness.</p>
+                  <p className="muted small">
+                    No check run is stored for this story yet. When you want a publish or republish signal, use{" "}
+                    <strong>Run checks</strong> — a snapshot will appear below and your workflow will move to match the
+                    outcome (for example blocked or ready to publish).
+                  </p>
                 ) : validationData?.validation_report ? (
                   <div className="editor-validation-body" id="editor-validation-report-start">
                     <div className="editor-validation-summary">
@@ -1146,7 +1156,10 @@ export function DraftReadyPage() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="muted small">No individual issues recorded for this run.</p>
+                      <p className="muted small">
+                        This run did not record line-item issues. If the manuscript still needs work, keep editing, then
+                        run checks again before you publish or update the live story.
+                      </p>
                     )}
                   </div>
                 ) : null}
@@ -1299,7 +1312,8 @@ export function DraftReadyPage() {
                     Revision log
                   </h3>
                   <p className="editor-panel__hint">
-                    Recent autosaves and regenerations. Restore applies the saved snapshot when available (requires current version to match).
+                    Recent autosaves and regenerations. Restore applies the saved snapshot when your current version
+                    matches the saved token — if restore is disabled, refresh or align the object, then try again.
                   </p>
                   <button
                     type="button"
@@ -1315,7 +1329,10 @@ export function DraftReadyPage() {
                   ) : revisionsError ? (
                     <p className="hint">{revisionsError}</p>
                   ) : revisions.length === 0 ? (
-                    <p className="muted small">No revisions recorded yet.</p>
+                    <p className="muted small">
+                      No revision rows yet. As you autosave story copy, sections, events, or run scoped regenerations,
+                      entries will appear here with short summaries.
+                    </p>
                   ) : (
                     <ul className="editor-revision-list">
                       {revisions.map((r) => {
@@ -1354,13 +1371,20 @@ export function DraftReadyPage() {
               </section>
             </>
           ) : (
-            <p className="muted" style={{ marginTop: "0.75rem" }}>
-              No story draft row yet — complete framing selection and draft assembly from the brief workspace.
-            </p>
+            <div className="muted" style={{ marginTop: "0.75rem" }} role="status">
+              <p>
+                <strong>No story draft yet.</strong> This workspace expects a saved draft row from framing and draft
+                assembly — without it, composition and preview cannot load server state.
+              </p>
+              <p style={{ marginTop: "0.5rem" }}>
+                Go to the brief workspace to choose a frame (if you have not), run draft assembly when research is
+                ready, then open <strong>Draft</strong> again.
+              </p>
+            </div>
           )}
           <div className="draft-ready-actions">
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
-              {"Brief & generation actions"}
+              Brief &amp; generation actions
             </Link>
             <Link to={`/creator/stories/${storyId}/framing`} className="btn ghost inline">
               Framing

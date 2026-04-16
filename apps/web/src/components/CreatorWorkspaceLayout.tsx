@@ -99,7 +99,8 @@ export function CreatorWorkspaceLayout() {
           <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Brief & framing</h2>
             <p className="creator-workspace-rail__text muted small">
-              {briefTeaser ?? "Open the Brief tab to load or edit the canonical story brief for this workspace."}
+              {briefTeaser ??
+                "Open the Brief tab first: intake, research, framing generation, and draft assembly all start there before the Draft tab can load a full manuscript."}
             </p>
             <p className="creator-workspace-rail__actions">
               <Link to={`${base}/brief`} className="creator-workspace-rail__link">
@@ -182,7 +183,8 @@ export function CreatorWorkspaceLayout() {
           <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Checks & publish</h2>
             <p className="creator-workspace-rail__text muted small">
-              Run checks, resolve issues, and publish from the <strong>Draft</strong> tab when your story is ready.
+              Run checks, resolve issues, then publish or update the live story from the <strong>Draft</strong> tab when
+              readiness allows.
             </p>
             <p className="creator-workspace-rail__actions">
               <Link to={`${base}/draft`} className="creator-workspace-rail__link">

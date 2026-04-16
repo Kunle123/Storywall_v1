@@ -103,11 +103,28 @@ export function FramingChoosePage() {
 
       {!canChoose && !loadError ? (
         <div className="card">
-          <p>
-            {storyState === "ready_for_edit"
-              ? "A framing has already been selected. Continue editing the brief or proceed to later milestones when available."
-              : "Generate framing options first (API POST …/frames/generate), then return here."}
-          </p>
+          {storyState === "awaiting_framing_choice" && frames.length === 0 ? (
+            <>
+              <p>
+                <strong>No framing candidates yet.</strong> From the brief workspace, run framing generation, wait for
+                options to appear, then return here to pick one.
+              </p>
+              <p className="muted small" style={{ marginTop: "0.5rem" }}>
+                If generation already finished, refresh this page — candidates only load when the server lists them as
+                proposed.
+              </p>
+            </>
+          ) : storyState === "ready_for_edit" ? (
+            <p>
+              A framing is already selected for this story. Continue in the brief workspace, or open{" "}
+              <strong>Draft</strong> when you are ready to compose the assembled manuscript.
+            </p>
+          ) : (
+            <p>
+              Framing choice is not open in this workflow state ({storyState ?? "unknown"}). Use the brief workspace to
+              move research and setup forward, then try again.
+            </p>
+          )}
           <p style={{ marginTop: "0.75rem" }}>
             <Link to={`/creator/stories/${storyId}/brief`}>Back to brief</Link>
           </p>
@@ -120,6 +137,13 @@ export function FramingChoosePage() {
           <p className="hint" style={{ marginBottom: "1rem" }}>
             Pick one candidate. Unselected proposals are marked discarded; the chosen frame seeds your story draft (M1-T12).
           </p>
+          {frames.filter((f) => f.status === "proposed").length === 0 ? (
+            <p className="muted small" role="status">
+              No <code className="inline-code">proposed</code> framing rows are available right now (they may have been
+              discarded or the list is stale). Return to the brief workspace to regenerate framing, then reload this
+              page.
+            </p>
+          ) : null}
           <div className="framing-list" role="radiogroup" aria-label="Framing options">
             {frames
               .filter((f) => f.status === "proposed")

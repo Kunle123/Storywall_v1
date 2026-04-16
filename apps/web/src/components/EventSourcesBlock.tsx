@@ -74,6 +74,12 @@ export function EventSourcesBlock(props: EventSourcesBlockProps) {
         </button>
       </div>
       {sourcesLoadError ? <p className="hint">{sourcesLoadError}</p> : null}
+      {!sourcesLoadError && sources.length === 0 ? (
+        <p className="muted small" style={{ marginTop: "0.35rem" }} role="status">
+          No source rows for this event yet. Use <strong>Add source</strong> to create a starter row, then replace the
+          placeholder URL, title, and publisher with the real reference.
+        </p>
+      ) : null}
       {sources.map((src) => (
         <SourceDraftRow
           key={src.id}

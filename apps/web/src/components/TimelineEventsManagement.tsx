@@ -353,10 +353,16 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
       </div>
       {eventsLoadError ? <p className="hint">{eventsLoadError}</p> : null}
       {total === 0 && !eventsLoadError ? (
-        <p className="muted small timeline-mgmt__empty">
-          No events yet. Add an event to start the timeline, or run research and draft assembly from the brief workspace
-          if you expect generated chronology.
-        </p>
+        <div className="muted small timeline-mgmt__empty" role="status">
+          <p>
+            <strong>No timeline events yet.</strong> Events carry dated beats, references, and evidence — add one with{" "}
+            <strong>Add event</strong>, optionally tying it to a narrative section above.
+          </p>
+          <p style={{ marginTop: "0.5rem" }}>
+            Without events, the evidence workspace has nothing to attach sources to, and the reader preview timeline
+            stays empty.
+          </p>
+        </div>
       ) : null}
       <div className="timeline-mgmt__stack">
         {orderedEvents.map((ev, i) => (

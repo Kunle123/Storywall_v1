@@ -9,10 +9,10 @@ function CreatorPreviewDisclaimer() {
         Creator preview
       </h2>
       <p className="creator-preview-disclaimer__p muted small">
-        This layout uses the same reader structure as the published Storywall, fed from your <strong>current draft</strong>{" "}
-        (title, overview, lens, sections, timeline, sources, closing). It is <strong>not</strong> a frozen publish snapshot:
-        trust copy, share metadata, and the separate references index page only apply after publish. Hero imagery policy
-        is configured in the workspace but is not rendered in this text-first reader preview.
+        Same reader layout as the published Storywall, fed from your <strong>current draft</strong> (title, overview,
+        lens, sections, timeline, sources, closing). It is <strong>not</strong> the live publish snapshot: trust copy,
+        share metadata, and the standalone references index apply only on the public reader after publish. Hero imagery
+        policy is set in the draft workspace but is not drawn in this text-first preview.
       </p>
     </aside>
   );

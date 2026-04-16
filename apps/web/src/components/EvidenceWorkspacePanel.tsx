@@ -146,7 +146,15 @@ export function EvidenceWorkspacePanel(props: EvidenceWorkspacePanelProps) {
       </div>
 
       {orderedEvents.length === 0 ? (
-        <p className="muted small evidence-workspace__empty">Add timeline events first; sources attach to events.</p>
+        <div className="muted small evidence-workspace__empty" role="status">
+          <p>
+            <strong>No events to attach evidence to.</strong> In Storywall, source rows belong to timeline events only.
+          </p>
+          <p style={{ marginTop: "0.5rem" }}>
+            Add events under <strong>Events</strong> above, then return here — each event can carry one or more sources
+            you edit in the timeline or in the rows below.
+          </p>
+        </div>
       ) : (
         <>
           <div className="evidence-workspace__summary card evidence-summary-card" role="status">
@@ -164,6 +172,12 @@ export function EvidenceWorkspacePanel(props: EvidenceWorkspacePanelProps) {
                 <> · each event has at least one source row</>
               )}
             </p>
+            {!anyCountLoading && eventsWithZero > 0 ? (
+              <p className="muted small" style={{ marginTop: "0.55rem" }}>
+                Open an event (here or in the timeline) and use <strong>Add source</strong> under evidence rows. When
+                you run checks, thin coverage may surface as issues — add what you intend readers to rely on.
+              </p>
+            ) : null}
           </div>
 
           <div className="evidence-workspace__groups">

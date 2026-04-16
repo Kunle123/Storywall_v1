@@ -215,10 +215,16 @@ export function NarrativeSectionsCompositionPanel(props: NarrativeSectionsCompos
       </div>
       {sectionsLoadError ? <p className="hint">{sectionsLoadError}</p> : null}
       {total === 0 && !sectionsLoadError ? (
-        <p className="muted small narrative-composition__empty">
-          No sections yet. Add a section to start the narrative spine, or run draft assembly from the brief workspace if
-          you expect generated structure.
-        </p>
+        <div className="muted small narrative-composition__empty" role="status">
+          <p>
+            <strong>No narrative sections yet.</strong> This ordered list is the story body readers see after the deck
+            — add your first section with <strong>Add section</strong>, then write heading and body for each beat.
+          </p>
+          <p style={{ marginTop: "0.5rem" }}>
+            If you just assembled a draft, sections may already be on the way; otherwise start here and refine in
+            preview when you are ready.
+          </p>
+        </div>
       ) : null}
       <div className="narrative-composition__stack">
         {ordered.map((sec, i) => (

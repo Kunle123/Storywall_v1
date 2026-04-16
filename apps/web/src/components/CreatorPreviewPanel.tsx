@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiRequestError, listSourcesForEvent } from "../api/creatorClient";
 import type { EventDraftResponse, SectionDraftResponse, SourceRecordResponse, StoryDraftResponse } from "../api/types";
 import { buildPublicPreviewFromDraft } from "../lib/draftToPublicPreview";
@@ -98,9 +99,25 @@ export function CreatorPreviewPanel(props: CreatorPreviewPanelProps) {
       </div>
 
       {!draft ? (
-        <p className="muted small">Load a story draft to preview (complete framing and assembly from the brief workspace).</p>
+        <div className="muted small" role="status">
+          <p>
+            <strong>No draft loaded.</strong> Preview reads the same story draft the server stores after framing and
+            assembly — it is not available until that row exists.
+          </p>
+          <p style={{ marginTop: "0.5rem" }}>
+            <Link to={`/creator/stories/${storyId}/brief`}>Open brief workspace</Link> to select framing, run assembly,
+            then come back to this tab.
+          </p>
+        </div>
       ) : (
         <>
+          {sections.length === 0 && events.length === 0 ? (
+            <p className="muted small" role="status">
+              You can still scan title, subtitle, summary, lens, and conclusion below. Add narrative sections and
+              timeline events when you want the full reader-shaped layout — empty blocks simply omit until content
+              exists.
+            </p>
+          ) : null}
           {sourcesLoading ? <p className="muted small">Loading evidence rows for preview…</p> : null}
           {sourcesError ? <p className="hint">{sourcesError}</p> : null}
           <div className="creator-preview-frame" tabIndex={0} aria-label="Story reader preview">
