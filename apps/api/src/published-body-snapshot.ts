@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-/** M3-T09 + M3-T10 — versioned JSON written at publish and read by the public story route. */
+/** M3-T09 + M3-T10 + M3-T11 — versioned JSON written at publish and read by the public story route. */
 export const PUBLISHED_BODY_SNAPSHOT_VERSION = 1 as const;
 
 export type PublishedPublicSourceRowV1 = {
@@ -8,6 +8,13 @@ export type PublishedPublicSourceRowV1 = {
   outbound_url: string | null;
   publisher_name: string | null;
   position_index: number;
+};
+
+/** M3-T11 — per-event public reference row (subset of story-level source fields, no global index). */
+export type PublishedPublicEventRefV1 = {
+  title: string;
+  outbound_url: string | null;
+  publisher_name: string | null;
 };
 
 export type PublishedBodySnapshotV1 = {
@@ -33,6 +40,7 @@ export type PublishedBodySnapshotV1 = {
     location_name: string | null;
     context_label: string | null;
     position_index: number;
+    references: PublishedPublicEventRefV1[];
   }>;
   sources: PublishedPublicSourceRowV1[];
 };
@@ -57,6 +65,29 @@ export function publicOutboundUrl(raw: string): string | null {
 function publicPublisherName(raw: string): string | null {
   const t = raw.trim();
   return t.length > 0 ? t : null;
+}
+
+function parseEventReferences(refRaw: unknown): PublishedPublicEventRefV1[] {
+  if (!Array.isArray(refRaw)) return [];
+  const out: PublishedPublicEventRefV1[] = [];
+  for (const row of refRaw) {
+    if (!isRecord(row)) continue;
+    if (typeof row.title !== "string" || row.title.trim().length === 0) continue;
+    const outbound_url =
+      row.outbound_url === null || row.outbound_url === undefined
+        ? null
+        : typeof row.outbound_url === "string"
+          ? publicOutboundUrl(row.outbound_url)
+          : null;
+    const publisher_name =
+      row.publisher_name === null || row.publisher_name === undefined
+        ? null
+        : typeof row.publisher_name === "string"
+          ? publicPublisherName(row.publisher_name)
+          : null;
+    out.push({ title: row.title.trim(), outbound_url, publisher_name });
+  }
+  return out;
 }
 
 /** Build snapshot from live story + draft rows at publish time (transaction-safe caller). */
@@ -101,6 +132,11 @@ export function buildPublishedBodySnapshotV1(params: {
       location_name: e.locationName,
       context_label: e.contextLabel,
       position_index: e.positionIndex,
+      references: e.sources.map((src) => ({
+        title: src.sourceTitle,
+        outbound_url: publicOutboundUrl(src.sourceUrl),
+        publisher_name: publicPublisherName(src.publisherName),
+      })),
     }));
   const sources: PublishedPublicSourceRowV1[] = [];
   let sourcePosition = 0;
@@ -171,6 +207,7 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
           ? (row.context_label as string | null)
           : null,
       position_index: row.position_index,
+      references: parseEventReferences(row.references),
     });
   }
   const sources: PublishedPublicSourceRowV1[] = [];

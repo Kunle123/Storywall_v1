@@ -142,6 +142,32 @@ export function PublicStoryPage() {
                 {ev.context_label ? <p className="muted small">{ev.context_label}</p> : null}
                 {ev.dek ? <p className="public-story-event-list__dek">{ev.dek}</p> : null}
                 <div className="public-story-prose public-story-prose--compact">{ev.summary}</div>
+                {(ev.references ?? []).length > 0 ? (
+                  <div className="public-story-event-refs" aria-label="References for this event">
+                    <p className="public-story-event-refs__label muted small">References</p>
+                    <ul className="public-story-event-refs__list">
+                      {(ev.references ?? []).map((ref, ri) => (
+                        <li key={`${ev.position_index}-ref-${ri}`} className="public-story-event-refs__item">
+                          {ref.outbound_url ? (
+                            <a
+                              href={ref.outbound_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="public-story-event-refs__link"
+                            >
+                              {ref.title}
+                            </a>
+                          ) : (
+                            <span className="public-story-event-refs__text">{ref.title}</span>
+                          )}
+                          {ref.publisher_name ? (
+                            <span className="public-story-event-refs__pub muted small"> · {ref.publisher_name}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ol>

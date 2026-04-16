@@ -26,6 +26,11 @@ export type PublicStoryPayload = {
     location_name: string | null;
     context_label: string | null;
     position_index: number;
+    references: Array<{
+      title: string;
+      outbound_url: string | null;
+      publisher_name: string | null;
+    }>;
   }>;
   sources: Array<{
     title: string;
@@ -36,7 +41,7 @@ export type PublicStoryPayload = {
 };
 
 /**
- * M3-T08 + M3-T09 + M3-T10 — read-only published story surface (no auth).
+ * M3-T08 + M3-T09 + M3-T10 + M3-T11 — read-only published story surface (no auth).
  * Prefers `published_body_snapshot` when present so post-publish draft edits do not change the public page.
  */
 @Injectable()
@@ -122,6 +127,7 @@ export class PublicStoriesService {
         location_name: e.locationName,
         context_label: e.contextLabel,
         position_index: e.positionIndex,
+        references: [],
       })) ?? [];
 
     return {

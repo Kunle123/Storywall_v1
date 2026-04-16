@@ -17,7 +17,7 @@ async function parseJson(res: Response): Promise<unknown> {
   }
 }
 
-/** M3-T08 + M3-T10 — GET …/stories/:slug (no auth). */
+/** M3-T08 + M3-T10 + M3-T11 — GET …/stories/:slug (no auth). */
 export async function getPublicStory(slug: string): Promise<GetPublicStorySuccess> {
   const res = await fetch(`${apiBase()}/stories/${encodeURIComponent(slug)}`);
   const data = await parseJson(res);
