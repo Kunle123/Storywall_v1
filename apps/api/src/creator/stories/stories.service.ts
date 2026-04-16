@@ -617,8 +617,18 @@ export class StoriesService {
       const publishedAt = new Date();
       const fromWf = storyRow.workflowState;
       const draftForSnap = storyRow.storyBrief.storyDraft;
+      /** Reader snapshot follows the editable draft shell (title, lens, conclusion, etc.), not stale `stories.*` copies. */
       const publishedBodySnapshot = buildPublishedBodySnapshotV1({
-        story: storyRow,
+        story: {
+          title: draftForSnap.title,
+          subtitle: draftForSnap.subtitle,
+          summary: draftForSnap.summary,
+          lens: draftForSnap.lens,
+          conclusion: draftForSnap.conclusion,
+          timeDisplay: draftForSnap.timeDisplay,
+          timeStart: draftForSnap.timeStart,
+          timeEnd: draftForSnap.timeEnd,
+        },
         sectionDrafts: draftForSnap.sectionDrafts,
         eventDrafts: draftForSnap.eventDrafts,
       });
