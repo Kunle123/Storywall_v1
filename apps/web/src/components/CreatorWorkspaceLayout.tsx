@@ -156,6 +156,18 @@ export function CreatorWorkspaceLayout() {
             </p>
           </section>
           <section className="creator-workspace-rail__block">
+            <h2 className="creator-workspace-rail__h">Reader preview</h2>
+            <p className="creator-workspace-rail__text muted small">
+              See draft title, body, timeline, and sources in the same reader layout as the published story — before you
+              publish.
+            </p>
+            <p className="creator-workspace-rail__actions">
+              <Link to={`${base}/draft#creator-story-preview`} className="creator-workspace-rail__link">
+                Open preview
+              </Link>
+            </p>
+          </section>
+          <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Checks & publish</h2>
             <p className="creator-workspace-rail__text muted small">
               Run checks, resolve issues, and publish from the <strong>Draft</strong> tab when your story is ready.

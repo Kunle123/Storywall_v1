@@ -1172,6 +1172,55 @@ a:hover {
   border-style: solid;
 }
 
+/* M4-T08 — draft-fed reader preview (nested scroll) */
+.editor-panel--creator-preview {
+  background: #f6f6f2;
+  scroll-margin-top: 0.85rem;
+  border-style: solid;
+}
+
+.creator-preview-frame {
+  margin-top: 0.65rem;
+  max-height: min(70vh, 40rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface);
+}
+
+.creator-preview-frame .public-story-page {
+  max-width: none;
+  margin: 0;
+  padding: 1rem 0.85rem 1.35rem;
+}
+
+.creator-preview-disclaimer {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.creator-preview-disclaimer__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+}
+
+.creator-preview-disclaimer__p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.public-story-footer__preview-note {
+  margin: 0;
+}
+
 .evidence-workspace__empty {
   margin: 0.35rem 0 0;
 }

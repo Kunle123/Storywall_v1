@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { BriefImageryMode, CreatorWorkflowState } from "@storywall/shared";
@@ -31,6 +31,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
+import { CreatorPreviewPanel } from "../components/CreatorPreviewPanel";
 import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
 import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
@@ -317,6 +318,19 @@ function buildValidPatch(draft: StoryDraftResponse, local: LocalDraftFields): Pa
   return p;
 }
 
+/** M4-T08 — include in-progress deck fields so preview matches the form before autosave completes. */
+function mergeDraftWithLocalForPreview(draft: StoryDraftResponse, local: LocalDraftFields): StoryDraftResponse {
+  return {
+    ...draft,
+    title: local.title,
+    subtitle: local.subtitle.trim() === "" ? null : local.subtitle,
+    summary: local.summary,
+    lens: local.lens,
+    conclusion: local.conclusion === "" ? null : local.conclusion,
+    imagery_mode: local.imageryMode,
+  };
+}
+
 function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setTitle: (v: string) => void;
   setSubtitle: (v: string) => void;
@@ -385,6 +399,11 @@ export function DraftReadyPage() {
   }, []);
 
   const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion, imageryMode };
+
+  const previewDraftMerged = useMemo(
+    () => (draft ? mergeDraftWithLocalForPreview(draft, localFields) : null),
+    [draft, title, subtitle, summary, lens, conclusion, imageryMode],
+  );
 
   const refreshSections = useCallback(async () => {
     if (!token || !storyId) return;
@@ -907,7 +926,8 @@ export function DraftReadyPage() {
             <p className="editor-workspace-lead muted small">
               Use <strong>Narrative sections</strong> for the ordered story body, <strong>Events</strong> for the
               timeline, <strong>Sources &amp; coverage</strong> for evidence, <strong>Hero imagery policy</strong> for
-              how visuals are treated, and deck fields for discovery copy. Changes save automatically.
+              how visuals are treated, <strong>Reader preview</strong> to see draft content in the public reader layout,
+              and deck fields for discovery copy. Changes save automatically.
             </p>
           </div>
           {draft ? (
@@ -1182,6 +1202,14 @@ export function DraftReadyPage() {
                 onSaveError={handleEventSaveError}
                 onVersionConflict={handleEventConflict}
                 onRefreshEvents={refreshEvents}
+              />
+
+              <CreatorPreviewPanel
+                token={token!}
+                storyId={storyId}
+                draft={previewDraftMerged}
+                sections={sections}
+                events={events}
               />
             </div>
 

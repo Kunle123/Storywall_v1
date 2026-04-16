@@ -202,6 +202,10 @@ export interface EventDraftResponse {
   status: string;
   created_at: string;
   updated_at: string;
+  /** Present on some API list/patch payloads — used for reader-aligned timeline preview. */
+  display_date?: string | null;
+  location_name?: string | null;
+  context_label?: string | null;
 }
 
 export interface ListEventsSuccess {
