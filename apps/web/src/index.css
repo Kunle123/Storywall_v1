@@ -667,6 +667,28 @@ a:hover {
   margin-top: 0.15rem;
 }
 
+.editor-publish-readiness__confirm {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.6rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.editor-publish-readiness__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.45rem 0 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.editor-publish-readiness__ack input {
+  margin-top: 0.15rem;
+}
+
 .editor-validation-body {
   margin-top: 0.35rem;
 }

@@ -463,6 +463,168 @@ export class StoriesService {
     });
   }
 
+  /**
+   * M3-T07 — creator publish: sets lifecycle + workflow to published with durable idempotency.
+   * Does not build public snapshot (separate milestone); gates on `ready_to_publish` + latest validation row.
+   */
+  async publishStory(params: {
+    storyId: string;
+    creatorId: string;
+    idempotencyKey: string;
+    acknowledgeValidationWarnings: boolean;
+  }): Promise<{
+    publishedAt: Date;
+    storyState: CreatorWorkflowState;
+    storyStatus: string;
+    idempotencyReplayed: boolean;
+  }> {
+    const { storyId, creatorId, idempotencyKey, acknowledgeValidationWarnings } = params;
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingIdem = await tx.creatorStoryPublishIdempotency.findFirst({
+        where: { creatorId, storyId, requestKey: idempotencyKey },
+      });
+      if (existingIdem) {
+        return {
+          publishedAt: existingIdem.publishedAtResponse,
+          storyState: "published",
+          storyStatus: "published",
+          idempotencyReplayed: true,
+        };
+      }
+
+      const storyRow = await tx.story.findFirst({
+        where: { id: storyId, creatorId },
+        include: {
+          storyBrief: {
+            include: {
+              storyDraft: {
+                include: {
+                  draftTrustMetadata: {
+                    include: {
+                      latestValidationReport: { select: { id: true, overallResult: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!storyRow?.storyBrief?.storyDraft) {
+        throw new NotFoundException({
+          ok: false,
+          error: { code: "story_not_found", message: "Story or draft not found" },
+        });
+      }
+
+      if (storyRow.workflowState === "published" || storyRow.storyStatus === "published") {
+        throw new ConflictException({
+          ok: false,
+          error: {
+            code: "already_published",
+            message: "This story is already published. Use a new Idempotency-Key only for the first publish.",
+          },
+        });
+      }
+
+      if (storyRow.workflowState !== "ready_to_publish") {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "publish_not_allowed",
+            message: "Publish is only available when the story workflow is ready_to_publish",
+            details: { story_state: storyRow.workflowState },
+          },
+        });
+      }
+
+      const report = storyRow.storyBrief.storyDraft.draftTrustMetadata?.latestValidationReport;
+      if (!report) {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "publish_requires_latest_validation",
+            message: "Run checks so a latest validation snapshot exists before publishing",
+          },
+        });
+      }
+
+      if (report.overallResult === "block") {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "publish_blocked_by_validation",
+            message: "Latest validation still reports a block; resolve issues before publishing",
+          },
+        });
+      }
+
+      if (report.overallResult === "warn" && !acknowledgeValidationWarnings) {
+        throw new BadRequestException({
+          ok: false,
+          error: {
+            code: "warnings_acknowledgement_required",
+            message: "Latest validation has warnings; resend with acknowledge_validation_warnings: true",
+          },
+        });
+      }
+
+      const publishedAt = new Date();
+      const fromWf = storyRow.workflowState;
+
+      const updated = await tx.story.updateMany({
+        where: {
+          id: storyId,
+          creatorId,
+          workflowState: "ready_to_publish",
+          storyStatus: { not: "published" },
+        },
+        data: {
+          workflowState: "published",
+          storyStatus: "published",
+          publishedAt,
+        },
+      });
+
+      if (updated.count !== 1) {
+        throw new ConflictException({
+          ok: false,
+          error: {
+            code: "publish_conflict",
+            message: "Could not publish; story state may have changed. Refresh and try again.",
+          },
+        });
+      }
+
+      await this.workflowTransitions.appendIfChanged(tx, {
+        storyId,
+        fromState: fromWf,
+        toState: "published",
+        actorType: "creator",
+        actorId: creatorId,
+        trigger: "creator_publish",
+      });
+
+      await tx.creatorStoryPublishIdempotency.create({
+        data: {
+          creatorId,
+          storyId,
+          requestKey: idempotencyKey,
+          publishedAtResponse: publishedAt,
+        },
+      });
+
+      return {
+        publishedAt,
+        storyState: "published",
+        storyStatus: "published",
+        idempotencyReplayed: false,
+      };
+    });
+  }
+
   private patchDraftDtoHasContent(dto: PatchStoryDraftDto): boolean {
     const keys = Object.keys(dto) as (keyof PatchStoryDraftDto)[];
     return keys.some((k) => dto[k] !== undefined);

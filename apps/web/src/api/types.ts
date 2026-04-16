@@ -517,6 +517,20 @@ export interface GetLatestValidationSuccess {
   };
 }
 
+/** POST …/publish — M3-T07 */
+export interface PublishStorySuccess {
+  ok: true;
+  data: {
+    published_at: string;
+    story_state: CreatorWorkflowState;
+    story_status: string;
+  };
+  meta?: {
+    idempotency_key?: string;
+    idempotency_replayed?: boolean;
+  };
+}
+
 /** PATCH …/validation/issues/:issueId — M3-T05 */
 export interface PatchValidationIssueResolutionSuccess {
   ok: true;

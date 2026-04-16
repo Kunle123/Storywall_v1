@@ -13,6 +13,7 @@ import {
   extractConflictSection,
   extractConflictSource,
   getLatestValidation,
+  publishStory,
   patchValidationIssueResolution,
   listEvents,
   listFrames,
@@ -44,6 +45,19 @@ import { rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
 
+/** M3-T07 — publish confirmation wiring from DraftReadyPage into PublishReadinessBlock. */
+type EditorPublishFlowProps = {
+  needsWarningAck: boolean;
+  publishConfirmOpen: boolean;
+  publishBusy: boolean;
+  publishError: string | null;
+  warnAck: boolean;
+  onWarnAckChange: (v: boolean) => void;
+  onOpenConfirm: () => void;
+  onCancelConfirm: () => void;
+  onConfirmPublish: () => void;
+};
+
 /** M3-T04 — editorial workspace states where validation UI and draft editing apply. */
 const EDITORIAL_VALIDATION_WORKFLOWS: CreatorWorkflowState[] = [
   "ready_for_edit",
@@ -56,14 +70,15 @@ function isEditorialValidationWorkspace(w: CreatorWorkflowState | null): boolean
   return w !== null && EDITORIAL_VALIDATION_WORKFLOWS.includes(w);
 }
 
-/** M3-T06 — publish readiness copy; `workflow` is primary; validation snapshot is explanatory only. */
+/** M3-T06 + M3-T07 — publish readiness copy; `workflow` is primary; validation snapshot is explanatory only. */
 function PublishReadinessBlock(props: {
   workflow: CreatorWorkflowState;
   validationData: GetLatestValidationSuccess["data"] | null;
   validationLoading: boolean;
   onScrollToIssues: () => void;
+  publishFlow: EditorPublishFlowProps | null;
 }): ReactNode {
-  const { workflow, validationData, validationLoading, onScrollToIssues } = props;
+  const { workflow, validationData, validationLoading, onScrollToIssues, publishFlow } = props;
   const report = validationData?.validation_report ?? null;
   const hasRun = validationData?.has_validation_run === true;
   const warnRemaining =
@@ -156,14 +171,59 @@ function PublishReadinessBlock(props: {
         {validationLoading ? (
           <p className="muted small editor-publish-readiness__meta">Loading latest check details…</p>
         ) : null}
-        <p className="editor-publish-readiness__placeholder">
-          This story is ready for publish, but the publish action is not wired on this branch yet.
-        </p>
-        <div className="editor-publish-readiness__actions">
-          <button type="button" className="btn primary inline" disabled aria-disabled="true">
-            Publish story
-          </button>
-        </div>
+        {publishFlow ? (
+          publishFlow.publishConfirmOpen ? (
+            <div className="editor-publish-readiness__confirm">
+              {publishFlow.publishError ? <p className="hint">{publishFlow.publishError}</p> : null}
+              <p className="editor-publish-readiness__detail muted small">
+                Publishing marks this story as published in Storywall. You can keep editing from other flows when
+                available, but this step is meant to be deliberate.
+              </p>
+              {publishFlow.needsWarningAck ? (
+                <label className="editor-publish-readiness__ack">
+                  <input
+                    type="checkbox"
+                    checked={publishFlow.warnAck}
+                    onChange={(e) => publishFlow.onWarnAckChange(e.target.checked)}
+                  />
+                  <span>I understand warnings remain on the latest check run.</span>
+                </label>
+              ) : null}
+              <div className="editor-publish-readiness__actions">
+                <button
+                  type="button"
+                  className="btn ghost inline"
+                  disabled={publishFlow.publishBusy}
+                  onClick={publishFlow.onCancelConfirm}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn primary inline"
+                  disabled={
+                    publishFlow.publishBusy ||
+                    (publishFlow.needsWarningAck && !publishFlow.warnAck)
+                  }
+                  onClick={publishFlow.onConfirmPublish}
+                >
+                  {publishFlow.publishBusy ? "Publishing…" : "Confirm publish"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="editor-publish-readiness__actions">
+              <button
+                type="button"
+                className="btn primary inline"
+                disabled={validationLoading}
+                onClick={publishFlow.onOpenConfirm}
+              >
+                Publish story
+              </button>
+            </div>
+          )
+        ) : null}
       </div>
     );
   }
@@ -816,6 +876,11 @@ export function DraftReadyPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [runValidationBusy, setRunValidationBusy] = useState(false);
   const [resolutionBusyIssueId, setResolutionBusyIssueId] = useState<string | null>(null);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishWarnAck, setPublishWarnAck] = useState(false);
+  const [publishOk, setPublishOk] = useState(false);
   const scrollValidationIssuesIntoView = useCallback(() => {
     const target =
       document.getElementById("editor-validation-issue-list") ??
@@ -1166,6 +1231,56 @@ export function DraftReadyPage() {
     }
   }, [token, storyId, refreshSections, refreshEvents]);
 
+  const needsValidationWarningAck =
+    validationData?.validation_report?.overall_result === "warn";
+
+  const handleConfirmPublish = useCallback(async () => {
+    if (!token || !storyId) return;
+    if (needsValidationWarningAck && !publishWarnAck) {
+      setPublishError("Check the box to acknowledge warnings before publishing.");
+      return;
+    }
+    setPublishBusy(true);
+    setPublishError(null);
+    try {
+      await publishStory(token, storyId, crypto.randomUUID(), {
+        acknowledge_validation_warnings: needsValidationWarningAck ? true : undefined,
+      });
+      const fr = await listFrames(token, storyId);
+      setWorkflow(fr.data.story_state);
+      const d = fr.data.story_draft;
+      setDraft(d);
+      if (d) {
+        applyServerDraftToForm(d, {
+          setTitle,
+          setSubtitle,
+          setSummary,
+          setLens,
+          setConclusion,
+        });
+      }
+      await refreshSections();
+      await refreshEvents();
+      setPublishConfirmOpen(false);
+      setPublishWarnAck(false);
+      setPublishOk(true);
+      window.setTimeout(() => setPublishOk(false), 5000);
+    } catch (e) {
+      setPublishError(
+        e instanceof ApiRequestError ? JSON.stringify(e.body) : "Publish failed.",
+      );
+    } finally {
+      setPublishBusy(false);
+    }
+  }, [
+    token,
+    storyId,
+    needsValidationWarningAck,
+    publishWarnAck,
+    refreshSections,
+    refreshEvents,
+  ]);
+
   const handlePatchIssueResolution = useCallback(
     async (issueId: string, resolution_status: "open" | "resolved") => {
       if (!token || !storyId) return;
@@ -1216,11 +1331,21 @@ export function DraftReadyPage() {
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}
       {saveOk ? <div className="banner success">Draft saved.</div> : null}
+      {publishOk ? <div className="banner success">Story published.</div> : null}
 
       {!loadError && workflow && !isEditorialValidationWorkspace(workflow) ? (
         <div className="banner warn">
-          Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
-          workspace to run research or draft assembly, or open generation status if you have a job link.
+          {workflow === "published" ? (
+            <p>
+              This story is <strong>published</strong>. The draft workspace is closed for this lifecycle state. Use the
+              brief workspace for other story actions.
+            </p>
+          ) : (
+            <p>
+              Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
+              workspace to run research or draft assembly, or open generation status if you have a job link.
+            </p>
+          )}
           <div style={{ marginTop: "0.75rem" }}>
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
               Brief workspace
@@ -1268,6 +1393,29 @@ export function DraftReadyPage() {
                     validationData={validationData}
                     validationLoading={validationLoading}
                     onScrollToIssues={scrollValidationIssuesIntoView}
+                    publishFlow={
+                      workflow === "ready_to_publish"
+                        ? {
+                            needsWarningAck:
+                              validationData?.validation_report?.overall_result === "warn",
+                            publishConfirmOpen,
+                            publishBusy,
+                            publishError,
+                            warnAck: publishWarnAck,
+                            onWarnAckChange: setPublishWarnAck,
+                            onOpenConfirm: () => {
+                              setPublishError(null);
+                              setPublishConfirmOpen(true);
+                            },
+                            onCancelConfirm: () => {
+                              setPublishConfirmOpen(false);
+                              setPublishWarnAck(false);
+                              setPublishError(null);
+                            },
+                            onConfirmPublish: () => void handleConfirmPublish(),
+                          }
+                        : null
+                    }
                   />
                 ) : null}
                 {validationLoading ? (

@@ -46,6 +46,8 @@ model Creator {
   validationRunIdempotencyRows CreatorValidationRunIdempotency[]
   /// M3-T05: `PATCH …/validation/issues/:issueId` idempotent replay.
   validationIssueResolutionIdempotencyRows CreatorValidationIssueResolutionIdempotency[]
+  /// M3-T07: `POST …/publish` idempotent replay.
+  storyPublishIdempotencyRows CreatorStoryPublishIdempotency[]
 
   @@map("creator")
 }
@@ -492,6 +494,7 @@ model Story {
   draftAssemblyJobs          DraftAssemblyJob[]
   validationRunIdempotencyRows CreatorValidationRunIdempotency[]
   validationIssueResolutionIdempotencyRows CreatorValidationIssueResolutionIdempotency[]
+  storyPublishIdempotencyRows CreatorStoryPublishIdempotency[]
 
   @@index([storyStatus, visibility, publishedAt(sort: Desc)], map: "stories_status_visibility_published_at_idx")
   @@index([leadPriority, publishedAt(sort: Desc)], map: "stories_lead_priority_published_at_idx")
@@ -1103,6 +1106,27 @@ model CreatorValidationIssueResolutionIdempotency {
   @@unique([creatorId, storyId, validationIssueId, requestKey], map: "creator_val_issue_res_idem_uidx")
   @@index([storyId], map: "creator_val_issue_res_idem_story_idx")
   @@map("creator_validation_issue_resolution_idempotency")
+}
+
+/// M3-T07 — durable idempotency for `POST …/stories/:id/publish`.
+model CreatorStoryPublishIdempotency {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  creatorId String  @map("creator_id") @db.Uuid
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  storyId String @map("story_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  requestKey String @map("request_key") @db.VarChar(255)
+
+  publishedAtResponse DateTime @map("published_at_response") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([creatorId, storyId, requestKey], map: "creator_story_publish_idem_uidx")
+  @@index([storyId], map: "creator_story_publish_idem_story_idx")
+  @@map("creator_story_publish_idempotency")
 }
 
 /// Optional timeline grouping — editor §11.

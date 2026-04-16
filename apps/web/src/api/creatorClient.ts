@@ -35,6 +35,7 @@ import type {
   RestoreRevisionSuccess,
   GetLatestValidationSuccess,
   PatchValidationIssueResolutionSuccess,
+  PublishStorySuccess,
   RunValidationSuccess,
 } from "./types";
 
@@ -538,6 +539,29 @@ export async function patchValidationIssueResolution(
     throw new ApiRequestError(`Validation issue resolution failed (${res.status})`, res.status, data);
   }
   return data as PatchValidationIssueResolutionSuccess;
+}
+
+/** M3-T07 — POST …/publish */
+export async function publishStory(
+  token: string,
+  storyId: string,
+  idempotencyKey: string,
+  body?: { acknowledge_validation_warnings?: boolean },
+): Promise<PublishStorySuccess> {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/publish`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Publish failed (${res.status})`, res.status, data);
+  }
+  return data as PublishStorySuccess;
 }
 
 /** M3-T02 — POST …/validation/run (mutation §17.1) */

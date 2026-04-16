@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -16,7 +17,42 @@ import { OwnershipService } from "../ownership.service";
 import { CreateStoryDto } from "./dto/create-story.dto";
 import { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
 import { PatchStoryDraftDto } from "./dto/patch-story-draft.dto";
+import { PublishStoryDto } from "./dto/publish-story.dto";
 import { StoriesService } from "./stories.service";
+
+const IDEMPOTENCY_KEY_MAX = 255;
+
+function normalizePublishIdempotencyKey(raw: string | undefined): string {
+  if (raw === undefined || raw === null) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for publish",
+      },
+    });
+  }
+  const t = raw.trim();
+  if (!t) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_required",
+        message: "Idempotency-Key header is required for publish",
+      },
+    });
+  }
+  if (t.length > IDEMPOTENCY_KEY_MAX) {
+    throw new BadRequestException({
+      ok: false,
+      error: {
+        code: "idempotency_key_invalid",
+        message: `Idempotency-Key must be at most ${IDEMPOTENCY_KEY_MAX} characters`,
+      },
+    });
+  }
+  return t;
+}
 
 /**
  * Creator story workspace — mutation contract §9 (`POST /api/v1/creator/stories`).
@@ -110,6 +146,38 @@ export class StoriesController {
       meta: {
         saved_at: storyDraft.lastEditedAt.toISOString(),
         ...(revisionId ? { revision_id: revisionId } : {}),
+      },
+    };
+  }
+
+  /** M3-T07 — publish story (creator, idempotent). */
+  @Post(":storyId/publish")
+  async publish(
+    @Param("storyId") storyId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: PublishStoryDto,
+    @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const idempotencyKey = normalizePublishIdempotencyKey(idempotencyKeyHeader);
+    const r = await this.stories.publishStory({
+      storyId,
+      creatorId: creator.id,
+      idempotencyKey,
+      acknowledgeValidationWarnings: body.acknowledge_validation_warnings === true,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        published_at: r.publishedAt.toISOString(),
+        story_state: r.storyState,
+        story_status: r.storyStatus,
+      },
+      meta: {
+        idempotency_key: idempotencyKey,
+        ...(r.idempotencyReplayed ? { idempotency_replayed: true as const } : {}),
       },
     };
   }
