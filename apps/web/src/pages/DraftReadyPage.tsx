@@ -35,6 +35,7 @@ import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectio
 import { CreatorPreviewPanel } from "../components/CreatorPreviewPanel";
 import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
 import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
+import { PostAssemblyDepthNudge } from "../components/PostAssemblyDepthNudge";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
@@ -1001,6 +1002,15 @@ export function DraftReadyPage() {
                 <span className="draft-atlas__hint muted small">Run checks after substantive edits</span>
               </div>
             </div>
+          ) : null}
+          {draft ? (
+            <PostAssemblyDepthNudge
+              storyId={storyId}
+              sectionCount={sections.length}
+              eventCount={events.length}
+              eventsMissingDisplayWhen={events.filter((e) => !(e.display_date ?? "").trim()).length}
+              hasClosingSynthesis={Boolean((draft.conclusion ?? "").trim())}
+            />
           ) : null}
           {draft ? (
             <>

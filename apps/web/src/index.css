@@ -436,6 +436,104 @@ body {
   line-height: 1.35;
 }
 
+/* Post-assembly editorial depth nudge (draft workspace) */
+.post-assembly-depth-nudge {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.post-assembly-depth-nudge--attention {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: linear-gradient(135deg, rgba(255, 250, 235, 0.65), var(--surface) 55%);
+}
+
+.post-assembly-depth-nudge__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.65625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.post-assembly-depth-nudge__title {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.post-assembly-depth-nudge__lead {
+  margin: 0 0 0.75rem;
+  max-width: 62ch;
+}
+
+.post-assembly-depth-nudge__signals {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.post-assembly-depth-nudge__signals > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.65rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.post-assembly-depth-nudge__signal-label {
+  grid-column: 1;
+  font-size: 0.65625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.post-assembly-depth-nudge__signal-value {
+  grid-column: 2;
+  justify-self: end;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.post-assembly-depth-nudge__signal-flag,
+.post-assembly-depth-nudge__signal-ok {
+  grid-column: 1 / -1;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.post-assembly-depth-nudge__signal-flag {
+  color: var(--text);
+}
+
+.post-assembly-depth-nudge__cta-label {
+  margin: 0 0 0.35rem;
+}
+
+.post-assembly-depth-nudge__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.post-assembly-depth-nudge__actions .btn.inline {
+  font-size: 0.8125rem;
+}
+
 .small {
   font-size: 0.8125rem;
 }
