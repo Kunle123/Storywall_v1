@@ -6,6 +6,7 @@ import { EditBriefPage } from "./pages/EditBriefPage";
 import { FramingChoosePage } from "./pages/FramingChoosePage";
 import { HomePage } from "./pages/HomePage";
 import { PublicStoryPage } from "./pages/PublicStoryPage";
+import { PublicStoryReferencesPage } from "./pages/PublicStoryReferencesPage";
 import { JobStatusPage } from "./pages/JobStatusPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewStoryBriefPage } from "./pages/NewStoryBriefPage";
@@ -27,6 +28,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/stories/:slug/references" element={<PublicStoryReferencesPage />} />
         <Route path="/stories/:slug" element={<PublicStoryPage />} />
         <Route
           path="/creator/stories/new"

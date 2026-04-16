@@ -1219,3 +1219,33 @@ a:hover {
 .public-story-unavailable {
   margin-bottom: 1rem;
 }
+
+.public-story-sources-index {
+  margin: 0 0 0.65rem;
+}
+
+.public-story-sources-index a {
+  font-weight: 600;
+}
+
+.public-story-refs-page__nav {
+  margin-bottom: 0.75rem;
+}
+
+.public-story-refs-page__timeline-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.public-story-refs-page__event-group {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.public-story-refs-page__event-headline {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+  line-height: 1.35;
+}

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { parsePublishedBodySnapshotV1 } from "../published-body-snapshot";
 
@@ -40,15 +41,79 @@ export type PublicStoryPayload = {
   }>;
 };
 
+/** M3-T12 — references-only surface (same snapshot rules as full public story read). */
+export type PublicStoryReferencesPayload = {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  published_at: string;
+  sources: PublicStoryPayload["sources"];
+  events: Array<{
+    headline: string;
+    display_date: string | null;
+    position_index: number;
+    references: Array<{
+      title: string;
+      outbound_url: string | null;
+      publisher_name: string | null;
+    }>;
+  }>;
+};
+
+const publicStoryInclude = {
+  storyBrief: {
+    include: {
+      storyDraft: {
+        include: {
+          sectionDrafts: {
+            where: { status: { not: "removed" } as const },
+            orderBy: { positionIndex: "asc" as const },
+            select: {
+              label: true,
+              summary: true,
+              positionIndex: true,
+            },
+          },
+          eventDrafts: {
+            where: { status: { not: "removed" } as const },
+            orderBy: { positionIndex: "asc" as const },
+            select: {
+              headline: true,
+              dek: true,
+              summary: true,
+              displayDate: true,
+              locationName: true,
+              contextLabel: true,
+              positionIndex: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.StoryInclude;
+
+type StoryForPublicRead = Prisma.StoryGetPayload<{ include: typeof publicStoryInclude }>;
+
 /**
- * M3-T08 + M3-T09 + M3-T10 + M3-T11 — read-only published story surface (no auth).
+ * M3-T08 + M3-T09 + M3-T10 + M3-T11 + M3-T12 — read-only published story surface (no auth).
  * Prefers `published_body_snapshot` when present so post-publish draft edits do not change the public page.
  */
 @Injectable()
 export class PublicStoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getPublishedBySlug(slug: string): Promise<PublicStoryPayload> {
+  private notFound(): never {
+    throw new NotFoundException({
+      ok: false,
+      error: {
+        code: "not_found",
+        message: "Story not found or unavailable.",
+      },
+    });
+  }
+
+  private async loadPublishedStoryForPublicRead(slug: string): Promise<StoryForPublicRead> {
     const story = await this.prisma.story.findFirst({
       where: {
         slug,
@@ -56,51 +121,17 @@ export class PublicStoriesService {
         workflowState: "published",
         visibility: { in: ["public", "unlisted"] },
       },
-      include: {
-        storyBrief: {
-          include: {
-            storyDraft: {
-              include: {
-                sectionDrafts: {
-                  where: { status: { not: "removed" } },
-                  orderBy: { positionIndex: "asc" },
-                  select: {
-                    label: true,
-                    summary: true,
-                    positionIndex: true,
-                  },
-                },
-                eventDrafts: {
-                  where: { status: { not: "removed" } },
-                  orderBy: { positionIndex: "asc" },
-                  select: {
-                    headline: true,
-                    dek: true,
-                    summary: true,
-                    displayDate: true,
-                    locationName: true,
-                    contextLabel: true,
-                    positionIndex: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: publicStoryInclude,
     });
-
-    if (!story || !story.publishedAt) {
-      throw new NotFoundException({
-        ok: false,
-        error: {
-          code: "not_found",
-          message: "Story not found or unavailable.",
-        },
-      });
+    if (!story?.publishedAt) {
+      this.notFound();
     }
+    return story;
+  }
 
-    const publishedAtIso = story.publishedAt.toISOString();
+  async getPublishedBySlug(slug: string): Promise<PublicStoryPayload> {
+    const story = await this.loadPublishedStoryForPublicRead(slug);
+    const publishedAtIso = story.publishedAt!.toISOString();
     const fromSnapshot = parsePublishedBodySnapshotV1(story.publishedBodySnapshot);
     if (fromSnapshot) {
       return {
@@ -110,7 +141,6 @@ export class PublicStoriesService {
       };
     }
 
-    /** Pre–M3-T09 publishes: no frozen snapshot — fall back to live draft (legacy). */
     const draft = story.storyBrief?.storyDraft;
     const sections =
       draft?.sectionDrafts.map((s) => ({
@@ -144,6 +174,45 @@ export class PublicStoriesService {
       sections,
       events,
       sources: [],
+    };
+  }
+
+  async getPublishedReferencesBySlug(slug: string): Promise<PublicStoryReferencesPayload> {
+    const story = await this.loadPublishedStoryForPublicRead(slug);
+    const publishedAtIso = story.publishedAt!.toISOString();
+    const fromSnapshot = parsePublishedBodySnapshotV1(story.publishedBodySnapshot);
+    if (fromSnapshot) {
+      return {
+        slug: story.slug,
+        title: fromSnapshot.title,
+        subtitle: fromSnapshot.subtitle,
+        published_at: publishedAtIso,
+        sources: fromSnapshot.sources,
+        events: fromSnapshot.events.map((e) => ({
+          headline: e.headline,
+          display_date: e.display_date,
+          position_index: e.position_index,
+          references: e.references,
+        })),
+      };
+    }
+
+    const draft = story.storyBrief?.storyDraft;
+    const events =
+      draft?.eventDrafts.map((e) => ({
+        headline: e.headline,
+        display_date: e.displayDate,
+        position_index: e.positionIndex,
+        references: [],
+      })) ?? [];
+
+    return {
+      slug: story.slug,
+      title: story.title,
+      subtitle: story.subtitle,
+      published_at: publishedAtIso,
+      sources: [],
+      events,
     };
   }
 }

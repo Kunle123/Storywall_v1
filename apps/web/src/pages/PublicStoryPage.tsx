@@ -178,6 +178,9 @@ export function PublicStoryPage() {
         <h2 id="public-story-sources-label" className="public-story-block__title">
           Sources
         </h2>
+        <p className="muted small public-story-sources-index">
+          <Link to={`/stories/${encodeURIComponent(slug)}/references`}>View all references</Link>
+        </p>
         {(story.sources ?? []).length > 0 ? (
           <ul className="public-story-source-list">
             {(story.sources ?? []).map((src) => (

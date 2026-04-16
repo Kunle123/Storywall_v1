@@ -1,5 +1,5 @@
 import { ApiRequestError } from "./creatorClient";
-import type { GetPublicStorySuccess } from "./publicTypes";
+import type { GetPublicStoryReferencesSuccess, GetPublicStorySuccess } from "./publicTypes";
 
 function apiBase(): string {
   const u = import.meta.env.VITE_API_URL;
@@ -25,4 +25,14 @@ export async function getPublicStory(slug: string): Promise<GetPublicStorySucces
     throw new ApiRequestError(`Public story failed (${res.status})`, res.status, data);
   }
   return data as GetPublicStorySuccess;
+}
+
+/** M3-T12 — GET …/stories/:slug/references (no auth). */
+export async function getPublicStoryReferences(slug: string): Promise<GetPublicStoryReferencesSuccess> {
+  const res = await fetch(`${apiBase()}/stories/${encodeURIComponent(slug)}/references`);
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Public references failed (${res.status})`, res.status, data);
+  }
+  return data as GetPublicStoryReferencesSuccess;
 }
