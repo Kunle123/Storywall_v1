@@ -845,7 +845,7 @@ function SectionDraftRow(props: {
 export function DraftReadyPage() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
-  const { token, creator, logout } = useAuth();
+  const { token } = useAuth();
   const [workflow, setWorkflow] = useState<CreatorWorkflowState | null>(null);
   const [draft, setDraft] = useState<StoryDraftResponse | null>(null);
   const [title, setTitle] = useState("");
@@ -1313,20 +1313,10 @@ export function DraftReadyPage() {
 
   return (
     <div className="page draft-workspace-page">
-      <header className="creator-header draft-workspace-header">
-        <div>
-          <h1 className="page-title">Draft ready</h1>
-          <p className="page-lead muted">
-            Editorial workspace — story <code className="inline-code">{storyId}</code>
-          </p>
-        </div>
-        <div className="creator-header-actions">
-          <span className="muted small">{creator?.email}</span>
-          <button type="button" className="btn ghost" onClick={() => logout()}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <h2 className="page-title">Draft ready</h2>
+      <p className="page-lead muted">
+        Main composition and checks — story <code className="inline-code">{storyId}</code>
+      </p>
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}

@@ -8,7 +8,7 @@ import { cacheBriefWorkspace, loadBriefCache } from "../lib/briefCache";
 
 export function FramingChoosePage() {
   const { storyId } = useParams<{ storyId: string }>();
-  const { token, creator, logout } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
 
   const [storyState, setStoryState] = useState<CreatorWorkflowState | null>(null);
@@ -94,20 +94,10 @@ export function FramingChoosePage() {
 
   return (
     <div className="page">
-      <header className="creator-header">
-        <div>
-          <h1 className="page-title">Choose a framing</h1>
-          <p className="page-lead muted">
-            Story <code className="inline-code">{storyId}</code> — workflow: <strong>{storyState ?? "…"}</strong>
-          </p>
-        </div>
-        <div className="creator-header-actions">
-          <span className="muted small">{creator?.email}</span>
-          <button type="button" className="btn ghost" onClick={() => logout()}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <h2 className="page-title">Choose a framing</h2>
+      <p className="page-lead muted">
+        Story <code className="inline-code">{storyId}</code>
+      </p>
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
 

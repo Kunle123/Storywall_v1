@@ -17,7 +17,7 @@ type TerminalView =
 
 export function JobStatusPage() {
   const { storyId, jobId } = useParams<{ storyId: string; jobId: string }>();
-  const { token, creator, logout } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
 
   const [job, setJob] = useState<CreatorJobPollData | null>(null);
@@ -119,20 +119,10 @@ export function JobStatusPage() {
 
   return (
     <div className="page">
-      <header className="creator-header">
-        <div>
-          <h1 className="page-title">Generation status</h1>
-          <p className="page-lead muted">
-            Story <code className="inline-code">{storyId}</code> — workflow phase <strong>{wfHint}</strong>
-          </p>
-        </div>
-        <div className="creator-header-actions">
-          <span className="muted small">{creator?.email}</span>
-          <button type="button" className="btn ghost" onClick={() => logout()}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <h2 className="page-title">Generation status</h2>
+      <p className="page-lead muted">
+        Story <code className="inline-code">{storyId}</code> — job phase <strong>{wfHint}</strong>
+      </p>
 
       {pollError ? (
         <div className="banner error" style={{ marginBottom: "1rem" }}>

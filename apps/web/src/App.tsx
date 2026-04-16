@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
+import { CreatorWorkspaceLayout } from "./components/CreatorWorkspaceLayout";
 import { DraftReadyPage } from "./pages/DraftReadyPage";
 import { EditBriefPage } from "./pages/EditBriefPage";
 import { FramingChoosePage } from "./pages/FramingChoosePage";
@@ -41,37 +42,18 @@ export function App() {
           }
         />
         <Route
-          path="/creator/stories/:storyId/brief"
+          path="/creator/stories/:storyId"
           element={
             <Protected>
-              <EditBriefPage />
+              <CreatorWorkspaceLayout />
             </Protected>
           }
-        />
-        <Route
-          path="/creator/stories/:storyId/framing"
-          element={
-            <Protected>
-              <FramingChoosePage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/creator/stories/:storyId/jobs/:jobId"
-          element={
-            <Protected>
-              <JobStatusPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/creator/stories/:storyId/draft"
-          element={
-            <Protected>
-              <DraftReadyPage />
-            </Protected>
-          }
-        />
+        >
+          <Route path="brief" element={<EditBriefPage />} />
+          <Route path="framing" element={<FramingChoosePage />} />
+          <Route path="jobs/:jobId" element={<JobStatusPage />} />
+          <Route path="draft" element={<DraftReadyPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

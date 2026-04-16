@@ -24,7 +24,7 @@ export function EditBriefPage() {
   const { storyId } = useParams<{ storyId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { token, creator, logout } = useAuth();
+  const { token } = useAuth();
 
   const navState = location.state as { story_brief?: StoryBriefResponse; story_state?: CreatorWorkflowState } | null;
 
@@ -169,7 +169,6 @@ export function EditBriefPage() {
     );
   }
 
-  const stateLabel = storyState ?? "—";
   const activeJobId = storyId ? readActiveJob(storyId) : null;
 
   async function onRunResearch() {
@@ -226,20 +225,10 @@ export function EditBriefPage() {
 
   return (
     <div className="page">
-      <header className="creator-header">
-        <div>
-          <h1 className="page-title">Brief intake</h1>
-          <p className="page-lead muted">
-            Story <code className="inline-code">{storyId}</code> — workflow: <strong>{stateLabel}</strong>
-          </p>
-        </div>
-        <div className="creator-header-actions">
-          <span className="muted small">{creator?.email}</span>
-          <button type="button" className="btn ghost" onClick={() => logout()}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <h2 className="page-title">Brief intake</h2>
+      <p className="page-lead muted">
+        Story <code className="inline-code">{storyId}</code>
+      </p>
 
       <div className={`save-bar ${saveUi}`} role="status" aria-live="polite">
         <span className="save-bar-label">Autosave</span>
