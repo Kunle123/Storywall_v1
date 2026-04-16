@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export function PublicTrustExplainer() {
   return (
     <aside className="public-trust-explainer" aria-labelledby="public-trust-explainer-title">
@@ -15,6 +17,9 @@ export function PublicTrustExplainer() {
       <p className="public-trust-explainer__p">
         This is the reader-facing snapshot for this story, not a window into private editorial tooling or unreleased
         material.
+      </p>
+      <p className="public-trust-explainer__more muted small">
+        <Link to="/about/sourcing">Reader help: sourcing FAQ</Link>
       </p>
     </aside>
   );

@@ -1278,3 +1278,37 @@ a:hover {
 .public-trust-explainer__p:last-child {
   margin-bottom: 0;
 }
+
+.public-trust-explainer__more {
+  margin: 0.55rem 0 0;
+}
+
+.public-trust-explainer__more a {
+  font-weight: 600;
+}
+
+.public-sourcing-faq__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.public-sourcing-faq__item {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.public-sourcing-faq__question {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.public-sourcing-faq__answer {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text);
+}
