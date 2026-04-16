@@ -21,6 +21,7 @@ import {
   isMaterialStoryPatch,
   summarizeStoryPatchFields,
 } from "../revision/revision-recorder";
+import { buildPublishedBodySnapshotV1 } from "../../published-body-snapshot";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
@@ -464,8 +465,8 @@ export class StoriesService {
   }
 
   /**
-   * M3-T07 — creator publish: sets lifecycle + workflow to published with durable idempotency.
-   * Does not build public snapshot (separate milestone); gates on `ready_to_publish` + latest validation row.
+   * M3-T07 + M3-T09 — creator publish: sets lifecycle + workflow to published with durable idempotency
+   * and freezes `published_body_snapshot` for public reads.
    */
   async publishStory(params: {
     storyId: string;
@@ -503,6 +504,24 @@ export class StoriesService {
                   draftTrustMetadata: {
                     include: {
                       latestValidationReport: { select: { id: true, overallResult: true } },
+                    },
+                  },
+                  sectionDrafts: {
+                    where: { status: { not: "removed" } },
+                    orderBy: { positionIndex: "asc" },
+                    select: { label: true, summary: true, positionIndex: true },
+                  },
+                  eventDrafts: {
+                    where: { status: { not: "removed" } },
+                    orderBy: { positionIndex: "asc" },
+                    select: {
+                      headline: true,
+                      dek: true,
+                      summary: true,
+                      displayDate: true,
+                      locationName: true,
+                      contextLabel: true,
+                      positionIndex: true,
                     },
                   },
                 },
@@ -573,6 +592,12 @@ export class StoriesService {
 
       const publishedAt = new Date();
       const fromWf = storyRow.workflowState;
+      const draftForSnap = storyRow.storyBrief.storyDraft;
+      const publishedBodySnapshot = buildPublishedBodySnapshotV1({
+        story: storyRow,
+        sectionDrafts: draftForSnap.sectionDrafts,
+        eventDrafts: draftForSnap.eventDrafts,
+      });
 
       const updated = await tx.story.updateMany({
         where: {
@@ -585,6 +610,7 @@ export class StoriesService {
           workflowState: "published",
           storyStatus: "published",
           publishedAt,
+          publishedBodySnapshot,
         },
       });
 

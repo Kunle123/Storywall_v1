@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { parsePublishedBodySnapshotV1 } from "../published-body-snapshot";
 
 export type PublicStoryPayload = {
   slug: string;
@@ -28,7 +29,10 @@ export type PublicStoryPayload = {
   }>;
 };
 
-/** M3-T08 — read-only published story surface (no auth). */
+/**
+ * M3-T08 + M3-T09 — read-only published story surface (no auth).
+ * Prefers `published_body_snapshot` when present so post-publish draft edits do not change the public page.
+ */
 @Injectable()
 export class PublicStoriesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -85,6 +89,17 @@ export class PublicStoriesService {
       });
     }
 
+    const publishedAtIso = story.publishedAt.toISOString();
+    const fromSnapshot = parsePublishedBodySnapshotV1(story.publishedBodySnapshot);
+    if (fromSnapshot) {
+      return {
+        slug: story.slug,
+        published_at: publishedAtIso,
+        ...fromSnapshot,
+      };
+    }
+
+    /** Pre–M3-T09 publishes: no frozen snapshot — fall back to live draft (legacy). */
     const draft = story.storyBrief?.storyDraft;
     const sections =
       draft?.sectionDrafts.map((s) => ({
@@ -113,7 +128,7 @@ export class PublicStoriesService {
       time_display: story.timeDisplay,
       time_start: story.timeStart?.toISOString() ?? null,
       time_end: story.timeEnd?.toISOString() ?? null,
-      published_at: story.publishedAt.toISOString(),
+      published_at: publishedAtIso,
       sections,
       events,
     };

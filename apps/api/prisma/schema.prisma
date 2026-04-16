@@ -472,6 +472,8 @@ model Story {
   leadPriority  Int?                 @map("lead_priority")
 
   publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  /// M3-T09 — JSON frozen at publish for public reads (body + sections + timeline); null for pre-snapshot publishes.
+  publishedBodySnapshot Json? @map("published_body_snapshot")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
