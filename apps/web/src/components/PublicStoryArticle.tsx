@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { PublicStoryData } from "../api/publicTypes";
+import { computeBeatPresentations } from "../lib/publicStoryBeatPresentation";
 import { PublicTrustExplainer } from "./PublicTrustExplainer";
 
 function CreatorPreviewDisclaimer() {
@@ -24,11 +26,36 @@ export type PublicStoryArticleProps = {
   variant: "published" | "creator_preview";
 };
 
+function formatChronologySpan(story: PublicStoryData): string | null {
+  const a = story.time_start?.trim();
+  const b = story.time_end?.trim();
+  if (a && b) return `${a} → ${b}`;
+  if (story.time_display?.trim()) return story.time_display.trim();
+  return null;
+}
+
+function sortEvents(events: PublicStoryData["events"]) {
+  return [...events].sort(
+    (a, b) => a.position_index - b.position_index || a.headline.localeCompare(b.headline),
+  );
+}
+
+function sortSections(sections: PublicStoryData["sections"]) {
+  return [...sections].sort(
+    (a, b) => a.position_index - b.position_index || a.label.localeCompare(b.label),
+  );
+}
+
 /**
  * Reader-facing story body — shared by `PublicStoryPage` and creator draft preview (M4-T08).
  */
 export function PublicStoryArticle(props: PublicStoryArticleProps) {
   const { story, slug, variant } = props;
+
+  const orderedEvents = useMemo(() => sortEvents(story.events), [story.events]);
+  const orderedSections = useMemo(() => sortSections(story.sections), [story.sections]);
+  const beatPresentation = useMemo(() => computeBeatPresentations(orderedEvents), [orderedEvents]);
+  const chronology = formatChronologySpan(story);
 
   return (
     <article className="page public-story-page">
@@ -36,6 +63,12 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
         <p className="public-story-eyebrow muted small">Storywall</p>
         <h1 className="public-story-title">{story.title}</h1>
         {story.subtitle ? <p className="public-story-subtitle">{story.subtitle}</p> : null}
+        {chronology ? (
+          <p className="public-story-header__chronology">
+            <span className="public-story-header__chronology-label">Chronology in this edition</span>
+            <span className="public-story-header__chronology-value">{chronology}</span>
+          </p>
+        ) : null}
         <p className="public-story-meta muted small">
           {variant === "creator_preview" ? (
             <>
@@ -45,95 +78,157 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
           ) : story.published_at ? (
             new Date(story.published_at).toLocaleDateString(undefined, { dateStyle: "medium" })
           ) : null}
-          {story.time_display ? ` · ${story.time_display}` : null}
+          {story.time_display && !chronology ? ` · ${story.time_display}` : null}
         </p>
       </header>
 
       {variant === "published" ? <PublicTrustExplainer /> : <CreatorPreviewDisclaimer />}
 
-      {story.summary ? (
-        <section className="public-story-block" aria-labelledby="public-story-summary-label">
-          <h2 id="public-story-summary-label" className="public-story-block__title">
-            Overview
-          </h2>
-          <div className="public-story-prose">{story.summary}</div>
+      {story.summary && story.lens ? (
+        <section className="public-story-block public-story-open-dual" aria-labelledby="public-story-summary-label">
+          <div className="public-story-open-dual__grid">
+            <div className="public-story-open-dual__col">
+              <h2 id="public-story-summary-label" className="public-story-block__title">
+                Overview
+              </h2>
+              <div className="public-story-prose">{story.summary}</div>
+            </div>
+            <div className="public-story-open-dual__col">
+              <h2 id="public-story-lens-dual" className="public-story-block__title">
+                Lens
+              </h2>
+              <div className="public-story-prose">{story.lens}</div>
+            </div>
+          </div>
         </section>
-      ) : null}
+      ) : (
+        <>
+          {story.summary ? (
+            <section className="public-story-block" aria-labelledby="public-story-summary-label">
+              <h2 id="public-story-summary-label" className="public-story-block__title">
+                Overview
+              </h2>
+              <div className="public-story-prose">{story.summary}</div>
+            </section>
+          ) : null}
+          {story.lens ? (
+            <section className="public-story-block" aria-labelledby="public-story-lens-label">
+              <h2 id="public-story-lens-label" className="public-story-block__title">
+                Lens
+              </h2>
+              <div className="public-story-prose">{story.lens}</div>
+            </section>
+          ) : null}
+        </>
+      )}
 
-      {story.lens ? (
-        <section className="public-story-block" aria-labelledby="public-story-lens-label">
-          <h2 id="public-story-lens-label" className="public-story-block__title">
-            Lens
-          </h2>
-          <div className="public-story-prose">{story.lens}</div>
-        </section>
-      ) : null}
-
-      {story.sections.length > 0 ? (
+      {orderedSections.length > 0 ? (
         <section className="public-story-block" aria-labelledby="public-story-sections-label">
           <h2 id="public-story-sections-label" className="public-story-block__title">
-            Sections
+            Narrative arc
           </h2>
-          <ol className="public-story-section-list">
-            {story.sections.map((s) => (
+          <p className="public-story-sections-intro muted small">
+            These section titles and summaries mirror how the creator grouped the story for readers — use them as
+            signposts before the dated timeline below.
+          </p>
+          <ol className="public-story-section-list public-story-section-list--editorial">
+            {orderedSections.map((s) => (
               <li key={`${s.position_index}-${s.label}`} className="public-story-section-list__item">
-                <h3 className="public-story-section-list__heading">{s.label}</h3>
-                {s.summary ? <div className="public-story-prose">{s.summary}</div> : null}
+                <div className="public-story-section-list__marker" aria-hidden />
+                <div className="public-story-section-list__body">
+                  <h3 className="public-story-section-list__heading">{s.label}</h3>
+                  {s.summary ? <div className="public-story-prose public-story-prose--compact">{s.summary}</div> : null}
+                </div>
               </li>
             ))}
           </ol>
         </section>
       ) : null}
 
-      {story.events.length > 0 ? (
-        <section className="public-story-block" aria-labelledby="public-story-timeline-label">
+      {orderedEvents.length > 0 ? (
+        <section
+          className="public-story-block public-story-block--timeline"
+          aria-labelledby="public-story-timeline-label"
+          aria-describedby="public-story-timeline-intro"
+        >
           <h2 id="public-story-timeline-label" className="public-story-block__title">
             Timeline
           </h2>
-          <ol className="public-story-event-list">
-            {story.events.map((ev) => (
-              <li key={`${ev.position_index}-${ev.headline}`} className="public-story-event-list__item">
-                <p className="public-story-event-list__when muted small">
-                  {ev.display_date ?? "Date TBC"}
-                  {ev.location_name ? ` · ${ev.location_name}` : null}
-                </p>
-                <h3 className="public-story-event-list__headline">{ev.headline}</h3>
-                {ev.context_label ? <p className="muted small">{ev.context_label}</p> : null}
-                {ev.dek ? <p className="public-story-event-list__dek">{ev.dek}</p> : null}
-                <div className="public-story-prose public-story-prose--compact">{ev.summary}</div>
-                {(ev.references ?? []).length > 0 ? (
-                  <div className="public-story-event-refs" aria-label="References for this event">
-                    <p className="public-story-event-refs__label muted small">References</p>
-                    <ul className="public-story-event-refs__list">
-                      {(ev.references ?? []).map((ref, ri) => (
-                        <li key={`${ev.position_index}-ref-${ri}`} className="public-story-event-refs__item">
-                          {ref.outbound_url ? (
-                            <a
-                              href={ref.outbound_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="public-story-event-refs__link"
-                            >
-                              {ref.title}
-                            </a>
-                          ) : (
-                            <span className="public-story-event-refs__text">{ref.title}</span>
-                          )}
-                          {ref.publisher_name ? (
-                            <span className="public-story-event-refs__pub muted small"> · {ref.publisher_name}</span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
+          <p id="public-story-timeline-intro" className="public-story-timeline-intro muted small">
+            Each row is one dated beat in the order this publication was edited to tell it. Rows with more supporting
+            labels, prose, or references in the snapshot are visually emphasized so you can see where this edition goes
+            deeper — not every moment carries the same weight on the page.
+          </p>
+          <ol className="public-story-event-list public-story-event-list--editorial">
+            {orderedEvents.map((ev, i) => {
+              const pres = beatPresentation[i]!;
+              const rail =
+                (ev.context_label?.trim() || ev.location_name?.trim()) && (pres.band === "focal" || pres.band === "standard");
+              const itemClass = [
+                "public-story-event-list__item",
+                `public-story-event-list__item--${pres.band}`,
+                `public-story-event-list__item--pos-${pres.positionRole}`,
+                rail ? "public-story-event-list__item--has-rail" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <li key={`${ev.position_index}-${ev.headline}`} className={itemClass}>
+                  <div className="public-story-event-list__core">
+                    <p className="public-story-event-list__when muted small">
+                      {ev.display_date ?? "Date TBC"}
+                      {ev.location_name && !rail ? ` · ${ev.location_name}` : null}
+                    </p>
+                    <h3 className="public-story-event-list__headline">{ev.headline}</h3>
+                    {ev.context_label && !rail ? <p className="public-story-event-list__context muted small">{ev.context_label}</p> : null}
+                    {ev.dek ? <p className="public-story-event-list__dek">{ev.dek}</p> : null}
+                    <div className="public-story-prose public-story-prose--compact">{ev.summary}</div>
+                    {(ev.references ?? []).length > 0 ? (
+                      <div className="public-story-event-refs" aria-label="References for this event">
+                        <p className="public-story-event-refs__label muted small">References</p>
+                        <ul className="public-story-event-refs__list">
+                          {(ev.references ?? []).map((ref, ri) => (
+                            <li key={`${ev.position_index}-ref-${ri}`} className="public-story-event-refs__item">
+                              {ref.outbound_url ? (
+                                <a
+                                  href={ref.outbound_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="public-story-event-refs__link"
+                                >
+                                  {ref.title}
+                                </a>
+                              ) : (
+                                <span className="public-story-event-refs__text">{ref.title}</span>
+                              )}
+                              {ref.publisher_name ? (
+                                <span className="public-story-event-refs__pub muted small"> · {ref.publisher_name}</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </li>
-            ))}
+                  {rail ? (
+                    <aside className="public-story-event-rail" aria-label="Context from this edition">
+                      {ev.context_label?.trim() ? (
+                        <p className="public-story-event-rail__context">{ev.context_label}</p>
+                      ) : null}
+                      {ev.location_name?.trim() ? (
+                        <p className="public-story-event-rail__where muted small">{ev.location_name}</p>
+                      ) : null}
+                    </aside>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
         </section>
       ) : null}
 
-      <section className="public-story-block" aria-labelledby="public-story-sources-label">
+      <section className="public-story-block public-story-block--sources" aria-labelledby="public-story-sources-label">
         <h2 id="public-story-sources-label" className="public-story-block__title">
           Sources
         </h2>
@@ -177,7 +272,7 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
       </section>
 
       {story.conclusion ? (
-        <section className="public-story-block" aria-labelledby="public-story-conclusion-label">
+        <section className="public-story-block public-story-block--closing" aria-labelledby="public-story-conclusion-label">
           <h2 id="public-story-conclusion-label" className="public-story-block__title">
             Closing
           </h2>
