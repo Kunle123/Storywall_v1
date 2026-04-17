@@ -8,8 +8,29 @@ export type {
 } from "./types";
 export type { AiRuntimeConfigSnapshot } from "./config";
 export { formatAiRuntimeBootstrapLogLine, parseAiRuntimeConfigFromEnv } from "./config";
-export type { AiChatCompletionRequest, AiChatCompletionResult, AiTextGenerationPort } from "./port";
+export type { AiPolicyEnforcementMode, AiRuntimeOperationalPolicy } from "./policy";
+export { AiCallRateLimiter, parseAiRuntimeOperationalPolicy } from "./policy";
+export type {
+  AiProviderExecutionTelemetry,
+  AiProviderFailureCategory,
+  AiProviderOutcomeClass,
+  AiRuntimeTelemetrySink,
+  AiRuntimeTelemetrySinkKind,
+} from "./telemetry";
 export {
+  ConsoleAiRuntimeTelemetrySink,
+  NoOpAiRuntimeTelemetrySink,
+  buildTelemetryEvent,
+  createTelemetrySinkFromEnv,
+} from "./telemetry";
+export type {
+  AiChatCompletionRequest,
+  AiChatCompletionResult,
+  AiTextGenerationPort,
+  AiTextGenerationPortDependencies,
+} from "./port";
+export {
+  AiRuntimeBlockedByPolicyError,
   AiRuntimeDisabledError,
   AiRuntimeMisconfiguredError,
   AiRuntimeTransportNotImplementedError,

@@ -1,4 +1,6 @@
 import type { AiProviderKind, AiRuntimeSurface } from "./types";
+import { parseAiRuntimeOperationalPolicy, type AiRuntimeOperationalPolicy } from "./policy";
+import type { AiRuntimeTelemetrySinkKind } from "./telemetry";
 
 export type AiRuntimeConfigSnapshot = {
   surface: AiRuntimeSurface;
@@ -9,11 +11,19 @@ export type AiRuntimeConfigSnapshot = {
   /** True when a non-empty STORYWALL_AI_API_KEY is present (never log the value). */
   apiKeyPresent: boolean;
   misconfigurationReasons: string[];
+  operational: AiRuntimeOperationalPolicy;
+  telemetry_sink: AiRuntimeTelemetrySinkKind;
 };
 
 function normalizeProvider(raw: string | undefined): AiProviderKind {
   const v = (raw ?? "none").trim().toLowerCase();
   if (v === "openai_compatible") return "openai_compatible";
+  return "none";
+}
+
+function parseTelemetrySinkKind(env: Record<string, string | undefined>): AiRuntimeTelemetrySinkKind {
+  const v = (env.STORYWALL_AI_TELEMETRY_SINK ?? "none").trim().toLowerCase();
+  if (v === "console") return "console";
   return "none";
 }
 
@@ -27,16 +37,20 @@ export function parseAiRuntimeConfigFromEnv(env: Record<string, string | undefin
   const baseUrl = env.STORYWALL_AI_BASE_URL?.trim() || null;
   const defaultModel = env.STORYWALL_AI_DEFAULT_MODEL?.trim() || null;
   const apiKeyPresent = Boolean(env.STORYWALL_AI_API_KEY?.trim());
+  const telemetry_sink = parseTelemetrySinkKind(env);
 
   if (!enabled) {
+    const surface: AiRuntimeSurface = "disabled";
     return {
-      surface: "disabled",
+      surface,
       enabled: false,
       provider: "none",
       baseUrl: null,
       defaultModel: null,
       apiKeyPresent,
       misconfigurationReasons: [],
+      operational: parseAiRuntimeOperationalPolicy(env, surface),
+      telemetry_sink,
     };
   }
 
@@ -60,36 +74,48 @@ export function parseAiRuntimeConfigFromEnv(env: Record<string, string | undefin
   }
 
   if (reasons.length > 0) {
+    const surface: AiRuntimeSurface = "misconfigured";
     return {
-      surface: "misconfigured",
+      surface,
       enabled: true,
       provider,
       baseUrl,
       defaultModel,
       apiKeyPresent,
       misconfigurationReasons: reasons,
+      operational: parseAiRuntimeOperationalPolicy(env, surface),
+      telemetry_sink,
     };
   }
 
+  const surface: AiRuntimeSurface = "armed";
   return {
-    surface: "armed",
+    surface,
     enabled: true,
     provider,
     baseUrl,
     defaultModel,
     apiKeyPresent,
     misconfigurationReasons: [],
+    operational: parseAiRuntimeOperationalPolicy(env, surface),
+    telemetry_sink,
   };
 }
 
 /** Single-line worker/API bootstrap log (no secrets). */
 export function formatAiRuntimeBootstrapLogLine(cfg: AiRuntimeConfigSnapshot): string {
+  const p = cfg.operational;
   const parts = [
     `[ai-runtime] surface=${cfg.surface}`,
     `provider=${cfg.provider}`,
     cfg.baseUrl ? `base_url_set=true` : `base_url_set=false`,
     `api_key_present=${cfg.apiKeyPresent}`,
-    `transport=not_implemented_m5_t01`,
+    `telemetry_sink=${cfg.telemetry_sink}`,
+    `policy_enforcement=${p.enforcement}`,
+    `policy_cap=${p.maxCallsPerWindow}/${p.windowMs}ms`,
+    `timeout_ms=${p.timeoutMs}`,
+    `max_retries=${p.maxRetries}`,
+    `transport=not_implemented_m5_t02`,
   ];
   if (cfg.misconfigurationReasons.length > 0) {
     parts.push(`issues=${cfg.misconfigurationReasons.length}`);

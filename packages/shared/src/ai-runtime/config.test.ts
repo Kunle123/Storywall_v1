@@ -7,6 +7,8 @@ describe("parseAiRuntimeConfigFromEnv", () => {
     expect(c.surface).toBe("disabled");
     expect(c.enabled).toBe(false);
     expect(c.provider).toBe("none");
+    expect(c.operational.enforcement).toBe("off");
+    expect(c.telemetry_sink).toBe("none");
   });
 
   it("flags misconfiguration when enabled with none provider", () => {
@@ -16,6 +18,7 @@ describe("parseAiRuntimeConfigFromEnv", () => {
     });
     expect(c.surface).toBe("misconfigured");
     expect(c.misconfigurationReasons.length).toBeGreaterThan(0);
+    expect(c.operational.enforcement).toBe("off");
   });
 
   it("flags misconfiguration when openai_compatible missing base URL", () => {
@@ -39,5 +42,13 @@ describe("parseAiRuntimeConfigFromEnv", () => {
     expect(c.surface).toBe("armed");
     expect(c.apiKeyPresent).toBe(true);
     expect(c.baseUrl).toContain("openai");
+    expect(c.operational.enforcement).toBe("on");
+  });
+
+  it("parses telemetry sink console", () => {
+    const c = parseAiRuntimeConfigFromEnv({
+      STORYWALL_AI_TELEMETRY_SINK: "console",
+    });
+    expect(c.telemetry_sink).toBe("console");
   });
 });

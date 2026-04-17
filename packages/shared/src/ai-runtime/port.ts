@@ -1,5 +1,7 @@
 import type { AiChatMessage, AiInvocationContext } from "./types";
 import type { AiRuntimeConfigSnapshot } from "./config";
+import type { AiCallRateLimiter } from "./policy";
+import { buildTelemetryEvent, type AiRuntimeTelemetrySink } from "./telemetry";
 
 export class AiRuntimeDisabledError extends Error {
   readonly code = "ai_runtime_disabled" as const;
@@ -17,14 +19,27 @@ export class AiRuntimeMisconfiguredError extends Error {
   }
 }
 
+export class AiRuntimeBlockedByPolicyError extends Error {
+  readonly code = "ai_runtime_blocked_by_policy" as const;
+  constructor(
+    message: string,
+    public readonly retry_after_ms?: number,
+  ) {
+    super(message);
+    this.name = "AiRuntimeBlockedByPolicyError";
+  }
+}
+
 /**
- * Thrown when configuration is armed but no HTTP transport exists yet (M5-T01 boundary).
- * Later M5 tickets replace this with real provider errors.
+ * Thrown when configuration is armed but no HTTP transport exists yet.
+ * M5-T02 adds policy/telemetry; transport remains for a later M5 ticket.
  */
 export class AiRuntimeTransportNotImplementedError extends Error {
   readonly code = "ai_runtime_transport_not_implemented" as const;
   constructor() {
-    super("AI provider transport is not implemented yet (M5-T01 only defines configuration and abstraction).");
+    super(
+      "AI provider transport is not implemented yet (M5-T01–T02: configuration, policy, and telemetry only).",
+    );
     this.name = "AiRuntimeTransportNotImplementedError";
   }
 }
@@ -53,31 +68,95 @@ export interface AiTextGenerationPort {
   completeChat(request: AiChatCompletionRequest): Promise<AiChatCompletionResult>;
 }
 
+export type AiTextGenerationPortDependencies = {
+  config: AiRuntimeConfigSnapshot;
+  limiter: AiCallRateLimiter;
+  sink: AiRuntimeTelemetrySink;
+};
+
 /**
- * M5-T01 default port: validates surface and refuses execution so callers cannot accidentally
- * assume a model ran. Later tickets swap this for a real transport while keeping the interface.
+ * Default port: validates surface, enforces first-pass rate policy, emits telemetry, and refuses execution.
  */
 export class NonExecutableAiTextGenerationPort implements AiTextGenerationPort {
   readonly implementationId = "non_executable_m5_t01";
 
-  constructor(private readonly config: AiRuntimeConfigSnapshot) {}
+  constructor(private readonly deps: AiTextGenerationPortDependencies) {}
+
+  private get config(): AiRuntimeConfigSnapshot {
+    return this.deps.config;
+  }
 
   isConfigurationArmed(): boolean {
     return this.config.surface === "armed";
   }
 
-  async completeChat(_request: AiChatCompletionRequest): Promise<AiChatCompletionResult> {
+  async completeChat(request: AiChatCompletionRequest): Promise<AiChatCompletionResult> {
+    const { sink, limiter } = this.deps;
+    const t0 = Date.now();
+
     if (this.config.surface === "disabled") {
+      sink.emit(
+        buildTelemetryEvent({
+          surface: this.config.surface,
+          provider: this.config.provider,
+          context: request.context,
+          outcome_class: "disabled",
+          latency_ms: Date.now() - t0,
+          notes: "runtime_flag_off",
+        }),
+      );
       throw new AiRuntimeDisabledError();
     }
+
     if (this.config.surface === "misconfigured") {
+      sink.emit(
+        buildTelemetryEvent({
+          surface: this.config.surface,
+          provider: this.config.provider,
+          context: request.context,
+          outcome_class: "misconfigured",
+          latency_ms: Date.now() - t0,
+          notes: "configuration_invalid",
+        }),
+      );
       throw new AiRuntimeMisconfiguredError(this.config.misconfigurationReasons);
     }
+
+    const rate = limiter.tryConsume();
+    if (!rate.ok) {
+      sink.emit(
+        buildTelemetryEvent({
+          surface: this.config.surface,
+          provider: this.config.provider,
+          context: request.context,
+          outcome_class: "blocked_by_policy",
+          latency_ms: Date.now() - t0,
+          failure_category: "policy",
+          notes: "rate_limit_window_exhausted",
+        }),
+      );
+      throw new AiRuntimeBlockedByPolicyError(
+        "AI call blocked by operational rate policy for this process.",
+        rate.retry_after_ms,
+      );
+    }
+
+    sink.emit(
+      buildTelemetryEvent({
+        surface: this.config.surface,
+        provider: this.config.provider,
+        context: request.context,
+        outcome_class: "transport_unavailable",
+        latency_ms: Date.now() - t0,
+        failure_category: "unknown",
+        notes: "transport_not_implemented",
+      }),
+    );
+
     throw new AiRuntimeTransportNotImplementedError();
   }
 }
 
-/** Factory for the only port implementation in M5-T01 (non-executable). */
-export function createAiTextGenerationPort(config: AiRuntimeConfigSnapshot): AiTextGenerationPort {
-  return new NonExecutableAiTextGenerationPort(config);
+export function createAiTextGenerationPort(deps: AiTextGenerationPortDependencies): AiTextGenerationPort {
+  return new NonExecutableAiTextGenerationPort(deps);
 }
