@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
+import { AiRuntimeService } from "../ai-runtime/ai-runtime.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -9,7 +10,10 @@ import { PrismaService } from "../prisma/prisma.service";
  */
 @Controller("health")
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiRuntime: AiRuntimeService,
+  ) {}
 
   @Get()
   getHealth() {
@@ -18,6 +22,7 @@ export class HealthController {
       service: "storywall-api",
       api_version: API_CONTRACT_VERSION,
       generated_at: new Date().toISOString(),
+      ai_runtime: this.aiRuntime.getHealthSummary(),
     };
   }
 
@@ -31,6 +36,7 @@ export class HealthController {
         api_version: API_CONTRACT_VERSION,
         generated_at: new Date().toISOString(),
         database: "reachable",
+        ai_runtime: this.aiRuntime.getHealthSummary(),
       };
     } catch {
       throw new ServiceUnavailableException({

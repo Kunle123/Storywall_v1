@@ -11,6 +11,8 @@ import {
   API_CONTRACT_VERSION,
   buildChronologyEventsFromResearchPackage,
   CHRONOLOGY_EXTRACTION_VERSION,
+  formatAiRuntimeBootstrapLogLine,
+  parseAiRuntimeConfigFromEnv,
 } from "@storywall/shared";
 import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
 import { ensureChronologyEventSourceLinks } from "./m2-t04-persist-links.js";
@@ -23,6 +25,10 @@ const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 const queueName = "storywall-default";
 
 const prisma = new PrismaClient();
+
+const aiRuntimeSnapshot = parseAiRuntimeConfigFromEnv(process.env);
+// eslint-disable-next-line no-console
+console.log(`[storywall-worker] ${formatAiRuntimeBootstrapLogLine(aiRuntimeSnapshot)}`);
 
 const worker = new Worker(
   queueName,

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AiRuntimeModule } from "./ai-runtime/ai-runtime.module";
 import { AuthModule } from "./auth/auth.module";
 import { CreatorModule } from "./creator/creator.module";
 import { FramesModule } from "./creator/frames/frames.module";
@@ -16,6 +17,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 @Module({
   imports: [
     PrismaModule,
+    AiRuntimeModule,
     HealthModule,
     PublicModule,
     AuthModule,
