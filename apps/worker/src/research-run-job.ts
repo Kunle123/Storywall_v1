@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   buildChronologyEventsFromResearchPackage,
+  buildDraftEnrichmentPackageV1,
   CHRONOLOGY_EXTRACTION_VERSION,
   formatBoundedRetrievalBootstrapLine,
   parseBoundedRetrievalPolicyFromEnv,
@@ -242,6 +243,49 @@ export async function executeResearchRun(
     await ensureChronologyEventSourceLinks(tx, {
       researchJobId: rj2.id,
       storyId: rj2.storyId,
+    });
+
+    const assemblyWithEvents = await tx.chronologyAssembly.findUnique({
+      where: { researchJobId: rj2.id },
+      include: { events: { orderBy: { positionIndex: "asc" } } },
+    });
+    if (!assemblyWithEvents) {
+      throw new Error(`invariant: chronology assembly missing for research job ${rj2.id}`);
+    }
+
+    const artForEnrichment = await tx.researchArtifact.findUniqueOrThrow({
+      where: { researchJobId: rj2.id },
+    });
+
+    const toStringIds = (raw: unknown): string[] => {
+      if (!Array.isArray(raw)) return [];
+      return raw.filter((x): x is string => typeof x === "string");
+    };
+
+    const draftEnrichment = buildDraftEnrichmentPackageV1({
+      storyId: rj2.storyId,
+      researchJobId: rj2.id,
+      storyTitle: rj2.story.title,
+      researchSynthesisPackage: artForEnrichment.researchSynthesisPackage,
+      chronologyExtractionVersion: CHRONOLOGY_EXTRACTION_VERSION,
+      chronologyEvents: assemblyWithEvents.events.map((e) => ({
+        id: e.id,
+        positionIndex: e.positionIndex,
+        headline: e.headline,
+        summary: e.summary,
+        contextLabel: e.contextLabel,
+        eventType: e.eventType,
+        supportingCandidateSourceIds: toStringIds(e.supportingCandidateSourceIds),
+        ambiguityNote: e.ambiguityNote,
+        creatorNote: e.creatorNote,
+        claimRiskLevel: e.claimRiskLevel,
+        confidenceState: e.confidenceState,
+      })),
+    });
+
+    await tx.researchArtifact.update({
+      where: { researchJobId: rj2.id },
+      data: { draftEnrichmentPackage: draftEnrichment as unknown as Prisma.InputJsonValue },
     });
 
     await tx.researchJob.update({

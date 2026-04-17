@@ -75,7 +75,7 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
 
 Checked-in script: `apps/api/scripts/e2e-m5-t06-research-chronology.mjs` (also `pnpm --filter @storywall/api run e2e:m5-t06`).
 
-**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers — same path verified at checkpoint `checkpoint/m5-t06-chronology-synthesis`.
+**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t07-v1`) on the same artifact (returned on `GET …/package` as `draft_enrichment_package`) — same path verified at checkpoint `checkpoint/m5-t06-chronology-synthesis` plus M5-T07 enrichment.
 
 **Prerequisites**
 
@@ -118,7 +118,7 @@ pnpm --filter @storywall/worker start
 API_URL=http://127.0.0.1:3001 pnpm --filter @storywall/api exec node ./scripts/e2e-m5-t06-research-chronology.mjs
 ```
 
-Success ends with `OK: M5-T06 research → synthesis → chronology e2e passed.`
+Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07 draft enrichment e2e passed.`
 
 ## Health checks (Railway)
 

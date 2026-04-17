@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * M5-T06 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
- * → chronology extraction (M5-T06) with provenance + temporal honesty markers.
+ * M5-T06 / M5-T07 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * → chronology extraction (M5-T06) → draft_enrichment_package (M5-T07) with provenance + honesty markers.
  *
  * Requires (same as smoke-m2-02 / smoke-m2-03):
  * - API running (e.g. `pnpm --filter @storywall/api start` or `dev`)
@@ -192,6 +192,31 @@ async function main() {
     `[e2e-m5-t06] synthesis retrieval_mode=${syn.retrieval_mode} findings=${syn.findings.length} sources=${pkg.data.candidate_sources.length}`,
   );
 
+  const enrich = pkg.data?.artifact?.draft_enrichment_package;
+  assert(enrich && enrich.schema_version === "m5-t07-v1", "draft_enrichment_package missing or wrong schema_version");
+  assert(
+    enrich.chronology_extraction_version === "m5-t06-v1",
+    `enrichment must record chronology version, got ${enrich.chronology_extraction_version}`,
+  );
+  assert(
+    typeof enrich.not_publishable_narrative_note === "string" && enrich.not_publishable_narrative_note.length > 40,
+    "not_publishable_narrative_note honesty missing",
+  );
+  assert(Array.isArray(enrich.key_events) && enrich.key_events.length >= 1, "key_events missing");
+  const keLinked = enrich.key_events.find(
+    (k) => Array.isArray(k.linked_synthesis_finding_ids) && k.linked_synthesis_finding_ids.length > 0,
+  );
+  assert(keLinked, "expected a key_event with linked_synthesis_finding_ids from M5-T06 creator_note");
+  assert(
+    enrich.retrieval_context === syn.retrieval_mode,
+    `enrichment retrieval_context ${enrich.retrieval_context} should match synthesis ${syn.retrieval_mode}`,
+  );
+  assert(Array.isArray(enrich.major_arcs) && enrich.major_arcs.length >= 1, "major_arcs");
+  assert(
+    (enrich.coverage_gaps?.length ?? 0) + (enrich.ambiguity_notes?.length ?? 0) > 0,
+    "expected coverage_gaps or ambiguity_notes from upstream honesty signals",
+  );
+
   const chRes = await fetch(
     `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/chronology`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -223,7 +248,7 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log("OK: M5-T06 research → synthesis → chronology e2e passed.");
+  console.log("OK: M5-T06 research → synthesis → chronology → M5-T07 draft enrichment e2e passed.");
 }
 
 main().catch((e) => {

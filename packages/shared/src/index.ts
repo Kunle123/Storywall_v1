@@ -17,6 +17,9 @@ export * from "./retrieval";
 // --- M5-T05 — research package synthesis (deterministic; browser-safe) ---
 export * from "./research-synthesis";
 
+// --- M5-T07 — draft enrichment from synthesis + chronology (deterministic; browser-safe) ---
+export * from "./draft-enrichment";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

@@ -10,6 +10,7 @@ export function researchArtifactToApi(a: ResearchArtifact): Record<string, unkno
     risk_flags: a.riskFlags,
     confidence_posture: a.confidencePosture,
     research_synthesis_package: a.researchSynthesisPackage ?? null,
+    draft_enrichment_package: a.draftEnrichmentPackage ?? null,
     created_at: a.createdAt.toISOString(),
   };
 }

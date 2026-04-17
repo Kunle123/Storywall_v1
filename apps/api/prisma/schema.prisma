@@ -744,6 +744,9 @@ model ResearchArtifact {
   /// M5-T05 — deterministic synthesis over persisted candidates (provenance via candidate source UUIDs).
   researchSynthesisPackage Json? @map("research_synthesis_package")
 
+  /// M5-T07 — structured creator draft enrichment from synthesis + chronology (scaffolding, not publishable body).
+  draftEnrichmentPackage Json? @map("draft_enrichment_package")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([storyId], map: "research_artifact_story_idx")
