@@ -2,7 +2,8 @@
 
 **Author:** Manus AI  
 **Date:** 2026-04-14  
-**M4 update:** 2026-04-16 — Milestone M4 redefined as **Creator Workflow Foundation**; see `docs/storywall_m4_creator_workflow_foundation.md`. **M4 closure (T01–T11):** canonical `staging` commit line recorded in `docs/storywall_repo_ready_backlog_update.md`.
+**M4 update:** 2026-04-16 — Milestone M4 redefined as **Creator Workflow Foundation**; see `docs/storywall_m4_creator_workflow_foundation.md`. **M4 closure (T01–T11):** canonical `staging` commit line recorded in `docs/storywall_repo_ready_backlog_update.md`.  
+**M5 addendum:** 2026-04-17 — Formal milestone **M5 — AI Runtime Research and Editorial Enrichment** added (verified gap: automation and stubs exist; live model retrieval/synthesis not on production path). See §3 milestone table and §6 M5 ticket pack.
 
 ## 1. Purpose
 
@@ -33,7 +34,7 @@ This backlog assumes a two-week sprint rhythm and follows the previously defined
 
 ## 3. Milestone Structure
 
-The cleanest execution path is to group the work into five milestones. These correspond to the existing implementation roadmap and sprint matrix, but they are expressed here as delivery checkpoints that engineering can own and track.[4] [10]
+The cleanest execution path is to group the work into **six** milestones (M0–M5). M0–M4 correspond to the existing implementation roadmap; **M5** closes the verified gap between **workflow automation** (queues, persistence, validation, publish) and **live AI-backed research and enrichment** (see implementation audit: stub framing, `m2-t02-stub` research artifacts, deterministic chronology, schema labels such as `ai_draft` / `ai_extracted` ahead of runtime truth).
 
 | Milestone | Goal | Exit condition |
 |---|---|---|
@@ -42,6 +43,7 @@ The cleanest execution path is to group the work into five milestones. These cor
 | **M2 — AI Draft Assembly and Editorial Workspace** | Produce and edit a full Storywall draft | A creator can go from approved brief to editable complete draft |
 | **M3 — Trust, Review, and Publication** | Enforce publication rules and reviewer governance | A validated story can be reviewed and published safely |
 | **M4 — Creator Workflow Foundation** | Make the creator editorial loop explicit end-to-end (setup → compose → evidence → preview → maintain) | A creator can define, structure, compose, evidence, preview, and maintain a Storywall in one coherent workflow (see `docs/storywall_m4_creator_workflow_foundation.md`) |
+| **M5 — AI Runtime Research and Editorial Enrichment** | Replace stub/template “AI-shaped” outputs with **truthful, provider-backed** retrieval, synthesis, framing, and enrichment — without breaking trust contracts | Research jobs persist **real** candidate sources (verifiable URLs), optional model-backed framing/enrichment behind flags, **provenance** matches UI claims, failures are explicit; creator and reader UX do not overstate model use |
 
 ## 4. Dependency Ordering Summary
 
@@ -52,7 +54,7 @@ The backlog should be executed in the following dependency order. This ordering 
 | **1** | Baseline lock, architecture choice, stack upgrade | Prevents downstream churn and fake-progress UI work |
 | **2** | Data model, migrations, shared types, auth context | Everything else depends on durable records and actor identity |
 | **3** | Creator brief intake and framing persistence | Story generation cannot start without structured setup |
-| **4** | AI orchestration for research and draft assembly | The product premise depends on full-draft quality |
+| **4** | AI orchestration for research and draft assembly | The product premise depends on full-draft quality (**M2 delivered orchestration + stubs; M5 delivers live runtime**) |
 | **5** | Editorial workspace and autosave mutations | Human ownership depends on reliable editing surfaces |
 | **6** | Validation, trust model, imagery rules, reviewer overlays | Storywall cannot publish responsibly without them |
 | **7** | Publish flow, public read surfaces, then creator-workflow foundation (M4) | Public reader credibility is in place; M4 closes explicit creator-side gaps before broad discovery or pilot expansion |
@@ -68,7 +70,7 @@ The backlog is built around nine execution epics. These expand the earlier imple
 | **E2** | Full-stack upgrade and platform plumbing | App can support backend routes, auth, and database access | Migration plan, transition roadmap [6] [10] |
 | **E3** | Core data model and migrations | Story, draft, source, trust, and moderation records persist safely | Schema changes, migration plan, CMS model [6] [7] |
 | **E4** | Creator intake and framing workflow | Creator can start a Storywall from structured intent | Creator workflow, CMS model, mutation contracts [2] [7] [8] |
-| **E5** | AI research and draft assembly | System can generate a complete sourced draft | Creator workflow, prompt architecture, mutation contracts [2] [8] |
+| **E5** | AI research and draft assembly | System can generate a complete sourced draft (**orchestration + editorial workspace today; live retrieval/synthesis in M5**) | Creator workflow, prompt architecture, mutation contracts [2] [8] |
 | **E6** | Editorial workspace and revision system | Creator can edit, autosave, and refine safely | CMS model, mutation contracts [7] [8] |
 | **E7** | Validation, trust, and moderation | Publishability is enforceable and reviewer authority is operational | Trust standard, reviewer contract [3] [9] |
 | **E8** | Publication and public read surfaces | Published stories render correctly in homepage and timeline surfaces | Read contracts, PRD [1] [5] |
@@ -179,6 +181,63 @@ This milestone turns Storywall into a governed publishing system. It should end 
 
 **Deferred:** Homepage discovery, pilot instrumentation, launch scorecard, and related items from the **superseded** “M4 — Reader Discovery, Pilot, and Launch Readiness” draft are **not** part of this M4 numbering; reintroduce under a **later milestone** if required.
 
+### Milestone M5 — AI Runtime Research and Editorial Enrichment
+
+**Why now:** Implementation audit (2026-04-17) confirms **real** automation for BullMQ research/draft jobs, deterministic chronology extraction, draft assembly, rule-based validation, and publish — but **no** live LLM/provider integration on those paths; research artifacts use **`m2-t02-stub`**, framing uses **deterministic `buildFrameSeeds`**, and labels such as **`ai_draft` / `ai_extracted`** can **outrun** runtime truth. **M4** improved creator guidance, reader composition, and pre-publish reflection **without** adding models. **M5** is the explicit program slice that supplies the **missing production AI runtime** so backlog language and product behavior align.
+
+**Relationship to M4:** M4-T02–T11 and follow-on richness work assume creators still carry editorial load; **M5** reduces the **structural** gap where the system behaves like an AI-first product contract while sourcing remains **stub- or template-derived**.
+
+**Already implemented (do not re-ticket as greenfield):** `POST …/research/run` + worker `research.run`; `POST …/draft/assemble` + worker `draft.assemble`; `buildChronologyEventsFromResearchPackage`; Prisma models for research jobs, artifacts, candidate sources, chronology, draft assembly; **M3** validation engines; publish snapshot path; creator UI for jobs and draft workspace.
+
+**Optional later (out of M5 unless scope creeps):** multi-agent orchestration, open-ended autonomous rewriting, homepage discovery, analytics, new reviewer **policies** beyond explainers, replacing all deterministic framing with models without a **fallback** path.
+
+#### M5 scope guardrails and non-goals
+
+| Guardrail | Meaning |
+|---|---|
+| **Trust contract first** | No publish path may infer facts not grounded in persisted sources or approved creator text; retrieval must be **bounded** and **attributable**. |
+| **No silent magic** | Model outputs land in **reviewable** staging (artifact / draft rows) with **versioned** prompts and recoverable failures. |
+| **Human authority** | Creators retain approve/reject; validation **pass/fail** remains rule-driven unless explicitly extended with **non-blocking** AI hints only. |
+| **No scope drift** | M5 does **not** include picking a single vendor forever, building a full RAG platform, or “auto-publish when model confident.” |
+
+**Non-goals for M5:** Autonomous publish; fabricated URLs; unbounded web browsing without policy; removing human framing choice; using AI to **override** validation blockers; training custom foundation models.
+
+#### M5 ticket pack (execute in dependency order)
+
+Foundation lane (do first):
+
+| Ticket ID | Epic | Title | Outcome | Depends on |
+|---|---|---|---|---|
+| **M5-T01** | E2 / E5 | AI runtime configuration and provider abstraction | Single module defines provider interface(s), env-driven model selection, feature flags for enabling AI paths per environment; **no** secrets in repo | M0-T05, M0-T04 |
+| **M5-T02** | E2 | Secure credentials, quotas, and observability for AI calls | API/worker can authenticate to chosen provider(s), enforce rate limits, log request IDs for support; secrets live in host secret store | M5-T01 |
+| **M5-T03** | E5 | Prompt template system with versioning and audit metadata | Prompts live in repo or DB with version IDs; inputs/outputs schema documented; rollback to prior template supported | M5-T01 |
+
+Retrieval and research package (core):
+
+| Ticket ID | Epic | Title | Outcome | Depends on |
+|---|---|---|---|---|
+| **M5-T04** | E5 | Retrieval adapter: bounded real-world/source fetch behind research job | `research.run` invokes adapter that returns normalized hits (URL, title, publisher, excerpt policy) replacing **`example.invalid`** stub URLs; contracts + integration tests | M2-T01, M2-T02, M5-T02, M5-T03 |
+| **M5-T05** | E5 | Research package synthesis (artifact + candidate rows) | Pipeline turns retrieval hits into `research_artifact` + `research_candidate_source` rows meeting trust fields; stub path deprecated or feature-flagged | M5-T04 |
+| **M5-T06** | E5 | Chronology pipeline v2 on real packages | `buildChronologyEventsFromResearchPackage` (or successor) consumes **non-stub** artifacts; golden tests for shape parity | M5-T05, M2-T03 |
+
+Editorial enrichment (after core package is honest):
+
+| Ticket ID | Epic | Title | Outcome | Depends on |
+|---|---|---|---|---|
+| **M5-T07** | E4 / E5 | Model-backed framing generation (creator-reviewed) | Optional `frames/generate` path can call model **or** retain deterministic fallback; creator always selects among persisted `story_frame_draft` rows | M5-T03, M1-T11, M5-T02 |
+| **M5-T08** | E5 / E6 | Model-backed scoped enrichment for events and narrative fields | Scoped regeneration uses model under caps; honors preserve flags and creator notes; assembly revision trail records model id + prompt version | M5-T03, M2-T12, M2-T05, M5-T02 |
+
+Truthfulness, resilience, UX alignment:
+
+| Ticket ID | Epic | Title | Outcome | Depends on |
+|---|---|---|---|---|
+| **M5-T09** | E5 / E7 | Provenance and generation-mode truthfulness | Persist `model_id`, `prompt_version`, `retrieval_run_id` (or equivalent) on artifacts/assemblies/events; align enums (`ai_draft`, `ai_extracted`, `creation_mode`) **only** when runtime invoked; migration plan for misleading historical rows | M5-T04–M5-T08, M1-T04 |
+| **M5-T10** | E7 | Optional AI-assisted validation explainers | Adds short, non-authoritative hints to existing validation issues (same pass/fail); never auto-resolves blockers | M3-T02, M5-T03 |
+| **M5-T11** | E5 | Failure semantics: timeouts, partial packages, workflow recovery | Documented behavior for adapter/model failure; user-visible errors; story/job state returns to safe point; idempotency preserved | M5-T04, M2-T01 |
+| **M5-T12** | E4 | Creator and reader copy: capability-aligned disclosure | UI/copy states when content is model-assisted vs template/stub; aligns post-assembly nudge + pre-publish reflection with runtime truth | M5-T09, M4-T10 (copy patterns) |
+
+**Recommended immediate next ticket after M4 program decision:** **M5-T01** (foundation: configuration + abstraction before any vendor lock-in).
+
 ## 7. Immediate Build-Start Tickets
 
 If the team wants to start implementation immediately, these are the first tickets that should be pulled. They are the smallest set that establishes momentum without violating dependency order.
@@ -209,6 +268,7 @@ Certain dependencies are easy to underestimate because they cut across multiple 
 | **Background job model** | M0-T07 | Research, draft assembly, and validation are long-running actions |
 | **Validation issue taxonomy** | M3-T02 | Creator trust UI and reviewer intervention both rely on common issue types |
 | **Public reader + share metadata bridge** | M4-T01 | Published public routes and client share metadata use publish-safe data; further **creator** workflow work continues at **M4-T02** per `docs/storywall_m4_creator_workflow_foundation.md` |
+| **Live AI runtime + provenance** | M5-T01 | Without it, research remains stub-backed, framing stays template-only, and schema/UI labels can outrun actual model use |
 
 ## 9. Acceptance Criteria for the Backlog Itself
 
@@ -229,7 +289,9 @@ The best next move is to treat **M0 and M1 as the build kickoff package** and be
 
 The team should resist the temptation to start with homepage polish or isolated discovery features. Storywall’s differentiator is the creator-to-publish engine. If the team proves that vertical slice first, the rest of the product becomes execution. If it does not, the rest of the work becomes decoration around an unproven core.[3] [4] [10]
 
-**Post-M3 / M4-T01:** Trust, publish, public reader surfaces, and the M4-T01 share-metadata bridge address a large part of the reader-and-publish story. **Next approved build focus:** merge **M4-T01**, then execute **M4 — Creator Workflow Foundation** starting at **M4-T02**, as defined in `docs/storywall_m4_creator_workflow_foundation.md`.
+**Post-M3 / M4-T01:** Trust, publish, public reader surfaces, and the M4-T01 share-metadata bridge address a large part of the reader-and-publish story. **M4 — Creator Workflow Foundation** (M4-T02–T11) is the documented creator editorial loop; closure SHAs live in `docs/storywall_repo_ready_backlog_update.md`.
+
+**Next program wave (post-verification):** **M5 — AI Runtime Research and Editorial Enrichment** (§6 above) — start at **M5-T01** once product agrees provider strategy and trust boundaries; this closes the gap between **contract/stub “AI-shaped” behavior** and **live, attributable model + retrieval** work.
 
 ## References
 

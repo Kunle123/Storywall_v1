@@ -1,8 +1,8 @@
 # Storywall — Repository-ready backlog update (M4 closure)
 
 **Document type:** Canonical planning sync for the repository  
-**Scope:** Milestone **M4 — Creator Workflow Foundation** through **M4-T11** only  
-**Date:** 2026-04-16  
+**Scope:** Milestone **M4 — Creator Workflow Foundation** through **M4-T11** (SHA table); **§5** points to **M5** in the master backlog only  
+**Date:** 2026-04-16 (M4); **§5** added 2026-04-17  
 
 ## 1. Purpose
 
@@ -49,6 +49,10 @@ The **approved** M4 ticket line runs **M4-T01** through **M4-T11**. That sequenc
 
 When updating `docs/storywall_ticket_ready_implementation_backlog.md`, keep the **M4** section consistent with this closure table, or add a short line pointing here so drift is obvious in review.
 
+## 5. Post-M4 — M5 milestone pointer (does not reopen M4 numbering)
+
+**M4** closure above is unchanged. **M5 — AI Runtime Research and Editorial Enrichment** (provider foundation → retrieval → synthesis → enrichment → provenance → UX honesty) is defined in the **master backlog** `docs/storywall_ticket_ready_implementation_backlog.md` (milestone table §3, ticket pack under §6 **Milestone M5**). This file remains the authoritative **M4-T01–T11** SHA table only.
+
 ---
 
-*End of repository-ready backlog update (M4 closure).*
+*End of repository-ready backlog update (M4 closure + M5 pointer).*
