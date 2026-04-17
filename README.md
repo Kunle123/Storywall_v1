@@ -71,6 +71,55 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
    pnpm --filter @storywall/worker dev
    ```
 
+### M5-T06 local E2E (research → synthesis package → chronology)
+
+Checked-in script: `apps/api/scripts/e2e-m5-t06-research-chronology.mjs` (also `pnpm --filter @storywall/api run e2e:m5-t06`).
+
+**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers — same path verified at checkpoint `checkpoint/m5-t06-chronology-synthesis`.
+
+**Prerequisites**
+
+- **Postgres:** use an empty or dedicated database for this flow; run `pnpm db:deploy` (or `pnpm db:migrate`) so schema includes M5-T05 (`research_synthesis_package`).
+- **API + worker** both running, with **identical** `DATABASE_URL` on both processes.
+- **Live Wikipedia (recommended for this script’s live assertions):** on **both** API and worker, set `STORYWALL_RETRIEVAL_ENABLED=true`, `STORYWALL_RETRIEVAL_ALLOWED_API_HOSTS` (must allow `en.wikipedia.org` for the bundled adapter), and `STORYWALL_RETRIEVAL_USER_AGENT` per `.env.example`. If retrieval is stub, the script still passes synthesis/chronology checks but skips the live Wikipedia URL assertion.
+- **`JWT_SECRET`** (and other API env) set for the API process.
+
+**Redis isolation (required for reliable local runs)**
+
+BullMQ uses Redis. If API and worker do **not** share the same `REDIS_URL` **and** `DATABASE_URL`, or if another stale worker on the same logical Redis DB consumes jobs, you can see **Bull jobs “completed” in Redis while `research_job` stays `pending`** and no rows appear in your intended Postgres — a false-positive from the script’s point of view.
+
+Recommended practice:
+
+1. Point **API and worker** at the same URL, e.g. `REDIS_URL=redis://127.0.0.1:6379/15` (dedicated **logical database 15**, not default `0`).
+2. Optionally clear only that DB before a run: `redis-cli -n 15 FLUSHDB`.
+3. Run the script from the same machine; it **refuses** default Redis DB `0` unless you set `STORYWALL_E2E_ALLOW_REDIS_DB0=true` to acknowledge the risk.
+
+**Example (three terminals)**
+
+```bash
+# 0) Optional: flush isolated queue DB only
+redis-cli -n 15 FLUSHDB
+
+# 1) Export once (adjust DATABASE_URL for your Postgres)
+export DATABASE_URL='postgresql://USER:PASS@127.0.0.1:5432/storywall_m5t06_e2e'
+export REDIS_URL='redis://127.0.0.1:6379/15'
+export JWT_SECRET='change-me-in-development-min-32-chars-long'
+export STORYWALL_RETRIEVAL_ENABLED=true
+export STORYWALL_RETRIEVAL_ALLOWED_API_HOSTS=en.wikipedia.org
+export STORYWALL_RETRIEVAL_USER_AGENT='StorywallM5T06E2E/1.0 (+https://your-domain.example)'
+
+# 2) API
+pnpm --filter @storywall/api start
+
+# 3) Worker (same DATABASE_URL + REDIS_URL + retrieval vars)
+pnpm --filter @storywall/worker start
+
+# 4) E2E (from repo root)
+API_URL=http://127.0.0.1:3001 pnpm --filter @storywall/api exec node ./scripts/e2e-m5-t06-research-chronology.mjs
+```
+
+Success ends with `OK: M5-T06 research → synthesis → chronology e2e passed.`
+
 ## Health checks (Railway)
 
 - **API:** `GET /health` → JSON with `ok`, `service`, `api_version`, `generated_at` (aligns with public envelope fields in `storywall_api_response_contracts_homepage_timeline.md`).
