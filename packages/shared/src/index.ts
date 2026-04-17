@@ -11,6 +11,9 @@ export const API_CONTRACT_VERSION = "2026-05-01" as const;
 // --- M5-T01 — AI runtime configuration + provider abstraction (non-executable transport) ---
 export * from "./ai-runtime";
 
+// --- M5-T04 — bounded retrieval policy + contracts (browser-safe) ---
+export * from "./retrieval";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

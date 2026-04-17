@@ -4,13 +4,16 @@ import {
   createAiTextGenerationPort,
   createTelemetrySinkFromEnv,
   formatAiRuntimeBootstrapLogLine,
+  formatBoundedRetrievalBootstrapLine,
   formatPromptTemplateRegistryBootstrapLine,
   getPromptTemplateRegistrySchemaId,
   listRegisteredPromptTemplateRefs,
   parseAiRuntimeConfigFromEnv,
+  parseBoundedRetrievalPolicyFromEnv,
   type AiRuntimeConfigSnapshot,
   type AiRuntimeTelemetrySink,
   type AiTextGenerationPort,
+  type BoundedRetrievalPolicy,
   type StorywallPromptRegistrySchemaId,
 } from "@storywall/shared";
 
@@ -40,6 +43,7 @@ export class AiRuntimeService implements OnModuleInit {
   onModuleInit(): void {
     this.logger.log(formatAiRuntimeBootstrapLogLine(this.snapshot));
     this.logger.log(formatPromptTemplateRegistryBootstrapLine());
+    this.logger.log(formatBoundedRetrievalBootstrapLine(parseBoundedRetrievalPolicyFromEnv(process.env)));
   }
 
   getSnapshot(): AiRuntimeConfigSnapshot {
@@ -84,9 +88,11 @@ export class AiRuntimeService implements OnModuleInit {
       schema: StorywallPromptRegistrySchemaId;
       registered_count: number;
     };
+    retrieval: { mode: BoundedRetrievalPolicy["mode"] };
   } {
     const o = this.snapshot.operational;
     const refs = listRegisteredPromptTemplateRefs();
+    const retrievalPolicy = parseBoundedRetrievalPolicyFromEnv(process.env);
     return {
       surface: this.snapshot.surface,
       provider: this.snapshot.provider,
@@ -107,6 +113,7 @@ export class AiRuntimeService implements OnModuleInit {
         schema: getPromptTemplateRegistrySchemaId(),
         registered_count: refs.length,
       },
+      retrieval: { mode: retrievalPolicy.mode },
     };
   }
 }
