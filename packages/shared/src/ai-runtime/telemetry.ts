@@ -1,5 +1,13 @@
-import { randomUUID } from "node:crypto";
 import type { AiInvocationContext, AiProviderKind, AiRuntimeSurface } from "./types";
+
+/** Web Crypto in modern browsers and Node 19+; avoids `node:crypto` in shared bundles (e.g. Vite web). */
+function createTelemetryEventId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c && typeof c.randomUUID === "function") {
+    return c.randomUUID();
+  }
+  return `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+}
 
 /**
  * Final or terminal classification for a provider interaction.
@@ -87,7 +95,7 @@ export function buildTelemetryEvent(params: {
   notes?: string;
 }): AiProviderExecutionTelemetry {
   return {
-    event_id: randomUUID(),
+    event_id: createTelemetryEventId(),
     recorded_at: new Date().toISOString(),
     surface: params.surface,
     provider: params.provider,

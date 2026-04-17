@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import type { AiChatMessage, AiInvocationContext } from "../types";
+import { sha256HexUtf8 } from "../sha256-hex-bytes";
 import { PromptTemplateRenderError } from "./errors";
 import type {
   AiPromptExecutionAuditMetadata,
@@ -10,14 +10,14 @@ import type {
 const PLACEHOLDER_RE = /\{\{([a-zA-Z0-9_]+)\}\}/g;
 
 function utf8ByteLength(value: string): number {
-  return Buffer.byteLength(value, "utf8");
+  return new TextEncoder().encode(value).length;
 }
 
 /** Deterministic fingerprint: sorted names with UTF-8 byte lengths only (no raw values). */
 export function buildVariableShapeFingerprintSha256(variables: Record<string, string>): string {
   const names = Object.keys(variables).sort();
   const payload: [string, number][] = names.map((k) => [k, utf8ByteLength(variables[k]!)]);
-  return createHash("sha256").update(JSON.stringify(payload), "utf8").digest("hex");
+  return sha256HexUtf8(JSON.stringify(payload));
 }
 
 function interpolate(template: string, variables: Record<string, string>): string {
