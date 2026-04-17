@@ -6,7 +6,7 @@ import { buildDraftEnrichmentPackageV1 } from "./build";
 import { DRAFT_ENRICHMENT_SCHEMA_VERSION } from "./types";
 
 describe("buildDraftEnrichmentPackageV1", () => {
-  it("grounds enrichment in synthesis + chronology with provenance ids", () => {
+  it("M5-T08: grounds enrichment with provenance + support_status on nodes", () => {
     const idA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const idB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     const pkg = synthesizeResearchPackageV1({
@@ -73,19 +73,32 @@ describe("buildDraftEnrichmentPackageV1", () => {
     });
 
     expect(out.schema_version).toBe(DRAFT_ENRICHMENT_SCHEMA_VERSION);
+    expect(out.provenance_trace_note).toContain("M5-T08");
+    expect(out.summary_spine_node.id).toBe("summary:spine");
+    expect(out.summary_spine_node.provenance.chronology_event_ids.length).toBeGreaterThan(0);
+
     expect(out.synthesis_schema_version).toBe("m5-t05-v1");
     expect(out.retrieval_context).toBe("live");
     expect(out.not_publishable_narrative_note.length).toBeGreaterThan(40);
     expect(out.major_arcs.length).toBeGreaterThanOrEqual(1);
+    const arc0 = out.major_arcs[0];
+    expect(arc0.provenance.synthesis_finding_ids.length).toBeGreaterThan(0);
+    expect(arc0.support_status).toMatch(/fully_source_backed|partially_source_backed|chronology_thin_sources|unresolved_weak/);
+
     expect(out.key_events.length).toBeGreaterThanOrEqual(1);
     const withSource = out.key_events.find((k) => k.supporting_research_candidate_source_ids.includes(idA));
-    expect(withSource).toBeTruthy();
-    const linked = out.key_events.some((k) => k.linked_synthesis_finding_ids.length > 0);
-    expect(linked).toBe(true);
-    expect(out.coverage_gaps.length + out.ambiguity_notes.length).toBeGreaterThan(0);
+    expect(withSource?.support_status).toBeTruthy();
+    expect(withSource?.linked_synthesis_finding_ids.length).toBeGreaterThan(0);
+
+    const sec = out.suggested_sections.find((s) => s.linked_synthesis_finding_ids.length > 0);
+    expect(sec?.id.startsWith("sec:")).toBe(true);
+    expect(sec?.provenance.synthesis_finding_ids.length).toBeGreaterThan(0);
+
+    expect(out.coverage_gaps.every((g) => g.id.startsWith("cov:"))).toBe(true);
+    expect(out.ambiguity_notes.length).toBeGreaterThan(0);
   });
 
-  it("handles missing synthesis with chronology-only honesty", () => {
+  it("chronology-only arc stays honest when synthesis is absent", () => {
     const rows = buildChronologyEventsFromResearchPackage(
       {
         evidencePackageSummary: "Line one.\n\nLine two block.",
@@ -118,5 +131,6 @@ describe("buildDraftEnrichmentPackageV1", () => {
     expect(out.synthesis_schema_version).toBeNull();
     expect(out.retrieval_context).toBe("unknown");
     expect(out.major_arcs[0]?.origin).toBe("chronology_only");
+    expect(out.major_arcs[0]?.support_status).toBe("chronology_thin_sources");
   });
 });

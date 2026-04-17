@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * M5-T06 / M5-T07 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
- * → chronology extraction (M5-T06) → draft_enrichment_package (M5-T07) with provenance + honesty markers.
+ * M5-T06–M5-T08 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers
+ * and GET package `draft_enrichment_provenance` flat index (M5-T08).
  *
  * Requires (same as smoke-m2-02 / smoke-m2-03):
  * - API running (e.g. `pnpm --filter @storywall/api start` or `dev`)
@@ -193,7 +194,7 @@ async function main() {
   );
 
   const enrich = pkg.data?.artifact?.draft_enrichment_package;
-  assert(enrich && enrich.schema_version === "m5-t07-v1", "draft_enrichment_package missing or wrong schema_version");
+  assert(enrich && enrich.schema_version === "m5-t08-v1", "draft_enrichment_package missing or wrong schema_version");
   assert(
     enrich.chronology_extraction_version === "m5-t06-v1",
     `enrichment must record chronology version, got ${enrich.chronology_extraction_version}`,
@@ -216,6 +217,19 @@ async function main() {
     (enrich.coverage_gaps?.length ?? 0) + (enrich.ambiguity_notes?.length ?? 0) > 0,
     "expected coverage_gaps or ambiguity_notes from upstream honesty signals",
   );
+  assert(typeof enrich.provenance_trace_note === "string" && enrich.provenance_trace_note.includes("M5-T08"), "provenance_trace_note");
+  assert(enrich.summary_spine_node?.id === "summary:spine", "summary_spine_node");
+
+  const provIdx = pkg.data?.draft_enrichment_provenance;
+  assert(provIdx && provIdx.schema_version === "m5-t08-trace-v1", "draft_enrichment_provenance index missing");
+  assert(Array.isArray(provIdx.nodes) && provIdx.nodes.length >= 5, "provenance index nodes");
+  const arcNode = provIdx.nodes.find((n) => n.node_kind === "major_arc");
+  const secNode = provIdx.nodes.find((n) => n.node_kind === "suggested_section");
+  const keNode = provIdx.nodes.find((n) => n.node_kind === "key_event");
+  assert(arcNode?.provenance?.synthesis_finding_ids?.length > 0, "arc trace to synthesis");
+  assert(secNode?.node_id?.startsWith("sec:"), "section stable id");
+  assert(keNode?.provenance?.chronology_event_ids?.length > 0, "key_event trace to chronology id");
+  assert(typeof keNode?.support_status === "string", "key_event support_status");
 
   const chRes = await fetch(
     `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/chronology`,
@@ -248,7 +262,7 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log("OK: M5-T06 research → synthesis → chronology → M5-T07 draft enrichment e2e passed.");
+  console.log("OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance e2e passed.");
 }
 
 main().catch((e) => {
