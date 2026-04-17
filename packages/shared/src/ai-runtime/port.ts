@@ -32,13 +32,13 @@ export class AiRuntimeBlockedByPolicyError extends Error {
 
 /**
  * Thrown when configuration is armed but no HTTP transport exists yet.
- * M5-T02 adds policy/telemetry; transport remains for a later M5 ticket.
+ * M5-T03 adds prompt templates; transport remains for a later M5 ticket.
  */
 export class AiRuntimeTransportNotImplementedError extends Error {
   readonly code = "ai_runtime_transport_not_implemented" as const;
   constructor() {
     super(
-      "AI provider transport is not implemented yet (M5-T01–T02: configuration, policy, and telemetry only).",
+      "AI provider transport is not implemented yet (M5-T01–T03: configuration, policy, telemetry, and prompt templates only).",
     );
     this.name = "AiRuntimeTransportNotImplementedError";
   }
@@ -78,7 +78,7 @@ export type AiTextGenerationPortDependencies = {
  * Default port: validates surface, enforces first-pass rate policy, emits telemetry, and refuses execution.
  */
 export class NonExecutableAiTextGenerationPort implements AiTextGenerationPort {
-  readonly implementationId = "non_executable_m5_t01";
+  readonly implementationId = "non_executable_m5_t03";
 
   constructor(private readonly deps: AiTextGenerationPortDependencies) {}
 

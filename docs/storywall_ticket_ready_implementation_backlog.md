@@ -209,8 +209,8 @@ Foundation lane (do first):
 | Ticket ID | Epic | Title | Outcome | Depends on |
 |---|---|---|---|---|
 | **M5-T01** | E2 / E5 | AI runtime configuration and provider abstraction | Shared `ai-runtime` config + `AiTextGenerationPort` (non-executable), Nest `AiRuntimeService`, `/health` + `/health/ready` `ai_runtime` summary, worker bootstrap log; **no** secrets in repo; transport not implemented (health `transport` label updated in M5-T02) | M0-T05, M0-T04 |
-| **M5-T02** | E2 | Secrets, quotas, and observability for provider calls | Shared operational policy + sliding-window rate limit + typed execution telemetry sinks; API/worker parse same env; health exposes policy + `telemetry_sink`; transport remains `not_implemented_m5_t02` until a later ticket; secrets only in host env | M5-T01 |
-| **M5-T03** | E5 | Prompt template system with versioning and audit metadata | Prompts live in repo or DB with version IDs; inputs/outputs schema documented; rollback to prior template supported | M5-T01 |
+| **M5-T02** | E2 | Secrets, quotas, and observability for provider calls | Shared operational policy + sliding-window rate limit + typed execution telemetry sinks; API/worker parse same env; health exposes policy + `telemetry_sink`; transport label evolves by milestone (`not_implemented_m5_t03` after M5-T03); secrets only in host env | M5-T01 |
+| **M5-T03** | E5 | Prompt templates, versioning, variables, and audit metadata | Shared canonical prompt registry + `{{var}}` render with strict variable validation; `AiPromptExecutionAuditMetadata` + shape fingerprint; `AiInvocationContext` prompt key/version; telemetry + health expose template metadata only (no bodies); API/worker share registry bootstrap log; **no** transport or synthesis | M5-T01, M5-T02 |
 
 Retrieval and research package (core):
 

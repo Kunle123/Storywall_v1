@@ -58,10 +58,18 @@ describe("NonExecutableAiTextGenerationPort", () => {
     await expect(
       port.completeChat({
         messages: [{ role: "user", content: "x" }],
-        context: { purpose: "framing_generation", promptVersion: "pv-test" },
+        context: {
+          purpose: "framing_generation",
+          promptTemplateKey: "framing.candidate_axes_stub",
+          promptTemplateVersion: "1.0.0",
+          promptVersion: "legacy",
+        },
       }),
     ).rejects.toBeInstanceOf(AiRuntimeTransportNotImplementedError);
     expect(events.some((e) => e.outcome_class === "transport_unavailable")).toBe(true);
+    const ev = events.find((e) => e.outcome_class === "transport_unavailable");
+    expect(ev?.prompt_template_key).toBe("framing.candidate_axes_stub");
+    expect(ev?.prompt_version).toBe("1.0.0");
   });
 
   it("throws misconfigured when enabled with invalid combo", async () => {

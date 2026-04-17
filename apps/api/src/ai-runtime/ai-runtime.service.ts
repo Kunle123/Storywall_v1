@@ -4,15 +4,19 @@ import {
   createAiTextGenerationPort,
   createTelemetrySinkFromEnv,
   formatAiRuntimeBootstrapLogLine,
+  formatPromptTemplateRegistryBootstrapLine,
+  getPromptTemplateRegistrySchemaId,
+  listRegisteredPromptTemplateRefs,
   parseAiRuntimeConfigFromEnv,
   type AiRuntimeConfigSnapshot,
   type AiRuntimeTelemetrySink,
   type AiTextGenerationPort,
+  type StorywallPromptRegistrySchemaId,
 } from "@storywall/shared";
 
 /**
  * Nest-facing singleton for AI runtime configuration, operational policy, telemetry sink, and port.
- * M5-T01: port boundary. M5-T02: policy + telemetry + rate limiter (still no live transport).
+ * M5-T01: port boundary. M5-T02: policy + telemetry. M5-T03: shared prompt registry (still no transport).
  */
 @Injectable()
 export class AiRuntimeService implements OnModuleInit {
@@ -35,6 +39,7 @@ export class AiRuntimeService implements OnModuleInit {
 
   onModuleInit(): void {
     this.logger.log(formatAiRuntimeBootstrapLogLine(this.snapshot));
+    this.logger.log(formatPromptTemplateRegistryBootstrapLine());
   }
 
   getSnapshot(): AiRuntimeConfigSnapshot {
@@ -74,9 +79,14 @@ export class AiRuntimeService implements OnModuleInit {
       window_ms: number;
     };
     execution_available: false;
-    transport: "not_implemented_m5_t02";
+    transport: "not_implemented_m5_t03";
+    prompt_registry: {
+      schema: StorywallPromptRegistrySchemaId;
+      registered_count: number;
+    };
   } {
     const o = this.snapshot.operational;
+    const refs = listRegisteredPromptTemplateRefs();
     return {
       surface: this.snapshot.surface,
       provider: this.snapshot.provider,
@@ -92,7 +102,11 @@ export class AiRuntimeService implements OnModuleInit {
         window_ms: o.windowMs,
       },
       execution_available: false,
-      transport: "not_implemented_m5_t02",
+      transport: "not_implemented_m5_t03",
+      prompt_registry: {
+        schema: getPromptTemplateRegistrySchemaId(),
+        registered_count: refs.length,
+      },
     };
   }
 }

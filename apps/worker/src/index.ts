@@ -12,6 +12,7 @@ import {
   buildChronologyEventsFromResearchPackage,
   CHRONOLOGY_EXTRACTION_VERSION,
   formatAiRuntimeBootstrapLogLine,
+  formatPromptTemplateRegistryBootstrapLine,
   parseAiRuntimeConfigFromEnv,
 } from "@storywall/shared";
 import { buildM2T02PersistPayload } from "./m2-t02-stub.js";
@@ -29,6 +30,8 @@ const prisma = new PrismaClient();
 const aiRuntimeSnapshot = parseAiRuntimeConfigFromEnv(process.env);
 // eslint-disable-next-line no-console
 console.log(`[storywall-worker] ${formatAiRuntimeBootstrapLogLine(aiRuntimeSnapshot)}`);
+// eslint-disable-next-line no-console
+console.log(`[storywall-worker] ${formatPromptTemplateRegistryBootstrapLine()}`);
 
 const worker = new Worker(
   queueName,

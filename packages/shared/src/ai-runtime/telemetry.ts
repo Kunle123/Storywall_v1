@@ -29,6 +29,9 @@ export type AiProviderExecutionTelemetry = {
   provider: AiProviderKind;
   purpose: AiInvocationContext["purpose"];
   story_id?: string;
+  /** Stable prompt registry key when known (M5-T03). */
+  prompt_template_key?: string;
+  /** Template version string (never raw prompt body). */
   prompt_version?: string;
   provider_model_label?: string;
   outcome_class: AiProviderOutcomeClass;
@@ -90,7 +93,8 @@ export function buildTelemetryEvent(params: {
     provider: params.provider,
     purpose: params.context.purpose,
     story_id: params.context.storyId,
-    prompt_version: params.context.promptVersion,
+    prompt_template_key: params.context.promptTemplateKey,
+    prompt_version: params.context.promptTemplateVersion ?? params.context.promptVersion,
     provider_model_label: params.context.providerModelLabel,
     outcome_class: params.outcome_class,
     latency_ms: params.latency_ms,
