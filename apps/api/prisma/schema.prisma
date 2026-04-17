@@ -741,6 +741,9 @@ model ResearchArtifact {
   riskFlags                Json   @default("[]") @map("risk_flags")
   confidencePosture        String? @map("confidence_posture") @db.VarChar(64)
 
+  /// M5-T05 — deterministic synthesis over persisted candidates (provenance via candidate source UUIDs).
+  researchSynthesisPackage Json? @map("research_synthesis_package")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([storyId], map: "research_artifact_story_idx")

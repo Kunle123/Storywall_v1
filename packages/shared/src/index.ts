@@ -14,6 +14,9 @@ export * from "./ai-runtime";
 // --- M5-T04 — bounded retrieval policy + contracts (browser-safe) ---
 export * from "./retrieval";
 
+// --- M5-T05 — research package synthesis (deterministic; browser-safe) ---
+export * from "./research-synthesis";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

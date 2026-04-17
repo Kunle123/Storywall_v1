@@ -187,7 +187,7 @@ This milestone turns Storywall into a governed publishing system. It should end 
 
 **Relationship to M4:** M4-T02–T11 and follow-on richness work assume creators still carry editorial load; **M5** reduces the **structural** gap where the system behaves like an AI-first product contract while sourcing remains **stub- or template-derived**.
 
-**Already implemented (do not re-ticket as greenfield):** `POST …/research/run` + worker `research.run` (stub by default; optional bounded Wikipedia retrieval when `STORYWALL_RETRIEVAL_ENABLED`); `POST …/draft/assemble` + worker `draft.assemble`; `buildChronologyEventsFromResearchPackage`; Prisma models for research jobs, artifacts, candidate sources, chronology, draft assembly; **M3** validation engines; publish snapshot path; creator UI for jobs and draft workspace.
+**Already implemented (do not re-ticket as greenfield):** `POST …/research/run` + worker `research.run` (stub by default; optional bounded Wikipedia retrieval when `STORYWALL_RETRIEVAL_ENABLED`; deterministic synthesis JSON on `research_artifact` when M5-T05 is deployed); `POST …/draft/assemble` + worker `draft.assemble`; `buildChronologyEventsFromResearchPackage`; Prisma models for research jobs, artifacts, candidate sources, chronology, draft assembly; **M3** validation engines; publish snapshot path; creator UI for jobs and draft workspace.
 
 **Optional later (out of M5 unless scope creeps):** multi-agent orchestration, open-ended autonomous rewriting, homepage discovery, analytics, new reviewer **policies** beyond explainers, replacing all deterministic framing with models without a **fallback** path.
 
@@ -217,8 +217,8 @@ Retrieval and research package (core):
 | Ticket ID | Epic | Title | Outcome | Depends on |
 |---|---|---|---|---|
 | **M5-T04** | E5 | Retrieval adapter: bounded real-world/source fetch behind research job | Worker `research.run`: optional bounded Wikipedia `list=search` adapter behind `STORYWALL_RETRIEVAL_ENABLED`; attributable `research_candidate_source` rows (real `https://en.wikipedia.org/...` URLs, titles, snippets); explicit `stub` / `live` / `invalid_live` policy + failure path restores workflow; health/logs secret-free | M2-T01, M2-T02, M5-T02, M5-T03 |
-| **M5-T05** | E5 | Research package synthesis (artifact + candidate rows) | Pipeline turns retrieval hits into richer `research_artifact` + trust fields; refine stub deprecation once synthesis logic lands | M5-T04 |
-| **M5-T06** | E5 | Chronology pipeline v2 on real packages | `buildChronologyEventsFromResearchPackage` (or successor) consumes **non-stub** artifacts; golden tests for shape parity | M5-T05, M2-T03 |
+| **M5-T05** | E5 | Research package synthesis from bounded retrieval outputs | After candidates persist, worker runs deterministic `synthesizeResearchPackageV1` → JSON `research_synthesis_package` on `research_artifact` with sourced vs summary vs gap findings, UUID provenance, partial/stub honesty; API exposes field on research package read; **no** LLM transport | M5-T04 |
+| **M5-T06** | E5 | Chronology pipeline v2 on real packages | `buildChronologyEventsFromResearchPackage` (or successor) may consume `research_synthesis_package` alongside summaries; golden tests for shape parity | M5-T05, M2-T03 |
 
 Editorial enrichment (after core package is honest):
 

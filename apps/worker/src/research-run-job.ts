@@ -4,6 +4,7 @@ import {
   CHRONOLOGY_EXTRACTION_VERSION,
   formatBoundedRetrievalBootstrapLine,
   parseBoundedRetrievalPolicyFromEnv,
+  synthesizeResearchPackageV1,
 } from "@storywall/shared";
 import { buildM5T04LivePersistPayload } from "./bounded-retrieval/m5-t04-payload.js";
 import { liveRetrievalFailureMessage, runBoundedWikipediaRetrieval } from "./bounded-retrieval/wikipedia-adapter.js";
@@ -145,6 +146,36 @@ export async function executeResearchRun(
       });
       await tx.researchCandidateSource.createMany({
         data: payload.candidateSources,
+      });
+
+      const sourcesForSynthesis = await tx.researchCandidateSource.findMany({
+        where: { researchJobId: rj2.id },
+        orderBy: { positionIndex: "asc" },
+      });
+
+      const retrievalPartial = Boolean(liveResult && liveResult.outcome === "partial");
+      const retrievalPartialNotes =
+        liveResult && liveResult.outcome === "partial" ? liveResult.notes : undefined;
+
+      const synthesisPackage = synthesizeResearchPackageV1({
+        retrievalMode: retrievalPolicy.mode === "live" ? "live" : "stub",
+        retrievalPartial,
+        retrievalPartialNotes,
+        storyTitle: rj2.story.title,
+        sources: sourcesForSynthesis.map((s) => ({
+          id: s.id,
+          positionIndex: s.positionIndex,
+          sourceUrl: s.sourceUrl,
+          sourceTitle: s.sourceTitle,
+          excerpt: s.excerpt,
+          relevanceNote: s.relevanceNote,
+          reliabilityTier: s.reliabilityTier,
+        })),
+      });
+
+      await tx.researchArtifact.update({
+        where: { researchJobId: rj2.id },
+        data: { researchSynthesisPackage: synthesisPackage as unknown as Prisma.InputJsonValue },
       });
     }
 
