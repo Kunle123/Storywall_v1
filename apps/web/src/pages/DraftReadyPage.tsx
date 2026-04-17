@@ -36,6 +36,7 @@ import { CreatorPreviewPanel } from "../components/CreatorPreviewPanel";
 import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
 import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
 import { PostAssemblyDepthNudge } from "../components/PostAssemblyDepthNudge";
+import { PrePublishReflectionPanel } from "../components/PrePublishReflectionPanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
 import { rememberActiveJob } from "../lib/activeJobStorage";
 
@@ -1011,6 +1012,9 @@ export function DraftReadyPage() {
               eventsMissingDisplayWhen={events.filter((e) => !(e.display_date ?? "").trim()).length}
               hasClosingSynthesis={Boolean((draft.conclusion ?? "").trim())}
             />
+          ) : null}
+          {draft ? (
+            <PrePublishReflectionPanel storyId={storyId} draft={draft} sections={sections} events={events} />
           ) : null}
           {draft ? (
             <>
