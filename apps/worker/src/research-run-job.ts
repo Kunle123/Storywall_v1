@@ -195,6 +195,7 @@ export async function executeResearchRun(
           evidencePackageSummary: art.evidencePackageSummary,
           candidateEventHints: art.candidateEventHints,
           riskFlags: art.riskFlags,
+          researchSynthesisPackage: art.researchSynthesisPackage,
         },
         sources.map((s) => ({
           id: s.id,

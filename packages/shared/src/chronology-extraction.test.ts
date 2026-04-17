@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { RESEARCH_SYNTHESIS_SCHEMA_VERSION } from "./research-synthesis/types";
+import { synthesizeResearchPackageV1 } from "./research-synthesis/synthesize";
 import { buildChronologyEventsFromResearchPackage } from "./chronology-extraction";
 
 describe("buildChronologyEventsFromResearchPackage", () => {
@@ -48,5 +50,99 @@ describe("buildChronologyEventsFromResearchPackage", () => {
     );
     expect(rows.length).toBeGreaterThanOrEqual(2);
     expect(rows.every((r) => r.summary.length > 0)).toBe(true);
+    expect(rows.every((r) => r.creatorNote === null)).toBe(true);
+  });
+
+  it("M5-T06: uses synthesis package when schema matches", () => {
+    const idA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const idB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const pkg = synthesizeResearchPackageV1({
+      retrievalMode: "live",
+      retrievalPartial: false,
+      storyTitle: "Test Story",
+      sources: [
+        {
+          id: idA,
+          positionIndex: 0,
+          sourceUrl: "https://example.com/a",
+          sourceTitle: "Source A",
+          excerpt: "Alpha claim.",
+          relevanceNote: "r0",
+          reliabilityTier: "high",
+        },
+        {
+          id: idB,
+          positionIndex: 1,
+          sourceUrl: "https://example.com/b",
+          sourceTitle: "Source B",
+          excerpt: "Beta claim.",
+          relevanceNote: "r1",
+          reliabilityTier: "medium",
+        },
+      ],
+    });
+    expect(pkg.schema_version).toBe(RESEARCH_SYNTHESIS_SCHEMA_VERSION);
+
+    const rows = buildChronologyEventsFromResearchPackage(
+      {
+        evidencePackageSummary: "ignored when synthesis parses",
+        candidateEventHints: [],
+        riskFlags: [],
+        researchSynthesisPackage: pkg,
+      },
+      [
+        {
+          id: idA,
+          positionIndex: 0,
+          sourceTitle: "Source A",
+          excerpt: "Alpha claim.",
+          relevanceNote: "r0",
+          reliabilityTier: "high",
+        },
+        {
+          id: idB,
+          positionIndex: 1,
+          sourceTitle: "Source B",
+          excerpt: "Beta claim.",
+          relevanceNote: "r1",
+          reliabilityTier: "medium",
+        },
+      ],
+    );
+
+    expect(rows.length).toBeGreaterThanOrEqual(3);
+    expect(rows[0].eventType).toBe("context_note");
+    expect(rows[0].contextLabel).toBe("m5_t06.insufficient_or_package_honesty");
+
+    const sourced = rows.filter((r) => r.contextLabel?.startsWith("m5_t06.candidate.sourced_claim:"));
+    expect(sourced.length).toBeGreaterThanOrEqual(2);
+    expect(sourced[0].supportingCandidateSourceIds).toEqual([idA]);
+    expect(sourced[1].supportingCandidateSourceIds).toEqual([idB]);
+    expect(sourced.every((r) => r.creatorNote?.includes("finding_id"))).toBe(true);
+
+    const summaryRow = rows.find((r) => r.contextLabel?.startsWith("m5_t06.non_event.synthesis_summary:"));
+    expect(summaryRow?.eventType).toBe("synthesis");
+    expect(summaryRow?.supportingCandidateSourceIds.sort()).toEqual([idA, idB].sort());
+  });
+
+  it("M5-T06: stub empty package stays honest with high claim risk", () => {
+    const pkg = synthesizeResearchPackageV1({
+      retrievalMode: "stub",
+      retrievalPartial: true,
+      retrievalPartialNotes: "timeout",
+      storyTitle: "Lonely",
+      sources: [],
+    });
+    const rows = buildChronologyEventsFromResearchPackage(
+      {
+        evidencePackageSummary: "",
+        candidateEventHints: [],
+        riskFlags: [],
+        researchSynthesisPackage: pkg,
+      },
+      [],
+    );
+    expect(rows[0].claimRiskLevel).toBe("high");
+    expect(rows.some((r) => r.contextLabel?.includes("coverage.gap_note"))).toBe(true);
   });
 });
