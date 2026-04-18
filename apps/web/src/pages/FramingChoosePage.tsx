@@ -62,18 +62,20 @@ export function FramingChoosePage() {
     setPending(true);
     try {
       const res = await selectFrame(token, storyId, { frame_id: selectedId, selection_mode: "accept" }, selectIdempotencyKeyRef.current!);
-      const brief = loadBriefCache(storyId)?.story_brief;
-      if (brief) {
-        cacheBriefWorkspace(storyId, {
-          story_brief: brief,
-          story_state: res.data.story_state,
-          cached_at: new Date().toISOString(),
-        });
+      const brief = res.data.story_brief ?? loadBriefCache(storyId)?.story_brief ?? null;
+      if (!brief) {
+        setError("Server did not return story_brief — cannot open the brief workspace. Retry or contact support.");
+        return;
       }
+      cacheBriefWorkspace(storyId, {
+        story_brief: brief,
+        story_state: res.data.story_state,
+        cached_at: new Date().toISOString(),
+      });
       navigate(`/creator/stories/${storyId}/brief`, {
         replace: true,
         state: {
-          story_brief: brief as StoryBriefResponse,
+          story_brief: brief,
           story_state: res.data.story_state,
           framing_selected: true,
         },
@@ -93,7 +95,8 @@ export function FramingChoosePage() {
     );
   }
 
-  const canChoose = storyState === "awaiting_framing_choice" && frames.length > 0;
+  const proposedFrames = frames.filter((f) => f.status === "proposed");
+  const canChoose = storyState === "awaiting_framing_choice" && proposedFrames.length > 0;
   const framingCaps = framingCapabilitySummary(aiFraming);
 
   return (
@@ -102,6 +105,14 @@ export function FramingChoosePage() {
       <p className="page-lead muted">
         Story <code className="inline-code">{storyId}</code>
       </p>
+      {canChoose ? (
+        <p className="hint" style={{ marginTop: "-0.25rem", marginBottom: "1rem" }}>
+          Picking one option calls <code className="inline-code">POST …/frames/select</code> (mutation §10.2). The server
+          creates your <strong>story draft shell</strong> from that frame and sets workflow to{" "}
+          <code className="inline-code">ready_for_edit</code>. Next: refine the brief if needed, then run{" "}
+          <strong>Assemble full draft</strong> from the brief workspace when you want the starter manuscript structure.
+        </p>
+      ) : null}
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
 
@@ -116,7 +127,7 @@ export function FramingChoosePage() {
 
       {!canChoose && !loadError ? (
         <div className="card">
-          {storyState === "awaiting_framing_choice" && frames.length === 0 ? (
+          {storyState === "awaiting_framing_choice" && proposedFrames.length === 0 ? (
             <>
               <p>
                 <strong>No framing candidates yet.</strong> From the brief workspace, run framing generation (live model when
@@ -130,8 +141,10 @@ export function FramingChoosePage() {
             </>
           ) : storyState === "ready_for_edit" ? (
             <p>
-              A framing is already selected for this story. Continue in the brief workspace, or open{" "}
-              <strong>Draft</strong> when you are ready to compose the assembled manuscript.
+              A framing is already selected for this story — workflow is <code className="inline-code">ready_for_edit</code>.
+              Continue in the{" "}
+              <Link to={`/creator/stories/${storyId}/brief`}>brief workspace</Link> (research pass, assemble draft), or open{" "}
+              <Link to={`/creator/stories/${storyId}/draft`}>Draft</Link> when a manuscript shell exists.
             </p>
           ) : (
             <p>
@@ -151,7 +164,7 @@ export function FramingChoosePage() {
           <p className="hint" style={{ marginBottom: "1rem" }}>
             Pick one candidate. Unselected proposals are marked discarded; the chosen frame seeds your story draft (M1-T12).
           </p>
-          {frames.filter((f) => f.status === "proposed").length === 0 ? (
+          {proposedFrames.length === 0 ? (
             <p className="muted small" role="status">
               No <code className="inline-code">proposed</code> framing rows are available right now (they may have been
               discarded or the list is stale). Return to the brief workspace to regenerate framing, then reload this
@@ -159,9 +172,7 @@ export function FramingChoosePage() {
             </p>
           ) : null}
           <div className="framing-list" role="radiogroup" aria-label="Framing options">
-            {frames
-              .filter((f) => f.status === "proposed")
-              .map((f) => (
+            {proposedFrames.map((f) => (
                 <label key={f.id} className={`framing-card ${selectedId === f.id ? "selected" : ""}`}>
                   <input
                     type="radio"

@@ -356,8 +356,10 @@ export function EditBriefPage() {
       {storyState === "awaiting_framing_choice" ? (
         <div className="banner" style={{ background: "#e8f4ef", borderColor: "#b8d4c8", marginBottom: "1rem" }}>
           <strong>Framing options are ready.</strong>{" "}
-          <Link to={`/creator/stories/${storyId}/framing`}>Choose a framing</Link> to lock in a story draft shell
-          (workflow spec §8).
+          <Link to={`/creator/stories/${storyId}/framing`}>Choose a framing</Link> to call{" "}
+          <code className="inline-code">POST …/frames/select</code> — that persists one candidate, creates the{" "}
+          <code className="inline-code">story_draft</code> shell, and sets workflow to <code className="inline-code">ready_for_edit</code>{" "}
+          (mutation §10.2). After that, this page exposes <strong>Assemble full draft</strong> when you want the starter manuscript structure.
         </div>
       ) : null}
       {location.state && (location.state as { framing_selected?: boolean }).framing_selected ? (

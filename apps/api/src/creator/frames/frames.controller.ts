@@ -150,6 +150,7 @@ export class FramesController {
         story_id: result.storyId,
         story_state: result.storyState,
         selected_frame_id: result.selectedFrame.id,
+        story_brief: result.storyBrief,
         story_draft: storyDraftToApi(result.storyDraft),
         frame_draft: storyFrameDraftToApi(result.selectedFrame),
       },

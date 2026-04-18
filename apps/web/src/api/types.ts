@@ -354,6 +354,8 @@ export interface SelectFrameSuccess {
     story_id: string;
     story_state: CreatorWorkflowState;
     selected_frame_id: string;
+    /** M5-T19+ — same shape as create/PATCH brief; returned after API deploy so the brief workspace can load without local cache. */
+    story_brief?: StoryBriefResponse;
     story_draft: StoryDraftResponse;
     frame_draft: FrameDraftResponse;
   };

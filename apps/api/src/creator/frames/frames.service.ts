@@ -22,6 +22,7 @@ import {
 } from "@storywall/shared";
 import { AiRuntimeService } from "../../ai-runtime/ai-runtime.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { StoriesService } from "../stories/stories.service";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { GenerateFramesDto } from "./dto/generate-frames.dto";
 import type { SelectFrameDto } from "./dto/select-frame.dto";
@@ -48,6 +49,7 @@ export class FramesService {
     private readonly prisma: PrismaService,
     private readonly workflowTransitions: WorkflowTransitionService,
     private readonly aiRuntime: AiRuntimeService,
+    private readonly stories: StoriesService,
   ) {}
 
   /** GET list — minimal read for framing chooser (M1-T12); not full workspace. */
@@ -104,6 +106,8 @@ export class FramesService {
     storyDraft: StoryDraft;
     selectedFrame: StoryFrameDraft;
     idempotencyReplayed: boolean;
+    /** M5-T19 — latest brief snapshot for clients that have no local cache after framing select. */
+    storyBrief: Record<string, unknown>;
   }> {
     const { storyId, creatorId, dto, idempotencyKey } = params;
 
@@ -292,12 +296,15 @@ export class FramesService {
         },
       });
 
+      const briefRow = await tx.storyBrief.findUniqueOrThrow({ where: { id: brief.id } });
+
       return {
         storyId: story.id,
         storyState: updatedStory.workflowState,
         storyDraft,
         selectedFrame,
         idempotencyReplayed: false,
+        storyBrief: this.stories.briefToResponsePayload(briefRow),
       };
     });
   }
@@ -311,6 +318,7 @@ export class FramesService {
     storyDraft: StoryDraft;
     selectedFrame: StoryFrameDraft;
     idempotencyReplayed: boolean;
+    storyBrief: Record<string, unknown>;
   }> {
     const { storyId, creatorId, selectedFrameId } = params;
 
@@ -358,12 +366,15 @@ export class FramesService {
       });
     }
 
+    const briefRow = await tx.storyBrief.findUniqueOrThrow({ where: { id: story.storyBrief.id } });
+
     return {
       storyId: story.id,
       storyState: story.workflowState,
       storyDraft: draft,
       selectedFrame,
       idempotencyReplayed: true,
+      storyBrief: this.stories.briefToResponsePayload(briefRow),
     };
   }
 

@@ -314,7 +314,9 @@ export function JobStatusPage() {
           <ul className="gen-next-list">
             {terminal.workflow === "awaiting_framing_choice" ? (
               <li>
-                <Link to={`/creator/stories/${storyId}/framing`}>Choose a framing</Link> before assembling the full draft.
+                <Link to={`/creator/stories/${storyId}/framing`}>Choose a framing</Link> — <code className="inline-code">POST …/frames/select</code>{" "}
+                creates the story draft shell and moves workflow to <code className="inline-code">ready_for_edit</code>. Then
+                return to the brief workspace to run <strong>Assemble full draft</strong> when you want the starter manuscript.
               </li>
             ) : null}
             {terminal.workflow === "ready_for_edit" ? (
