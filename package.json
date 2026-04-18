@@ -30,6 +30,7 @@
     "verify:staging:live-story-update": "node ./scripts/verify-staging-live-story-update.mjs",
     "verify:staging:published-visibility-transition": "node ./scripts/verify-staging-published-visibility-transition.mjs",
     "verify:staging:unlisted-discovery-feed": "node ./scripts/verify-staging-unlisted-discovery-feed.mjs",
-    "verify:staging:homepage-discover-strip": "node ./scripts/verify-staging-homepage-discover-strip.mjs"
+    "verify:staging:homepage-discover-strip": "node ./scripts/verify-staging-homepage-discover-strip.mjs",
+    "verify:staging:homepage-reader-clickthrough": "node ./scripts/verify-staging-homepage-reader-clickthrough.mjs"
   }
 }

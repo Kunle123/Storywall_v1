@@ -58,7 +58,7 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
   const chronology = formatChronologySpan(story);
 
   return (
-    <article className="page public-story-page">
+    <article className="page public-story-page" data-testid="public-story-article" data-public-story-slug={slug}>
       <header className="public-story-header">
         <p className="public-story-eyebrow muted small">Storywall</p>
         <h1 className="public-story-title">{story.title}</h1>
