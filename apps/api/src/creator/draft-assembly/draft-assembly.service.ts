@@ -255,6 +255,11 @@ export class DraftAssemblyService {
           error: {
             code: "story_draft_required",
             message: "Approve a framing option before assembling the full draft",
+            details: {
+              next_creator_step: "frames_select",
+              next_creator_step_hint:
+                "POST …/frames/select while awaiting_framing_choice creates the story_draft shell required for assembly.",
+            },
           },
         });
       }
@@ -305,6 +310,11 @@ export class DraftAssemblyService {
               code: "chronology_not_ready",
               message:
                 "Complete a successful research pass with chronology output before assembling the draft",
+              details: {
+                next_creator_step: "research_then_wait",
+                next_creator_step_hint:
+                  "Run POST …/research, poll GET …/creator/jobs/:jobId until succeeded (chronology is materialized), then retry POST …/draft/assemble from ready_for_edit.",
+              },
             },
           });
         }

@@ -279,11 +279,12 @@ export function EditBriefPage() {
           {activeJobId ? (
             <>
               <Link to={`/creator/stories/${storyId}/jobs/${activeJobId}`}>Open generation status</Link> to poll{" "}
-              <code className="inline-code">GET /api/v1/creator/jobs/{activeJobId}</code> — you will see honest{" "}
-              <code className="inline-code">pending</code> / <code className="inline-code">running</code> / terminal job
-              status, and (on current APIs) the live <code className="inline-code">story_state</code> on the same payload. When
-              research completes, workflow returns to where you started (often{" "}
-              <code className="inline-code">awaiting_framing_choice</code>) and the status page lists the next steps.
+              <code className="inline-code">GET /api/v1/creator/jobs/{activeJobId}</code> — honest{" "}
+              <code className="inline-code">pending</code> / <code className="inline-code">running</code> / terminal status
+              plus (on current APIs) <code className="inline-code">story_state</code>.{" "}
+              <strong>Research</strong> jobs usually restore framing/research entry states; <strong>draft assembly</strong>{" "}
+              returns to <code className="inline-code">ready_for_edit</code> with timeline rows when the worker succeeds. The
+              status page summarizes the next step.
             </>
           ) : (
             <>
@@ -348,6 +349,17 @@ export function EditBriefPage() {
           {storyState === "awaiting_framing_choice" ? (
             <p className="hint footnote" style={{ marginBottom: 0 }}>
               Choose a framing when you are ready; draft assembly is available after the story is <code className="inline-code">ready_for_edit</code> (selected frame and story draft shell).
+            </p>
+          ) : null}
+          {storyState === "ready_for_edit" ? (
+            <p className="hint footnote" style={{ marginBottom: 0 }}>
+              <strong>Assemble full draft</strong> calls <code className="inline-code">POST …/draft/assemble</code> (mutation §11.2,{" "}
+              <code className="inline-code">Idempotency-Key</code> required). Requires a succeeded research job with chronology
+              rows and your <code className="inline-code">story_draft</code> shell from framing. Workflow becomes{" "}
+              <code className="inline-code">assembling_draft</code> while the worker runs, then back to{" "}
+              <code className="inline-code">ready_for_edit</code> with <code className="inline-code">event_draft</code> timeline
+              material. Poll the returned job id, then open the <Link to={`/creator/stories/${storyId}/draft`}>Draft</Link> tab
+              to review structure — not a finished article.
             </p>
           ) : null}
         </div>
