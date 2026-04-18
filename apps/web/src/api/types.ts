@@ -419,6 +419,24 @@ export interface ResearchPackageHonestySupportRollup {
   total_nodes: number;
 }
 
+/** M5-T23 — retrieval depth evidence (counts + mode; no speculative scores). */
+export interface ResearchRetrievalDepthEvidence {
+  retrieval_mode: "stub" | "live" | null;
+  synthesis_retrieval_partial: boolean | null;
+  candidate_source_count: number;
+  distinct_source_hosts: number | null;
+  synthesis_finding_count: number;
+  sourced_claim_finding_count: number;
+  synthesis_cluster_count: number;
+}
+
+export interface ResearchPackageRetrievalDepth {
+  tier: "thin" | "partial" | "solid";
+  evidence: ResearchRetrievalDepthEvidence;
+  headline: string;
+  next_action: string;
+}
+
 export interface ResearchPackageHonestySummary {
   schema_version: string;
   narrative_generation_mode: string;
@@ -427,6 +445,8 @@ export interface ResearchPackageHonestySummary {
   publishable_narrative_posture: string;
   synthesis_retrieval_partial: boolean | null;
   support_status_rollup: ResearchPackageHonestySupportRollup;
+  /** M5-T23 — truthful retrieval breadth for chronology/draft downstream work (present after API deploy). */
+  retrieval_depth?: ResearchPackageRetrievalDepth;
   ui_hints: readonly string[];
 }
 

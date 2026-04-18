@@ -27,4 +27,5 @@ export type {
   ResearchPackageHonestySupportRollup,
   ResearchPackageNarrativeGenerationMode,
   ResearchPackageProvenanceTraceabilityLevel,
+  ResearchPackageRetrievalDepth,
 } from "./honesty-summary";

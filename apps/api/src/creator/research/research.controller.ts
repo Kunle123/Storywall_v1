@@ -122,6 +122,7 @@ export class ResearchController {
         honesty_summary: buildResearchPackageHonestySummary({
           draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
           researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
+          candidateSources: pkg.candidateSources.map((s) => ({ source_url: s.sourceUrl })),
         }),
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
         /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */

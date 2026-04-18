@@ -9,6 +9,7 @@ import { buildResearchPackageHonestySummary, RESEARCH_PACKAGE_HONESTY_SUMMARY_VE
 function sampleEnrichmentAndSynthesis() {
   const idA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
   const idB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+  const idC = "cccccccc-cccc-cccc-cccc-cccccccccccc";
   const pkg = synthesizeResearchPackageV1({
     retrievalMode: "live",
     retrievalPartial: false,
@@ -32,6 +33,15 @@ function sampleEnrichmentAndSynthesis() {
         relevanceNote: "r1",
         reliabilityTier: "medium",
       },
+      {
+        id: idC,
+        positionIndex: 2,
+        sourceUrl: "https://www.britannica.com/biography/Test-Subject",
+        sourceTitle: "Britannica",
+        excerpt: "Third excerpt for M5-T23 breadth.",
+        relevanceNote: "r2",
+        reliabilityTier: "medium",
+      },
     ],
   });
   const rows = buildChronologyEventsFromResearchPackage(
@@ -44,6 +54,7 @@ function sampleEnrichmentAndSynthesis() {
     [
       { id: idA, positionIndex: 0, sourceTitle: "T", excerpt: "e", relevanceNote: "r0", reliabilityTier: "high" },
       { id: idB, positionIndex: 1, sourceTitle: "O", excerpt: "e2", relevanceNote: "r1", reliabilityTier: "medium" },
+      { id: idC, positionIndex: 2, sourceTitle: "B", excerpt: "e3", relevanceNote: "r2", reliabilityTier: "medium" },
     ],
   );
   const events = rows.map((r, i) => ({
@@ -93,9 +104,11 @@ describe("buildResearchPackageHonestySummary", () => {
       h.support_status_rollup.chronology_thin_sources +
       h.support_status_rollup.unresolved_weak;
     expect(sum).toBe(h.support_status_rollup.total_nodes);
-    expect(h.ui_hints.length).toBeGreaterThanOrEqual(3);
+    expect(h.ui_hints.length).toBeGreaterThanOrEqual(4);
     expect(h.ui_hints.some((l) => l.includes("deterministic"))).toBe(true);
     expect(h.ui_hints.some((l) => l.includes("M5-T08"))).toBe(true);
+    expect(h.retrieval_depth.tier).toBe("partial");
+    expect(h.retrieval_depth.evidence.retrieval_mode).toBe("live");
   });
 
   it("reports unavailable provenance when enrichment is absent", () => {
@@ -106,6 +119,7 @@ describe("buildResearchPackageHonestySummary", () => {
     expect(h.provenance_traceability).toBe("unavailable_no_enrichment");
     expect(h.support_status_rollup.total_nodes).toBe(0);
     expect(h.has_mixed_or_weak_support).toBe(false);
+    expect(h.retrieval_depth.tier).toBe("thin");
   });
 
   it("legacy m5-t07 package is flagged without implying full traceability", () => {
@@ -129,6 +143,7 @@ describe("buildResearchPackageHonestySummary", () => {
     expect(h.provenance_traceability).toBe("legacy_package_no_node_provenance_index");
     expect(h.has_mixed_or_weak_support).toBe(true);
     expect(h.ui_hints.some((l) => l.includes("unavailable"))).toBe(true);
+    expect(h.retrieval_depth.tier).toBe("thin");
   });
 
   it("surfaces partial retrieval from synthesis alongside enrichment", () => {
@@ -141,5 +156,6 @@ describe("buildResearchPackageHonestySummary", () => {
     expect(h.synthesis_retrieval_partial).toBe(true);
     expect(h.has_mixed_or_weak_support).toBe(true);
     expect(h.ui_hints.some((l) => l.toLowerCase().includes("partial"))).toBe(true);
+    expect(h.retrieval_depth.tier).toBe("partial");
   });
 });

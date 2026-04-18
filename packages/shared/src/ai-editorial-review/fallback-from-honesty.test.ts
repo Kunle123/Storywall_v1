@@ -19,6 +19,20 @@ describe("buildFallbackEditorialReviewFromHonesty", () => {
         unresolved_weak: 1,
         total_nodes: 10,
       },
+      retrieval_depth: {
+        tier: "partial" as const,
+        evidence: {
+          retrieval_mode: "live" as const,
+          synthesis_retrieval_partial: true,
+          candidate_source_count: 3,
+          distinct_source_hosts: 1,
+          synthesis_finding_count: 5,
+          sourced_claim_finding_count: 3,
+          synthesis_cluster_count: 1,
+        },
+        headline: "Retrieval depth: partial — bounded live retrieval reported incomplete coverage.",
+        next_action: "Retry research with a clearer brief or wider scope, or add sources manually where gaps appear.",
+      },
       ui_hints: ["Check temporal anchors on early events."],
     };
     const out = buildFallbackEditorialReviewFromHonesty({
@@ -54,6 +68,20 @@ describe("buildFallbackEditorialReviewFromHonesty", () => {
         chronology_thin_sources: 0,
         unresolved_weak: 0,
         total_nodes: 5,
+      },
+      retrieval_depth: {
+        tier: "solid" as const,
+        evidence: {
+          retrieval_mode: "live" as const,
+          synthesis_retrieval_partial: false,
+          candidate_source_count: 6,
+          distinct_source_hosts: 3,
+          synthesis_finding_count: 8,
+          sourced_claim_finding_count: 6,
+          synthesis_cluster_count: 1,
+        },
+        headline: "Retrieval depth: solid — bounded live retrieval produced enough diversified candidates.",
+        next_action: "Proceed to framing and draft assembly while still verifying claims against primaries before publish.",
       },
       ui_hints: [],
     };

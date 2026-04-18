@@ -60,6 +60,69 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
         This package is <strong>deterministic research scaffolding</strong> (retrieval when enabled, then synthesis + chronology +
         enrichment rules). It is <strong>not</strong> implied live-authored narrative prose.
       </p>
+      {summary.retrieval_depth ? (
+        <div
+          className="research-retrieval-depth"
+          data-testid="research-retrieval-depth-rail"
+          role="region"
+          aria-label="Retrieval depth assessment"
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.65rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-muted, rgba(0,0,0,0.12))",
+            background: "var(--panel-subtle, rgba(0,0,0,0.03))",
+          }}
+        >
+          <p className="muted small" style={{ margin: 0, fontWeight: 600 }}>
+            Retrieval depth (M5-T23)
+          </p>
+          <p className="small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <span
+              className={`research-honesty-badge${
+                summary.retrieval_depth.tier === "thin"
+                  ? " research-honesty-badge--warn"
+                  : summary.retrieval_depth.tier === "partial"
+                    ? ""
+                    : ""
+              }`}
+            >
+              {summary.retrieval_depth.tier}
+            </span>{" "}
+            {summary.retrieval_depth.headline}
+          </p>
+          <ul className="muted small" style={{ margin: "0.5rem 0 0", paddingLeft: "1.1rem" }}>
+            <li>
+              Mode: <code className="inline-code">{summary.retrieval_depth.evidence.retrieval_mode ?? "unknown"}</code> ·
+              Candidate rows: <strong>{summary.retrieval_depth.evidence.candidate_source_count}</strong>
+              {summary.retrieval_depth.evidence.distinct_source_hosts != null ? (
+                <>
+                  {" "}
+                  · Distinct hosts: <strong>{summary.retrieval_depth.evidence.distinct_source_hosts}</strong>
+                </>
+              ) : (
+                <> · Distinct hosts: not evaluated (URLs unavailable)</>
+              )}
+            </li>
+            <li>
+              Synthesis findings: <strong>{summary.retrieval_depth.evidence.synthesis_finding_count}</strong> (
+              <strong>{summary.retrieval_depth.evidence.sourced_claim_finding_count}</strong> sourced_claim) · Clusters:{" "}
+              <strong>{summary.retrieval_depth.evidence.synthesis_cluster_count}</strong>
+              {summary.retrieval_depth.evidence.synthesis_retrieval_partial === true ? (
+                <> · Partial bounded fetch flagged</>
+              ) : null}
+            </li>
+          </ul>
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Next step:</strong> {summary.retrieval_depth.next_action}
+          </p>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+          Retrieval depth (M5-T23) is not in this API response yet — redeploy the API with the latest honesty summary to see
+          thin / partial / solid signals here.
+        </p>
+      )}
       <p className="muted small" style={{ marginTop: "0.35rem" }}>
         Separate optional steps — <strong>live</strong> framing (M5-T10), event/section enrichment (M5-T11), and editorial
         review (M5-T12) — only run when your host arms the AI runtime and you trigger those actions; their modes are stored in

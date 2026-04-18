@@ -4,6 +4,11 @@
  */
 
 import { parseResearchSynthesisPackageV1 } from "../research-synthesis/parse";
+import {
+  computeRetrievalDepthAssessment,
+  type RetrievalDepthEvidence,
+  type RetrievalDepthTier,
+} from "../research-synthesis/retrieval-depth";
 import { buildDraftEnrichmentProvenanceIndex } from "./provenance-index";
 import type { DraftEnrichmentProvenanceIndexNode } from "./provenance-index";
 
@@ -24,6 +29,14 @@ export type ResearchPackageHonestySupportRollup = {
   total_nodes: number;
 };
 
+/** M5-T23 — compact retrieval depth (counts + mode only; no speculative scoring). */
+export type ResearchPackageRetrievalDepth = {
+  tier: RetrievalDepthTier;
+  evidence: RetrievalDepthEvidence;
+  headline: string;
+  next_action: string;
+};
+
 export type ResearchPackageHonestySummary = {
   schema_version: typeof RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION;
   /** Current research pipeline output is deterministic scaffolding, not live model-authored story prose. */
@@ -36,6 +49,8 @@ export type ResearchPackageHonestySummary = {
   /** From M5-T05 synthesis when parseable; null if no synthesis package present. */
   synthesis_retrieval_partial: boolean | null;
   support_status_rollup: ResearchPackageHonestySupportRollup;
+  /** M5-T23 — truthful retrieval breadth vs stub/live mode (deterministic from persisted rows + synthesis). */
+  retrieval_depth: ResearchPackageRetrievalDepth;
   /** Short lines safe to show inline in creator UI. */
   ui_hints: readonly string[];
 };
@@ -163,6 +178,10 @@ function buildUiHints(params: {
 export type BuildResearchPackageHonestySummaryInput = {
   draftEnrichmentPackage: unknown;
   researchSynthesisPackage?: unknown;
+  /** When provided, distinct hosts are computed from URLs; improves M5-T23 live tiering. */
+  candidateSources?: ReadonlyArray<{ source_url?: string | null }>;
+  /** When URLs are unavailable but persisted row count is known (e.g. framing rail). */
+  candidateSourceCountOverride?: number;
 };
 
 /**
@@ -172,12 +191,32 @@ export type BuildResearchPackageHonestySummaryInput = {
 export function buildResearchPackageHonestySummary(input: BuildResearchPackageHonestySummaryInput): ResearchPackageHonestySummary {
   const syn = parseResearchSynthesisPackageV1(input.researchSynthesisPackage ?? null);
   const synthesis_retrieval_partial: boolean | null = syn ? syn.retrieval_partial : null;
+  const depthAssessment = computeRetrievalDepthAssessment({
+    researchSynthesisPackage: input.researchSynthesisPackage ?? null,
+    candidateSources: input.candidateSources,
+    candidateSourceCountOverride: input.candidateSourceCountOverride,
+  });
+  const retrieval_depth: ResearchPackageRetrievalDepth = {
+    tier: depthAssessment.tier,
+    evidence: depthAssessment.evidence,
+    headline: depthAssessment.headline,
+    next_action: depthAssessment.next_action,
+  };
 
   const raw = input.draftEnrichmentPackage;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     const rollup = emptyRollup();
     const provenance_traceability: ResearchPackageProvenanceTraceabilityLevel = "unavailable_no_enrichment";
     const has_mixed_or_weak_support = synthesis_retrieval_partial === true;
+    const ui_hints = [
+      ...buildUiHints({
+        provenance_traceability,
+        rollup,
+        synthesis_retrieval_partial,
+        has_mixed_or_weak_support,
+      }),
+      depthAssessment.ui_hint_line,
+    ];
     return {
       schema_version: RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION,
       narrative_generation_mode: "deterministic_scaffolding",
@@ -186,12 +225,8 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
       publishable_narrative_posture: "creator_guidance_only",
       synthesis_retrieval_partial,
       support_status_rollup: rollup,
-      ui_hints: buildUiHints({
-        provenance_traceability,
-        rollup,
-        synthesis_retrieval_partial,
-        has_mixed_or_weak_support,
-      }),
+      retrieval_depth,
+      ui_hints,
     };
   }
 
@@ -233,6 +268,16 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
     has_mixed_or_weak_support = true;
   }
 
+  const ui_hints = [
+    ...buildUiHints({
+      provenance_traceability,
+      rollup,
+      synthesis_retrieval_partial,
+      has_mixed_or_weak_support,
+    }),
+    depthAssessment.ui_hint_line,
+  ];
+
   return {
     schema_version: RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION,
     narrative_generation_mode: "deterministic_scaffolding",
@@ -241,11 +286,7 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
     publishable_narrative_posture: "creator_guidance_only",
     synthesis_retrieval_partial,
     support_status_rollup: rollup,
-    ui_hints: buildUiHints({
-      provenance_traceability,
-      rollup,
-      synthesis_retrieval_partial,
-      has_mixed_or_weak_support,
-    }),
+    retrieval_depth,
+    ui_hints,
   };
 }

@@ -20,7 +20,7 @@ export async function loadFramingResearchGrounding(
   const job = await prisma.researchJob.findFirst({
     where: { storyId, status: "succeeded" },
     orderBy: { finishedAt: "desc" },
-    include: { artifact: true },
+    include: { artifact: true, _count: { select: { candidateSources: true } } },
   });
 
   if (!job?.artifact) {
@@ -44,6 +44,7 @@ export async function loadFramingResearchGrounding(
     honesty_summary: buildResearchPackageHonestySummary({
       draftEnrichmentPackage: job.artifact.draftEnrichmentPackage ?? null,
       researchSynthesisPackage: syn ?? null,
+      candidateSourceCountOverride: job._count.candidateSources,
     }),
   };
 }

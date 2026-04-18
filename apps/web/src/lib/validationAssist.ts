@@ -189,6 +189,20 @@ export function buildValidationAssistFromArtifacts(params: {
       blocking_conditions.push("Partial retrieval — consider another research pass before treating coverage as complete.");
     }
 
+    const rd = h.retrieval_depth;
+    if (rd?.tier === "thin") {
+      risks.push(`Retrieval depth is thin — ${rd.headline}`);
+      blocking_conditions.push(
+        "Thin retrieval — add sources, widen the brief, or enable live bounded retrieval before treating research as substantively complete.",
+      );
+    } else if (rd?.tier === "partial" && rd.evidence.retrieval_mode === "stub") {
+      risks.push(
+        "Retrieval used stub placeholders — package is usable for scaffolding but not web-grounded evidence for publishable claims.",
+      );
+    } else if (rd?.tier === "partial" && rd.evidence.synthesis_retrieval_partial === true) {
+      risks.push("Retrieval depth is partial after a bounded fetch — corroborate thin spots before heavy drafting.");
+    }
+
     const thin = r.chronology_thin_sources + r.unresolved_weak;
     if (thin >= 3 && r.total_nodes >= 3) {
       risks.push(`${thin} chronology-thin or unresolved nodes in ${r.total_nodes} traced — reporting gaps likely.`);

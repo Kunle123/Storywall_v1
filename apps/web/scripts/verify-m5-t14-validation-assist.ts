@@ -29,6 +29,21 @@ function honestyBase(overrides: Partial<ResearchPackageHonestySummary> = {}): Re
       unresolved_weak: 0,
       total_nodes: 5,
     },
+    retrieval_depth: {
+      tier: "partial",
+      evidence: {
+        retrieval_mode: "stub",
+        synthesis_retrieval_partial: false,
+        candidate_source_count: 4,
+        distinct_source_hosts: 1,
+        synthesis_finding_count: 8,
+        sourced_claim_finding_count: 4,
+        synthesis_cluster_count: 1,
+      },
+      headline: "Retrieval depth: partial — deterministic stub/scaffold material exists, but it is not live-web-grounded.",
+      next_action:
+        "Treat findings as structural only; enable live retrieval and re-run when you need web-grounded evidence, or add manual sources.",
+    },
     ui_hints: [],
     ...overrides,
   };

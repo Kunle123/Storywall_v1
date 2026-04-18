@@ -119,6 +119,7 @@ export class LiveEnrichmentService {
     const honesty = buildResearchPackageHonestySummary({
       draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage ?? null,
       researchSynthesisPackage: syn ?? null,
+      candidateSources: pkg.candidateSources.map((s) => ({ source_url: s.sourceUrl })),
     });
     const honestyJson = JSON.stringify(honesty).slice(0, 8000);
 
