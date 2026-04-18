@@ -959,7 +959,17 @@ export function DraftReadyPage() {
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}
-      {saveOk ? <div className="banner success">Draft saved.</div> : null}
+      {saveOk ? (
+        <div className="banner success">
+          <p>Deck saved to the server.</p>
+          {workflow && isEditorialValidationWorkspace(workflow) && workflow !== "published" ? (
+            <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+              Next: keep refining sections, timeline, or evidence — or use <strong>Readiness → Run checks</strong> when you
+              want a publish signal (optional for drafting).
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {publishOk ? (
         <div className="banner success">
           {publishOutcomeKindRef.current === "republish"
@@ -1020,6 +1030,14 @@ export function DraftReadyPage() {
                 <>
                   Changes to deck fields save automatically. Publishing and checks are separate honest steps — see Readiness
                   below.
+                  {workflow === "needs_validation" ? (
+                    <>
+                      {" "}
+                      Workflow is <code className="inline-code">needs_validation</code> — publish stays gated until checks
+                      advance the story, but manuscript edits here (deck, sections, events, evidence) still persist through
+                      the API.
+                    </>
+                  ) : null}
                 </>
               )}
               {storyLivePublished ? (

@@ -382,6 +382,8 @@ export class StoriesService {
 
       const allowedStates: CreatorWorkflowState[] = [
         "ready_for_edit",
+        /** M5-T22 — same manuscript edits as Draft tab while checks gate publish. */
+        "needs_validation",
         "blocked",
         "ready_to_publish",
         "published",

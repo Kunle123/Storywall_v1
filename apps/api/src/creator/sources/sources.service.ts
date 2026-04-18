@@ -17,6 +17,7 @@ import { sourceRecordToApi } from "./source-record-to-api";
 
 const ALLOWED_SOURCE_EDIT_STATES: CreatorWorkflowState[] = [
   "ready_for_edit",
+  "needs_validation",
   "blocked",
   "ready_to_publish",
   "published",
