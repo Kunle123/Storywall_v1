@@ -295,6 +295,8 @@ export class ResearchService {
     jobStatus: string;
     artifact: ResearchArtifact;
     candidateSources: ResearchCandidateSource[];
+    /** M5-T11 — persisted live enrichment when its `research_job_id` matches this job. */
+    liveEventDraftEnrichment: unknown | null;
   }> {
     const { storyId, jobId, creatorId } = params;
 
@@ -338,10 +340,24 @@ export class ResearchService {
       });
     }
 
+    const briefRow = await this.prisma.storyBrief.findUnique({
+      where: { storyId },
+      select: { aiEventDraftEnrichmentPackage: true },
+    });
+    let liveEventDraftEnrichment: unknown | null = null;
+    const stored = briefRow?.aiEventDraftEnrichmentPackage;
+    if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+      const rjid = (stored as { research_job_id?: string }).research_job_id;
+      if (rjid === jobId) {
+        liveEventDraftEnrichment = stored;
+      }
+    }
+
     return {
       jobStatus: job.status,
       artifact: job.artifact,
       candidateSources: job.candidateSources,
+      liveEventDraftEnrichment,
     };
   }
 

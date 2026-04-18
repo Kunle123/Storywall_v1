@@ -19,6 +19,7 @@ export type AiRuntimePurpose =
   | "research_synthesis"
   | "framing_generation"
   | "scoped_enrichment"
+  | "live_event_draft_enrichment"
   | "validation_explainer";
 
 export type AiChatRole = "system" | "user" | "assistant";

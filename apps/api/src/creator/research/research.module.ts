@@ -6,6 +6,7 @@ import { PrismaModule } from "../../prisma/prisma.module";
 import { CreatorModule } from "../creator.module";
 import { CreatorJobsService } from "../jobs/creator-jobs.service";
 import { JobsController } from "../jobs/jobs.controller";
+import { LiveEnrichmentService } from "./live-enrichment.service";
 import { ResearchController } from "./research.controller";
 import { ResearchService } from "./research.service";
 import { RESEARCH_QUEUE_TOKEN } from "./research.tokens";
@@ -15,6 +16,7 @@ import { RESEARCH_QUEUE_TOKEN } from "./research.tokens";
   controllers: [ResearchController, JobsController],
   providers: [
     ResearchService,
+    LiveEnrichmentService,
     CreatorJobsService,
     {
       provide: RESEARCH_QUEUE_TOKEN,

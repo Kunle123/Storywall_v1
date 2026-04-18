@@ -23,6 +23,9 @@ export * from "./draft-enrichment";
 // --- M5-T10 — AI framing generation audit package (browser-safe JSON types) ---
 export * from "./ai-framing-generation";
 
+// --- M5-T11 — live AI event + draft/section enrichment audit package ---
+export * from "./ai-live-enrichment";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

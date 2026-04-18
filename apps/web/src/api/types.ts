@@ -412,6 +412,8 @@ export interface GetResearchPackageSuccess {
     draft_enrichment_provenance: unknown;
     honesty_summary: ResearchPackageHonestySummary;
     candidate_sources: unknown[];
+    /** M5-T11 — when persisted for this job id. */
+    live_event_draft_enrichment?: unknown | null;
   };
 }
 

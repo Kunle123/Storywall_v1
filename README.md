@@ -71,19 +71,19 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
    pnpm --filter @storywall/worker dev
    ```
 
-### M5-T06 local E2E (research → synthesis package → chronology + framing audit)
+### M5-T06 local E2E (research → synthesis package → chronology + framing + live enrichment audit)
 
 Checked-in script: `apps/api/scripts/e2e-m5-t06-research-chronology.mjs` (also `pnpm --filter @storywall/api run e2e:m5-t06`).
 
-**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`), companion **`draft_enrichment_provenance`** flat index, and **`honesty_summary`** (`m5-t09-v1`) on `GET …/package`. It also asserts **`ai_framing_generation`** (`m5-t10-v1`) on **`POST …/frames/generate`** (initial + post-research regenerate), including embedded **M5-T09** honesty context and `research_job_id` linkage after research.
+**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`), companion **`draft_enrichment_provenance`** flat index, and **`honesty_summary`** (`m5-t09-v1`) on `GET …/package`. It also asserts **`ai_framing_generation`** (`m5-t10-v1`) on **`POST …/frames/generate`** (initial + post-research regenerate), including embedded **M5-T09** honesty context and `research_job_id` linkage after research. **M5-T11** adds **`POST …/research/jobs/:jobId/live-event-draft-enrichment/generate`**, persisted on **`story_brief.ai_event_draft_enrichment_package`**, echoed as **`live_event_draft_enrichment`** on **`GET …/package`** when the stored envelope’s `research_job_id` matches the requested job (live model path or honest deterministic mapping / empty fallback).
 
-**Operational:** restart **API and worker** after deploy so the queue and HTTP layer serve the current response contract; keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below). After schema changes (e.g. `ai_framing_generation_package`), run **`pnpm db:deploy`** (or `prisma migrate deploy`) before E2E.
+**Operational:** restart **API and worker** after deploy so the queue and HTTP layer serve the current response contract; keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below). After schema changes (e.g. `ai_framing_generation_package`, **`ai_event_draft_enrichment_package`** for M5-T11), run **`pnpm db:deploy`** (or `prisma migrate deploy`) before E2E.
 
-**Optional live AI framing (M5-T10):** set `STORYWALL_AI_RUNTIME_ENABLED=true`, `STORYWALL_AI_PROVIDER=openai_compatible`, `STORYWALL_AI_BASE_URL` (e.g. `https://api.openai.com/v1`), and `STORYWALL_AI_API_KEY` on the **API** process only. If unset, the script still passes using the **honest deterministic fallback** (`generation_mode: deterministic_scaffolding_fallback`).
+**Optional live AI (M5-T10 framing + M5-T11 enrichment):** use the same variables on the **API** process only: `STORYWALL_AI_RUNTIME_ENABLED=true`, `STORYWALL_AI_PROVIDER=openai_compatible`, `STORYWALL_AI_BASE_URL` (e.g. `https://api.openai.com/v1`), and `STORYWALL_AI_API_KEY`. If unset or transport fails, the script still passes using **honest fallbacks** (`generation_mode: deterministic_scaffolding_fallback` for framing; for M5-T11 either deterministic **draft_enrichment** mapping or an explicit empty failure envelope).
 
 **Prerequisites**
 
-- **Postgres:** use an empty or dedicated database for this flow; run `pnpm db:deploy` (or `pnpm db:migrate`) so schema includes M5-T05 (`research_synthesis_package`) and **M5-T10** (`story_brief.ai_framing_generation_package`).
+- **Postgres:** use an empty or dedicated database for this flow; run `pnpm db:deploy` (or `pnpm db:migrate`) so schema includes M5-T05 (`research_synthesis_package`), **M5-T10** (`story_brief.ai_framing_generation_package`), and **M5-T11** (`story_brief.ai_event_draft_enrichment_package`).
 - **API + worker** both running, with **identical** `DATABASE_URL` on both processes.
 - **Live Wikipedia (recommended for this script’s live assertions):** on **both** API and worker, set `STORYWALL_RETRIEVAL_ENABLED=true`, `STORYWALL_RETRIEVAL_ALLOWED_API_HOSTS` (must allow `en.wikipedia.org` for the bundled adapter), and `STORYWALL_RETRIEVAL_USER_AGENT` per `.env.example`. If retrieval is stub, the script still passes synthesis/chronology checks but skips the live Wikipedia URL assertion.
 - **`JWT_SECRET`** (and other API env) set for the API process.
@@ -122,7 +122,7 @@ pnpm --filter @storywall/worker start
 API_URL=http://127.0.0.1:3001 pnpm --filter @storywall/api exec node ./scripts/e2e-m5-t06-research-chronology.mjs
 ```
 
-Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation e2e passed.`
+Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation + M5-T11 live_event_draft_enrichment e2e passed.`
 
 ## Health checks (Railway)
 

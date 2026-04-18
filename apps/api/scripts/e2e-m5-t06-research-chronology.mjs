@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * M5-T06–M5-T10 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * M5-T06–M5-T11 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
  * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers,
- * `draft_enrichment_provenance` flat index (M5-T08), and `honesty_summary` (M5-T09).
+ * `draft_enrichment_provenance` flat index (M5-T08), `honesty_summary` (M5-T09), **M5-T10** framing audit,
+ * and **M5-T11** `POST …/live-event-draft-enrichment/generate` + `live_event_draft_enrichment` on GET package.
  *
  * Requires (same as smoke-m2-02 / smoke-m2-03):
  * - API running (e.g. `pnpm --filter @storywall/api start` or `dev`)
@@ -286,6 +287,67 @@ async function main() {
   const hasTemporalHonesty = ev.some((e) => typeof e.ambiguity_note === "string" && e.ambiguity_note.includes("[temporal]"));
   assert(hasTemporalHonesty, "expected [temporal] ambiguity_note on at least one event");
 
+  const liveEnrichRes = await fetch(
+    `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/live-event-draft-enrichment/generate`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: "e2e M5-T11 live enrichment" }),
+    },
+  );
+  const liveEnrichJson = await j(liveEnrichRes);
+  assert(liveEnrichRes.ok, `live-event-draft-enrichment/generate ${liveEnrichRes.status} ${JSON.stringify(liveEnrichJson)}`);
+  const le0 = liveEnrichJson.data?.live_event_draft_enrichment;
+  assert(le0 && le0.schema_version === "m5-t11-v1", "M5-T11 envelope schema_version");
+  assert(
+    le0.generation_mode === "live_ai_backed" || le0.generation_mode === "deterministic_scaffolding_fallback",
+    "M5-T11 generation_mode",
+  );
+  assert(le0.research_job_id === jobId, "M5-T11 research_job_id");
+  assert(le0.prompt_template_key === "enrichment.live_events_sections_m5_t11_v1", "M5-T11 prompt key");
+  assert(typeof le0.provider === "string" && le0.provider.length >= 1, "M5-T11 provider");
+  assert(le0.honesty_context && le0.honesty_context.schema_version === "m5-t09-v1", "M5-T11 honesty_context");
+  assert(
+    le0.framing_reference === null ||
+      (typeof le0.framing_reference === "object" &&
+        Array.isArray(le0.framing_reference.framing_option_ids) &&
+        le0.framing_reference.framing_generation_prompt_key === "framing.live_package_m5_t10_v1"),
+    "M5-T11 framing_reference when present must match M5-T10 regenerate linkage",
+  );
+  assert(
+    Array.isArray(le0.enriched_events) && le0.enriched_events.length >= 1,
+    "M5-T11 enriched_events (live or deterministic carry-forward)",
+  );
+  assert(Array.isArray(le0.suggested_sections) && le0.suggested_sections.length >= 1, "M5-T11 suggested_sections");
+  const chronoIdSet = new Set(ev.map((e) => e.id));
+  const groundedEvent = le0.enriched_events.find((row) => chronoIdSet.has(row.chronology_event_id));
+  assert(groundedEvent, "expected at least one enriched_event tied to a chronology row id");
+  assert(
+    typeof groundedEvent.narrative_expansion === "string" && groundedEvent.narrative_expansion.length >= 8,
+    "enriched_event narrative_expansion should be substantive",
+  );
+  if (le0.generation_mode === "live_ai_backed") {
+    assert(le0.status === "succeeded", "live path status");
+    assert(le0.failure === null, "live success has no failure");
+    assert(typeof le0.model === "string" && le0.model.length >= 1, "live path records model label");
+  } else {
+    assert(le0.status === "fallback_deterministic", "fallback status");
+    assert(le0.failure && typeof le0.failure.code === "string", "fallback records failure");
+  }
+
+  const pkg2Res = await fetch(
+    `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/package`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const pkg2 = await j(pkg2Res);
+  assert(pkg2Res.ok, `GET package after M5-T11 ${pkg2Res.status}`);
+  assert(
+    pkg2.data?.live_event_draft_enrichment &&
+      pkg2.data.live_event_draft_enrichment.schema_version === "m5-t11-v1",
+    "GET package should echo live_event_draft_enrichment for same job",
+  );
+  assert(pkg2.data.live_event_draft_enrichment.research_job_id === jobId, "package enrichment scoped to job");
+
   if (syn.retrieval_mode === "live") {
     const wiki = pkg.data.candidate_sources.some(
       (s) => typeof s.source_url === "string" && s.source_url.includes("en.wikipedia.org"),
@@ -295,7 +357,7 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log(
-    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation e2e passed.",
+    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation + M5-T11 live_event_draft_enrichment e2e passed.",
   );
 }
 

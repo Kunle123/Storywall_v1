@@ -21,6 +21,8 @@ import { OwnershipService } from "../ownership.service";
 import { RunResearchPassDto } from "./dto/run-research-pass.dto";
 import { chronologyAssemblyToApi } from "./chronology-to-api";
 import { researchArtifactToApi, researchCandidateSourceToApi } from "./research-package-to-api";
+import { GenerateLiveEnrichmentDto } from "./dto/generate-live-enrichment.dto";
+import { LiveEnrichmentService } from "./live-enrichment.service";
 import { ResearchService } from "./research.service";
 
 const IDEMPOTENCY_KEY_MAX = 255;
@@ -62,6 +64,7 @@ function normalizeResearchIdempotencyKey(raw: string | undefined): string {
 export class ResearchController {
   constructor(
     private readonly research: ResearchService,
+    private readonly liveEnrichment: LiveEnrichmentService,
     private readonly ownership: OwnershipService,
   ) {}
 
@@ -118,6 +121,36 @@ export class ResearchController {
           researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
         }),
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
+        /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */
+        live_event_draft_enrichment: pkg.liveEventDraftEnrichment,
+      },
+    };
+  }
+
+  /**
+   * M5-T11 — generate and persist grounded event + section enrichment (live model or honest fallback).
+   * Requires a succeeded research job with chronology + synthesis (same as GET package).
+   */
+  @Post(":storyId/research/jobs/:jobId/live-event-draft-enrichment/generate")
+  async generateLiveEventDraftEnrichment(
+    @Param("storyId") storyId: string,
+    @Param("jobId") jobId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: GenerateLiveEnrichmentDto,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const live = await this.liveEnrichment.generateAndPersist({
+      storyId,
+      jobId,
+      creatorId: creator.id,
+      dto: body,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        live_event_draft_enrichment: live,
       },
     };
   }

@@ -31,6 +31,38 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
     user: "Brief excerpt:\n{{brief_excerpt}}\nList tentative framing axes (outline only).",
     variable_names: ["brief_excerpt"],
   },
+  "enrichment.live_events_sections_m5_t11_v1": {
+    family: "live_event_draft_enrichment",
+    key: "enrichment.live_events_sections_m5_t11_v1",
+    version: "1.0.0",
+    intent_label: "M5-T11 live event + section enrichment from brief + synthesis + chronology + honesty + optional framing",
+    system:
+      "You are a Storywall editorial assistant. Respond with JSON only (no markdown fences).\n" +
+      "Output shape: {\"enriched_events\":[{\"id\":\"stable_id\",\"chronology_event_id\":\"uuid from chronology_events_json\",\"narrative_expansion\":\"creator-facing context (not publishable prose)\",\"emphasis_note\":\"string or null\",\"caution_note\":\"string or null\",\"grounding_refs\":[{\"kind\":\"synthesis_finding|chronology_event|research_candidate_source|framing_option|honesty_signal\",\"id\":\"optional uuid\",\"label\":\"optional\"}]}],\"suggested_sections\":[{\"id\":\"stable_id\",\"title\":\"string\",\"purpose\":\"why this section helps the story\",\"supporting_chronology_event_ids\":[\"uuid\"],\"supporting_synthesis_finding_ids\":[\"id strings from synthesis\"],\"caution_note\":\"string or null\",\"grounding_refs\":[]}]}\n" +
+      "Rules: every enriched_events[].chronology_event_id MUST appear in chronology_events_json. Prefer one enriched_events row per chronology row when reasonable (skip only if clearly redundant). suggested_sections are structural guidance only—not finished article copy.\n" +
+      "Do not claim full source verification. Use honesty_signal grounding_refs when support is thin or mixed. Never invent UUIDs or finding ids not present in the provided JSON excerpts.",
+    user:
+      "subject: {{subject}}\n" +
+      "story_type: {{story_type}}\n" +
+      "research_brief:\n{{research_brief}}\n" +
+      "desired_angle:\n{{desired_angle}}\n" +
+      "creator_notes:\n{{creator_notes}}\n\n" +
+      "research_synthesis_excerpt (JSON text, may be truncated):\n{{research_synthesis_excerpt}}\n\n" +
+      "research_honesty_context_json:\n{{research_honesty_json}}\n\n" +
+      "chronology_events_json:\n{{chronology_events_json}}\n\n" +
+      "framing_context_json (may be null; framing_option ids must match if referenced):\n{{framing_context_json}}",
+    variable_names: [
+      "subject",
+      "story_type",
+      "research_brief",
+      "desired_angle",
+      "creator_notes",
+      "research_synthesis_excerpt",
+      "research_honesty_json",
+      "chronology_events_json",
+      "framing_context_json",
+    ],
+  },
   "framing.live_package_m5_t10_v1": {
     family: "framing_generation",
     key: "framing.live_package_m5_t10_v1",
