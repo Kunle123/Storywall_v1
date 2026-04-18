@@ -1110,6 +1110,89 @@ a:hover {
   margin-bottom: 0.35rem;
 }
 
+/* M5-T09 — research package honesty rail (job status / narrow creator surface) */
+.research-honesty-panel {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  background: #faf9f6;
+}
+
+.research-honesty-panel--error {
+  border-color: var(--warn-border);
+  background: #fffbf0;
+}
+
+.research-honesty-title {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+
+.research-honesty-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.research-honesty-badges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.research-honesty-badges > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.research-honesty-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #eef1f5;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.research-honesty-badge--warn {
+  background: #fff4e0;
+  border-color: #e8c48a;
+  color: #5c4300;
+}
+
+.research-honesty-details {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.research-honesty-details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.research-honesty-hints {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.research-honesty-hints li {
+  margin-bottom: 0.35rem;
+}
+
 .gen-terminal-error .gen-error-detail {
   margin: 0.5rem 0;
   white-space: pre-wrap;

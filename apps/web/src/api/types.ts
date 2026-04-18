@@ -383,6 +383,38 @@ export interface RunResearchPassSuccess {
   };
 }
 
+/** M5-T09 — GET …/research/jobs/:jobId/package `honesty_summary` (snake_case, API-aligned). */
+export interface ResearchPackageHonestySupportRollup {
+  fully_source_backed: number;
+  partially_source_backed: number;
+  chronology_thin_sources: number;
+  unresolved_weak: number;
+  total_nodes: number;
+}
+
+export interface ResearchPackageHonestySummary {
+  schema_version: string;
+  narrative_generation_mode: string;
+  provenance_traceability: string;
+  has_mixed_or_weak_support: boolean;
+  publishable_narrative_posture: string;
+  synthesis_retrieval_partial: boolean | null;
+  support_status_rollup: ResearchPackageHonestySupportRollup;
+  ui_hints: readonly string[];
+}
+
+/** GET …/research/jobs/:jobId/package (M2-T02 + M5-T08/09 extensions). */
+export interface GetResearchPackageSuccess {
+  ok: true;
+  data: {
+    job_status: string;
+    artifact: unknown;
+    draft_enrichment_provenance: unknown;
+    honesty_summary: ResearchPackageHonestySummary;
+    candidate_sources: unknown[];
+  };
+}
+
 /** POST …/draft/assemble (mutation §11.2). M2-T12 scoped regeneration. */
 export interface AssembleDraftBody {
   mode: string;

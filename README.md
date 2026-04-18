@@ -75,9 +75,9 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
 
 Checked-in script: `apps/api/scripts/e2e-m5-t06-research-chronology.mjs` (also `pnpm --filter @storywall/api run e2e:m5-t06`).
 
-**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`) and companion **`draft_enrichment_provenance`** flat index on `GET …/package` for creator audit.
+**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`), companion **`draft_enrichment_provenance`** flat index, and **`honesty_summary`** (`m5-t09-v1`: deterministic-scaffolding posture, provenance availability, support rollup) on `GET …/package` for creator audit.
 
-**Operational:** restart the **worker** after deploy so the queue runs the build that persists M5-T08 shapes; keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below) so jobs are not acked by a stale worker binary.
+**Operational:** restart **API and worker** after deploy so the queue and HTTP layer serve the current response contract (M5-T08/09 fields); keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below) so jobs are not acked by a stale worker binary while you verify against a different Postgres.
 
 **Prerequisites**
 
@@ -120,7 +120,7 @@ pnpm --filter @storywall/worker start
 API_URL=http://127.0.0.1:3001 pnpm --filter @storywall/api exec node ./scripts/e2e-m5-t06-research-chronology.mjs
 ```
 
-Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance e2e passed.`
+Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty_summary e2e passed.`
 
 ## Health checks (Railway)
 

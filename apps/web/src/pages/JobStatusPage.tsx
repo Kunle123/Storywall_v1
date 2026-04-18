@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
-import { ApiRequestError, getCreatorJob, listFrames } from "../api/creatorClient";
-import type { CreatorJobPollData } from "../api/types";
+import { ApiRequestError, getCreatorJob, getResearchPackage, listFrames } from "../api/creatorClient";
+import type { CreatorJobPollData, ResearchPackageHonestySummary } from "../api/types";
+import { ResearchPackageHonestyPanel } from "../components/ResearchPackageHonestyPanel";
 import { useAuth } from "../auth/AuthProvider";
 import { clearActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 import { describeJobLifecycle, generationHeadline, workflowLabelForJobKind } from "../lib/jobUi";
@@ -107,6 +108,31 @@ export function JobStatusPage() {
     };
   }, [finishSucceeded, jobId, storyId, token]);
 
+  useEffect(() => {
+    if (terminal?.kind !== "research_done" || !token || !storyId || !jobId) {
+      return;
+    }
+    let cancelled = false;
+    setHonestyLoading(true);
+    setHonestyError(null);
+    void (async () => {
+      try {
+        const res = await getResearchPackage(token, storyId, jobId);
+        if (cancelled) return;
+        setHonestySummary(res.data.honesty_summary);
+      } catch (e) {
+        if (cancelled) return;
+        setHonestySummary(null);
+        setHonestyError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load research package honesty summary.");
+      } finally {
+        if (!cancelled) setHonestyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [terminal?.kind, token, storyId, jobId]);
+
   if (!storyId || !jobId) {
     return (
       <div className="page narrow">
@@ -158,6 +184,7 @@ export function JobStatusPage() {
             Story workflow is now <strong>{terminal.workflow}</strong>. Your next step depends on that state (creator workflow
             section 7).
           </p>
+          <ResearchPackageHonestyPanel summary={honestySummary} loading={honestyLoading} error={honestyError} />
           <ul className="gen-next-list">
             {terminal.workflow === "awaiting_framing_choice" ? (
               <li>

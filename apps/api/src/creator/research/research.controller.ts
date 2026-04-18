@@ -10,7 +10,11 @@ import {
 } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { randomUUID } from "node:crypto";
-import { API_CONTRACT_VERSION, buildDraftEnrichmentProvenanceIndex } from "@storywall/shared";
+import {
+  API_CONTRACT_VERSION,
+  buildDraftEnrichmentProvenanceIndex,
+  buildResearchPackageHonestySummary,
+} from "@storywall/shared";
 import { CurrentCreator } from "../../auth/current-creator.decorator";
 import type { AuthenticatedCreator } from "../../auth/types";
 import { OwnershipService } from "../ownership.service";
@@ -98,6 +102,7 @@ export class ResearchController {
       jobId,
       creatorId: creator.id,
     });
+    const draftEnrichmentProvenance = buildDraftEnrichmentProvenanceIndex(pkg.artifact.draftEnrichmentPackage);
     return {
       ok: true,
       request_id: randomUUID(),
@@ -106,7 +111,12 @@ export class ResearchController {
         job_status: pkg.jobStatus,
         artifact: researchArtifactToApi(pkg.artifact),
         /** M5-T08 — flat provenance index for creator audit (null when enrichment predates m5-t08-v1). */
-        draft_enrichment_provenance: buildDraftEnrichmentProvenanceIndex(pkg.artifact.draftEnrichmentPackage),
+        draft_enrichment_provenance: draftEnrichmentProvenance,
+        /** M5-T09 — compact honesty signals for deterministic enrichment (always present). */
+        honesty_summary: buildResearchPackageHonestySummary({
+          draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
+          researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
+        }),
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
       },
     };

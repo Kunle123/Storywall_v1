@@ -29,6 +29,7 @@ import type {
   SectionDraftResponse,
   RunResearchPassBody,
   RunResearchPassSuccess,
+  GetResearchPackageSuccess,
   SelectFrameSuccess,
   StoryDraftResponse,
   ListRevisionsSuccess,
@@ -417,6 +418,23 @@ export async function getCreatorJob(token: string, jobId: string): Promise<PollJ
     throw new ApiRequestError(`Get job failed (${res.status})`, res.status, data);
   }
   return data as PollJobSuccess;
+}
+
+/** M2-T02 + M5-T09 — GET persisted research package after job success. */
+export async function getResearchPackage(
+  token: string,
+  storyId: string,
+  jobId: string,
+): Promise<GetResearchPackageSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/research/jobs/${encodeURIComponent(jobId)}/package`,
+    { headers: authHeaders(token) },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Get research package failed (${res.status})`, res.status, data);
+  }
+  return data as GetResearchPackageSuccess;
 }
 
 /** Mutation §11.1 */

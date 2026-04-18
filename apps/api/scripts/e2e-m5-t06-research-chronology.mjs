@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * M5-T06–M5-T08 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
- * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers
- * and GET package `draft_enrichment_provenance` flat index (M5-T08).
+ * M5-T06–M5-T09 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers,
+ * `draft_enrichment_provenance` flat index (M5-T08), and `honesty_summary` (M5-T09).
  *
  * Requires (same as smoke-m2-02 / smoke-m2-03):
  * - API running (e.g. `pnpm --filter @storywall/api start` or `dev`)
@@ -231,6 +231,17 @@ async function main() {
   assert(keNode?.provenance?.chronology_event_ids?.length > 0, "key_event trace to chronology id");
   assert(typeof keNode?.support_status === "string", "key_event support_status");
 
+  const honesty = pkg.data?.honesty_summary;
+  assert(honesty && honesty.schema_version === "m5-t09-v1", "honesty_summary missing or wrong schema_version");
+  assert(honesty.narrative_generation_mode === "deterministic_scaffolding", "honesty narrative_generation_mode");
+  assert(honesty.provenance_traceability === "full_m5_t08", "honesty provenance_traceability");
+  assert(honesty.publishable_narrative_posture === "creator_guidance_only", "honesty publishable posture");
+  assert(typeof honesty.has_mixed_or_weak_support === "boolean", "honesty has_mixed_or_weak_support");
+  assert(honesty.support_status_rollup && typeof honesty.support_status_rollup.total_nodes === "number", "honesty rollup");
+  assert(honesty.support_status_rollup.total_nodes === provIdx.nodes.length, "honesty rollup matches provenance node count");
+  assert(Array.isArray(honesty.ui_hints) && honesty.ui_hints.length >= 1, "honesty ui_hints");
+  assert(honesty.has_mixed_or_weak_support === true, "expected mixed/thin/weak support somewhere in deterministic Marie Curie fixture");
+
   const chRes = await fetch(
     `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/chronology`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -262,7 +273,9 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log("OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance e2e passed.");
+  console.log(
+    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty_summary e2e passed.",
+  );
 }
 
 main().catch((e) => {
