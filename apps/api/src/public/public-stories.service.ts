@@ -41,6 +41,15 @@ export type PublicStoryPayload = {
   }>;
 };
 
+/** M5-T27 — compact row for anonymous discovery list (public visibility only). */
+export type PublicDiscoveryStoryCard = {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  summary: string;
+  published_at: string;
+};
+
 /** M3-T12 — references-only surface (same snapshot rules as full public story read). */
 export type PublicStoryReferencesPayload = {
   slug: string;
@@ -127,6 +136,47 @@ export class PublicStoriesService {
       this.notFound();
     }
     return story;
+  }
+
+  /**
+   * M5-T27 — anonymous discovery feed: only `visibility: public` published stories.
+   * Unlisted remains readable by slug (`GET …/stories/:slug`) but is intentionally omitted here.
+   */
+  async listPublicDiscoverableStories(params?: { limit?: number }): Promise<{
+    discovery_contract: string;
+    limit_applied: number;
+    stories: PublicDiscoveryStoryCard[];
+  }> {
+    const take = Math.min(Math.max(params?.limit ?? 50, 1), 200);
+    const rows = await this.prisma.story.findMany({
+      where: {
+        storyStatus: "published",
+        workflowState: "published",
+        visibility: "public",
+        publishedAt: { not: null },
+      },
+      orderBy: { publishedAt: "desc" },
+      take,
+      select: {
+        slug: true,
+        title: true,
+        subtitle: true,
+        summary: true,
+        publishedAt: true,
+      },
+    });
+    return {
+      discovery_contract:
+        "Listed stories are those with live visibility public only. Unlisted stories are omitted from this list but remain readable at GET /api/v1/stories/:slug. Private stories are omitted and not anonymously readable by slug.",
+      limit_applied: take,
+      stories: rows.map((r) => ({
+        slug: r.slug,
+        title: r.title,
+        subtitle: r.subtitle,
+        summary: r.summary,
+        published_at: r.publishedAt!.toISOString(),
+      })),
+    };
   }
 
   async getPublishedBySlug(slug: string): Promise<PublicStoryPayload> {

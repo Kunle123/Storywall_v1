@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, Query } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
 import { PublicStoriesService } from "./public-stories.service";
@@ -7,6 +7,25 @@ import { PublicStoriesService } from "./public-stories.service";
 @Controller("api/v1/stories")
 export class PublicStoriesController {
   constructor(private readonly stories: PublicStoriesService) {}
+
+  /** M5-T27 — public discovery list; must stay before parametric `:slug` routes. */
+  @Get("discover")
+  async discover(@Query("limit") limitRaw?: string) {
+    let limit = 50;
+    if (limitRaw !== undefined && limitRaw !== "") {
+      const n = Number.parseInt(limitRaw, 10);
+      if (!Number.isNaN(n)) {
+        limit = n;
+      }
+    }
+    const data = await this.stories.listPublicDiscoverableStories({ limit });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data,
+    };
+  }
 
   @Get(":slug/references")
   async getReferencesBySlug(@Param("slug") slug: string) {

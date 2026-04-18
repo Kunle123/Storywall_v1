@@ -1223,8 +1223,9 @@ export function DraftReadyPage() {
                       </code>
                       . <code className="inline-code">public</code> and <code className="inline-code">unlisted</code> allow
                       that read; <code className="inline-code">private</code> means the slug is not served to anonymous
-                      readers. Your <strong>working draft visibility target</strong> in Deck &amp; discovery can differ
-                      until you update the live story.
+                      readers. Anonymous discovery listing is <code className="inline-code">GET /api/v1/stories/discover</code>{" "}
+                      (<code className="inline-code">public</code> only). Your <strong>working draft visibility target</strong>{" "}
+                      in Deck &amp; discovery can differ until you update the live story.
                     </p>
                   </div>
                   <p className="muted small">
@@ -1498,7 +1499,9 @@ export function DraftReadyPage() {
                             At publish, this is copied to the live story row together with the reader snapshot. Only{" "}
                             <code className="inline-code">public</code> or <code className="inline-code">unlisted</code>{" "}
                             allow anonymous read by slug; <code className="inline-code">private</code> keeps the public
-                            read path off.
+                            read path off. Only <code className="inline-code">public</code> appears on{" "}
+                            <code className="inline-code">GET /api/v1/stories/discover</code>; <code className="inline-code">unlisted</code>{" "}
+                            is direct-link only.
                           </>
                         )}
                       </span>
@@ -1517,7 +1520,7 @@ export function DraftReadyPage() {
                             {opt === "public"
                               ? "Public — slug readable without auth"
                               : opt === "unlisted"
-                                ? "Unlisted — slug readable; not promoted in discovery"
+                                ? "Unlisted — slug readable; omitted from GET /api/v1/stories/discover"
                                 : "Private — no anonymous reader page"}
                           </option>
                         ))}
