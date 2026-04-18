@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import { RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION } from "../draft-enrichment/honesty-summary";
+import { buildFallbackEditorialReviewFromHonesty } from "./fallback-from-honesty";
+import { AI_EDITORIAL_REVIEW_SCHEMA_VERSION } from "./types";
+
+describe("buildFallbackEditorialReviewFromHonesty", () => {
+  it("builds findings from honesty rollup and hints", () => {
+    const honesty = {
+      schema_version: RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION,
+      narrative_generation_mode: "deterministic_scaffolding",
+      provenance_traceability: "full_m5_t08",
+      has_mixed_or_weak_support: true,
+      publishable_narrative_posture: "creator_guidance_only",
+      synthesis_retrieval_partial: true,
+      support_status_rollup: {
+        fully_source_backed: 0,
+        partially_source_backed: 1,
+        chronology_thin_sources: 2,
+        unresolved_weak: 1,
+        total_nodes: 10,
+      },
+      ui_hints: ["Check temporal anchors on early events."],
+    };
+    const out = buildFallbackEditorialReviewFromHonesty({
+      storyId: "s",
+      researchJobId: "j",
+      honestyContext: honesty,
+      draftEnrichmentPackage: null,
+      framingReference: null,
+      liveEnrichmentReference: null,
+      provider: "none",
+      promptTemplateKey: "review.editorial_grounded_draft_m5_t12_v1",
+      promptVersion: "1.0.0",
+    });
+    expect(out).not.toBeNull();
+    if (!out) return;
+    expect(out.schema_version).toBe(AI_EDITORIAL_REVIEW_SCHEMA_VERSION);
+    expect(out.review_mode).toBe("deterministic_honesty_fallback");
+    expect(out.review_findings.length).toBeGreaterThanOrEqual(3);
+    expect(out.failure?.code).toBe("editorial_review_used_honesty_fallback");
+  });
+
+  it("returns null when no derivable signals", () => {
+    const honesty = {
+      schema_version: RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION,
+      narrative_generation_mode: "deterministic_scaffolding",
+      provenance_traceability: "full_m5_t08",
+      has_mixed_or_weak_support: false,
+      publishable_narrative_posture: "creator_guidance_only",
+      synthesis_retrieval_partial: false,
+      support_status_rollup: {
+        fully_source_backed: 5,
+        partially_source_backed: 0,
+        chronology_thin_sources: 0,
+        unresolved_weak: 0,
+        total_nodes: 5,
+      },
+      ui_hints: [],
+    };
+    expect(
+      buildFallbackEditorialReviewFromHonesty({
+        storyId: "s",
+        researchJobId: "j",
+        honestyContext: honesty,
+        draftEnrichmentPackage: null,
+        framingReference: null,
+        liveEnrichmentReference: null,
+        provider: "none",
+        promptTemplateKey: "k",
+        promptVersion: "1",
+      }),
+    ).toBeNull();
+  });
+});

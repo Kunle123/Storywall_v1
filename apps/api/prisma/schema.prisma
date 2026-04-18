@@ -566,6 +566,9 @@ model StoryBrief {
   /// M5-T11 — last live AI event/draft enrichment audit envelope (creator guidance; not publishable narrative).
   aiEventDraftEnrichmentPackage Json? @map("ai_event_draft_enrichment_package")
 
+  /// M5-T12 — last AI-assisted editorial review audit envelope (advisory; not authoritative validation).
+  aiEditorialReviewPackage Json? @map("ai_editorial_review_package")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

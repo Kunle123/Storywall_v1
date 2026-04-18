@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * M5-T06–M5-T11 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * M5-T06–M5-T12 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
  * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers,
  * `draft_enrichment_provenance` flat index (M5-T08), `honesty_summary` (M5-T09), **M5-T10** framing audit,
- * and **M5-T11** `POST …/live-event-draft-enrichment/generate` + `live_event_draft_enrichment` on GET package.
+ * **M5-T11** live enrichment, and **M5-T12** `POST …/editorial-review/generate` + `ai_editorial_review` on GET package.
  *
  * Requires (same as smoke-m2-02 / smoke-m2-03):
  * - API running (e.g. `pnpm --filter @storywall/api start` or `dev`)
@@ -348,6 +348,65 @@ async function main() {
   );
   assert(pkg2.data.live_event_draft_enrichment.research_job_id === jobId, "package enrichment scoped to job");
 
+  const editorialRes = await fetch(
+    `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/editorial-review/generate`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: "e2e M5-T12 editorial review" }),
+    },
+  );
+  const editorialJson = await j(editorialRes);
+  assert(editorialRes.ok, `editorial-review/generate ${editorialRes.status} ${JSON.stringify(editorialJson)}`);
+  const rev0 = editorialJson.data?.ai_editorial_review;
+  assert(rev0 && rev0.schema_version === "m5-t12-v1", "M5-T12 schema_version");
+  assert(
+    rev0.review_mode === "live_ai_backed" || rev0.review_mode === "deterministic_honesty_fallback",
+    "M5-T12 review_mode",
+  );
+  assert(rev0.research_job_id === jobId, "M5-T12 research_job_id");
+  assert(rev0.prompt_template_key === "review.editorial_grounded_draft_m5_t12_v1", "M5-T12 prompt key");
+  assert(typeof rev0.provider === "string" && rev0.provider.length >= 1, "M5-T12 provider");
+  assert(rev0.honesty_context && rev0.honesty_context.schema_version === "m5-t09-v1", "M5-T12 honesty_context");
+  assert(Array.isArray(rev0.review_findings), "M5-T12 review_findings array");
+  assert(
+    rev0.review_findings.length >= 1,
+    "expected at least one editorial finding (live model or honesty-derived fallback)",
+  );
+  const refCount = rev0.review_findings.reduce(
+    (n, f) => n + (Array.isArray(f.grounding_refs) ? f.grounding_refs.length : 0),
+    0,
+  );
+  assert(
+    refCount >= 1 || rev0.review_mode === "live_ai_backed",
+    "expected grounding refs on honesty-derived findings (live path may omit refs occasionally)",
+  );
+  assert(typeof rev0.overall_editorial_posture === "string" && rev0.overall_editorial_posture.length >= 20, "posture");
+  assert(
+    typeof rev0.not_authoritative_review_note === "string" && rev0.not_authoritative_review_note.length > 40,
+    "not_authoritative_review_note",
+  );
+  if (rev0.review_mode === "live_ai_backed") {
+    assert(rev0.status === "succeeded", "M5-T12 live status");
+    assert(rev0.failure === null, "M5-T12 live no failure");
+    assert(typeof rev0.model === "string" && rev0.model.length >= 1, "M5-T12 model label");
+  } else {
+    assert(rev0.status === "fallback_deterministic", "M5-T12 fallback status");
+    assert(rev0.failure && typeof rev0.failure.code === "string", "M5-T12 fallback failure");
+  }
+
+  const pkg3Res = await fetch(
+    `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/package`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const pkg3 = await j(pkg3Res);
+  assert(pkg3Res.ok, `GET package after M5-T12 ${pkg3Res.status}`);
+  assert(
+    pkg3.data?.ai_editorial_review && pkg3.data.ai_editorial_review.schema_version === "m5-t12-v1",
+    "GET package echoes ai_editorial_review for same job",
+  );
+  assert(pkg3.data.ai_editorial_review.research_job_id === jobId, "package editorial review scoped to job");
+
   if (syn.retrieval_mode === "live") {
     const wiki = pkg.data.candidate_sources.some(
       (s) => typeof s.source_url === "string" && s.source_url.includes("en.wikipedia.org"),
@@ -357,7 +416,7 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log(
-    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation + M5-T11 live_event_draft_enrichment e2e passed.",
+    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation + M5-T11 live_event_draft_enrichment + M5-T12 ai_editorial_review e2e passed.",
   );
 }
 

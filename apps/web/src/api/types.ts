@@ -414,6 +414,16 @@ export interface GetResearchPackageSuccess {
     candidate_sources: unknown[];
     /** M5-T11 — when persisted for this job id. */
     live_event_draft_enrichment?: unknown | null;
+    /** M5-T12 — when persisted for this job id. */
+    ai_editorial_review?: unknown | null;
+  };
+}
+
+/** POST …/research/jobs/:jobId/editorial-review/generate (M5-T12). */
+export interface GenerateEditorialReviewSuccess {
+  ok: true;
+  data: {
+    ai_editorial_review: unknown;
   };
 }
 

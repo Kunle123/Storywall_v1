@@ -26,6 +26,9 @@ export * from "./ai-framing-generation";
 // --- M5-T11 — live AI event + draft/section enrichment audit package ---
 export * from "./ai-live-enrichment";
 
+// --- M5-T12 — AI-assisted editorial review audit package ---
+export * from "./ai-editorial-review";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

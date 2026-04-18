@@ -29,6 +29,7 @@ import type {
   SectionDraftResponse,
   RunResearchPassBody,
   RunResearchPassSuccess,
+  GenerateEditorialReviewSuccess,
   GetResearchPackageSuccess,
   SelectFrameSuccess,
   StoryDraftResponse,
@@ -435,6 +436,28 @@ export async function getResearchPackage(
     throw new ApiRequestError(`Get research package failed (${res.status})`, res.status, data);
   }
   return data as GetResearchPackageSuccess;
+}
+
+/** M5-T12 — grounded AI-assisted editorial review (live or honest fallback). */
+export async function generateEditorialReview(
+  token: string,
+  storyId: string,
+  jobId: string,
+  body: { notes?: string } = {},
+): Promise<GenerateEditorialReviewSuccess> {
+  const res = await fetch(
+    `${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/research/jobs/${encodeURIComponent(jobId)}/editorial-review/generate`,
+    {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Editorial review failed (${res.status})`, res.status, data);
+  }
+  return data as GenerateEditorialReviewSuccess;
 }
 
 /** Mutation §11.1 */

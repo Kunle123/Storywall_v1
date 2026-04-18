@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
-import { ApiRequestError, getCreatorJob, getResearchPackage, listFrames } from "../api/creatorClient";
+import { ApiRequestError, generateEditorialReview, getCreatorJob, getResearchPackage, listFrames } from "../api/creatorClient";
 import type { CreatorJobPollData, ResearchPackageHonestySummary } from "../api/types";
 import { ResearchPackageHonestyPanel } from "../components/ResearchPackageHonestyPanel";
 import { useAuth } from "../auth/AuthProvider";
@@ -25,6 +25,15 @@ export function JobStatusPage() {
   const [pollError, setPollError] = useState<string | null>(null);
   const [terminal, setTerminal] = useState<TerminalView | null>(null);
   const [finishing, setFinishing] = useState(false);
+
+  const [honestySummary, setHonestySummary] = useState<ResearchPackageHonestySummary | null>(null);
+  const [honestyLoading, setHonestyLoading] = useState(false);
+  const [honestyError, setHonestyError] = useState<string | null>(null);
+
+  const [editorialReview, setEditorialReview] = useState<unknown | null>(null);
+  const [editorialLoading, setEditorialLoading] = useState(false);
+  const [editorialError, setEditorialError] = useState<string | null>(null);
+  const [editorialRunning, setEditorialRunning] = useState(false);
 
   const stoppedRef = useRef(false);
 
@@ -114,18 +123,24 @@ export function JobStatusPage() {
     }
     let cancelled = false;
     setHonestyLoading(true);
+    setEditorialLoading(true);
     setHonestyError(null);
     void (async () => {
       try {
         const res = await getResearchPackage(token, storyId, jobId);
         if (cancelled) return;
         setHonestySummary(res.data.honesty_summary);
+        setEditorialReview(res.data.ai_editorial_review ?? null);
       } catch (e) {
         if (cancelled) return;
         setHonestySummary(null);
+        setEditorialReview(null);
         setHonestyError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load research package honesty summary.");
       } finally {
-        if (!cancelled) setHonestyLoading(false);
+        if (!cancelled) {
+          setHonestyLoading(false);
+          setEditorialLoading(false);
+        }
       }
     })();
     return () => {
@@ -142,6 +157,32 @@ export function JobStatusPage() {
   }
 
   const wfHint = job ? workflowLabelForJobKind(job.kind) : "—";
+
+  async function runEditorialReview() {
+    if (!token || !storyId || !jobId) return;
+    setEditorialRunning(true);
+    setEditorialError(null);
+    try {
+      const res = await generateEditorialReview(token, storyId, jobId, { notes: "Job status page" });
+      setEditorialReview(res.data.ai_editorial_review);
+    } catch (e) {
+      setEditorialError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Editorial review request failed.");
+    } finally {
+      setEditorialRunning(false);
+    }
+  }
+
+  const editorial = editorialReview as
+    | {
+        schema_version?: string;
+        review_mode?: string;
+        status?: string;
+        review_findings?: Array<{ id?: string; severity?: string; category?: string; explanation?: string }>;
+        overall_editorial_posture?: string;
+        failure?: { code?: string; message?: string } | null;
+      }
+    | null
+    | undefined;
 
   return (
     <div className="page">
@@ -185,6 +226,53 @@ export function JobStatusPage() {
             section 7).
           </p>
           <ResearchPackageHonestyPanel summary={honestySummary} loading={honestyLoading} error={honestyError} />
+          <div style={{ marginTop: "1rem" }}>
+            <h3 className="gen-card-title" style={{ fontSize: "1rem" }}>
+              AI editorial review (M5-T12)
+            </h3>
+            <p className="muted small" style={{ marginBottom: "0.75rem" }}>
+              Advisory only — not authoritative validation. Uses the same AI runtime as framing/enrichment when enabled.
+            </p>
+            {editorialError ? <div className="banner error">{editorialError}</div> : null}
+            {editorialLoading ? <p className="muted small">Loading prior review…</p> : null}
+            {!editorialLoading && editorial?.schema_version === "m5-t12-v1" ? (
+              <div className="muted small" style={{ marginBottom: "0.5rem" }}>
+                <strong>Mode:</strong> {editorial.review_mode} · <strong>Status:</strong> {editorial.status}
+                {editorial.failure ? (
+                  <>
+                    {" "}
+                    · <strong>Fallback:</strong> {editorial.failure.code}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {!editorialLoading && editorial?.review_findings && editorial.review_findings.length > 0 ? (
+              <ul style={{ paddingLeft: "1.1rem", maxHeight: "14rem", overflow: "auto" }}>
+                {editorial.review_findings.slice(0, 8).map((f) => (
+                  <li key={f.id ?? f.explanation} style={{ marginBottom: "0.5rem" }}>
+                    <span className="muted small">
+                      [{f.severity ?? "?"}/{f.category ?? "?"}]
+                    </span>{" "}
+                    {f.explanation}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!editorialLoading && editorial?.overall_editorial_posture ? (
+              <p className="small" style={{ marginTop: "0.5rem" }}>
+                <strong>Posture:</strong> {editorial.overall_editorial_posture}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="btn ghost inline"
+              style={{ marginTop: "0.5rem" }}
+              disabled={editorialRunning || !token}
+              onClick={() => void runEditorialReview()}
+            >
+              {editorialRunning ? "Running review…" : editorial ? "Re-run editorial review" : "Run editorial review"}
+            </button>
+          </div>
           <ul className="gen-next-list">
             {terminal.workflow === "awaiting_framing_choice" ? (
               <li>

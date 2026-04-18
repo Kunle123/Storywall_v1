@@ -297,6 +297,8 @@ export class ResearchService {
     candidateSources: ResearchCandidateSource[];
     /** M5-T11 — persisted live enrichment when its `research_job_id` matches this job. */
     liveEventDraftEnrichment: unknown | null;
+    /** M5-T12 — persisted editorial review when its `research_job_id` matches this job. */
+    aiEditorialReview: unknown | null;
   }> {
     const { storyId, jobId, creatorId } = params;
 
@@ -342,7 +344,7 @@ export class ResearchService {
 
     const briefRow = await this.prisma.storyBrief.findUnique({
       where: { storyId },
-      select: { aiEventDraftEnrichmentPackage: true },
+      select: { aiEventDraftEnrichmentPackage: true, aiEditorialReviewPackage: true },
     });
     let liveEventDraftEnrichment: unknown | null = null;
     const stored = briefRow?.aiEventDraftEnrichmentPackage;
@@ -352,12 +354,21 @@ export class ResearchService {
         liveEventDraftEnrichment = stored;
       }
     }
+    let aiEditorialReview: unknown | null = null;
+    const storedReview = briefRow?.aiEditorialReviewPackage;
+    if (storedReview && typeof storedReview === "object" && !Array.isArray(storedReview)) {
+      const rjid = (storedReview as { research_job_id?: string }).research_job_id;
+      if (rjid === jobId) {
+        aiEditorialReview = storedReview;
+      }
+    }
 
     return {
       jobStatus: job.status,
       artifact: job.artifact,
       candidateSources: job.candidateSources,
       liveEventDraftEnrichment,
+      aiEditorialReview,
     };
   }
 

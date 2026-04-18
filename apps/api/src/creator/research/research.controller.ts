@@ -21,7 +21,9 @@ import { OwnershipService } from "../ownership.service";
 import { RunResearchPassDto } from "./dto/run-research-pass.dto";
 import { chronologyAssemblyToApi } from "./chronology-to-api";
 import { researchArtifactToApi, researchCandidateSourceToApi } from "./research-package-to-api";
+import { GenerateEditorialReviewDto } from "./dto/generate-editorial-review.dto";
 import { GenerateLiveEnrichmentDto } from "./dto/generate-live-enrichment.dto";
+import { EditorialReviewService } from "./editorial-review.service";
 import { LiveEnrichmentService } from "./live-enrichment.service";
 import { ResearchService } from "./research.service";
 
@@ -65,6 +67,7 @@ export class ResearchController {
   constructor(
     private readonly research: ResearchService,
     private readonly liveEnrichment: LiveEnrichmentService,
+    private readonly editorialReview: EditorialReviewService,
     private readonly ownership: OwnershipService,
   ) {}
 
@@ -123,6 +126,8 @@ export class ResearchController {
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
         /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */
         live_event_draft_enrichment: pkg.liveEventDraftEnrichment,
+        /** M5-T12 — AI-assisted editorial review when stored for this job (null otherwise). */
+        ai_editorial_review: pkg.aiEditorialReview,
       },
     };
   }
@@ -131,6 +136,33 @@ export class ResearchController {
    * M5-T11 — generate and persist grounded event + section enrichment (live model or honest fallback).
    * Requires a succeeded research job with chronology + synthesis (same as GET package).
    */
+  /**
+   * M5-T12 — generate and persist grounded editorial review (live model or honest fallback).
+   */
+  @Post(":storyId/research/jobs/:jobId/editorial-review/generate")
+  async generateEditorialReview(
+    @Param("storyId") storyId: string,
+    @Param("jobId") jobId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: GenerateEditorialReviewDto,
+  ) {
+    await this.ownership.assertOwnsStory(storyId, creator.id);
+    const review = await this.editorialReview.generateAndPersist({
+      storyId,
+      jobId,
+      creatorId: creator.id,
+      dto: body,
+    });
+    return {
+      ok: true,
+      request_id: randomUUID(),
+      api_version: API_CONTRACT_VERSION,
+      data: {
+        ai_editorial_review: review,
+      },
+    };
+  }
+
   @Post(":storyId/research/jobs/:jobId/live-event-draft-enrichment/generate")
   async generateLiveEventDraftEnrichment(
     @Param("storyId") storyId: string,

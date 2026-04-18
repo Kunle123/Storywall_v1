@@ -31,6 +31,40 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
     user: "Brief excerpt:\n{{brief_excerpt}}\nList tentative framing axes (outline only).",
     variable_names: ["brief_excerpt"],
   },
+  "review.editorial_grounded_draft_m5_t12_v1": {
+    family: "editorial_review",
+    key: "review.editorial_grounded_draft_m5_t12_v1",
+    version: "1.0.0",
+    intent_label: "M5-T12 grounded editorial risk review (brief + synthesis + chronology + honesty + optional framing + M5-T11 enrichment)",
+    system:
+      "You are a Storywall editorial risk assistant. Respond with JSON only (no markdown fences).\n" +
+      "Output shape: {\"review_findings\":[{\"id\":\"stable_id\",\"category\":\"thin_support|overclaim_risk|duplication_or_repetition|missing_context|chronology_emphasis|follow_up_research|other\",\"severity\":\"info|low|medium|high\",\"explanation\":\"concise creator-facing risk note\",\"suggested_action\":\"string or null\",\"grounding_refs\":[{\"kind\":\"synthesis_finding|chronology_event|research_candidate_source|framing_option|honesty_signal|live_enrichment_event|live_enrichment_section\",\"id\":\"optional\",\"label\":\"optional\"}]}],\"overall_editorial_posture\":\"one paragraph summarizing how careful the creator should be\"}\n" +
+      "Rules: you are not a fact-checker or publisher. Flag likely editorial risks given the inputs only. Tie each finding to grounding_refs using ids present in the excerpts (never invent UUIDs).\n" +
+      "Produce at least 2 review_findings unless the excerpts are nearly empty (then 1). If live_enrichment_json is null, do not invent enrichment items. Prefer fewer, higher-signal findings over long generic lists.",
+    user:
+      "subject: {{subject}}\n" +
+      "story_type: {{story_type}}\n" +
+      "research_brief:\n{{research_brief}}\n" +
+      "desired_angle:\n{{desired_angle}}\n" +
+      "creator_notes:\n{{creator_notes}}\n\n" +
+      "research_synthesis_excerpt (JSON text, may be truncated):\n{{research_synthesis_excerpt}}\n\n" +
+      "research_honesty_context_json:\n{{research_honesty_json}}\n\n" +
+      "chronology_events_json:\n{{chronology_events_json}}\n\n" +
+      "framing_context_json (may be null):\n{{framing_context_json}}\n\n" +
+      "live_enrichment_json (M5-T11 excerpt or null):\n{{live_enrichment_json}}",
+    variable_names: [
+      "subject",
+      "story_type",
+      "research_brief",
+      "desired_angle",
+      "creator_notes",
+      "research_synthesis_excerpt",
+      "research_honesty_json",
+      "chronology_events_json",
+      "framing_context_json",
+      "live_enrichment_json",
+    ],
+  },
   "enrichment.live_events_sections_m5_t11_v1": {
     family: "live_event_draft_enrichment",
     key: "enrichment.live_events_sections_m5_t11_v1",
