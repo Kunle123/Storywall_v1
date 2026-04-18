@@ -168,7 +168,7 @@ export function CreatorWorkspaceLayout() {
             ) : null}
             <p className="creator-workspace-rail__text muted small">
               {briefTeaser ??
-                "Open the Brief tab first: intake, research, framing generation, and draft assembly all start there before the Draft tab can load a full manuscript."}
+                "Open the Brief tab first: intake, the research job (deterministic package + optional retrieval), framing generation (live or scaffolding when enabled), and draft assembly all start there before the Draft tab can load a full manuscript."}
             </p>
             <p className="creator-workspace-rail__actions">
               <Link to={`${base}/brief`} className="creator-workspace-rail__link">

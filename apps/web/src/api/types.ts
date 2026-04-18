@@ -104,6 +104,8 @@ export interface ListFramesSuccess {
     frame_drafts: FrameDraftResponse[];
     /** Present when a `story_draft` row exists (after frame select / assembly). */
     story_draft: StoryDraftResponse | null;
+    /** M5-T10 audit envelope: live vs deterministic framing (when present). */
+    ai_framing_generation?: unknown | null;
   };
 }
 

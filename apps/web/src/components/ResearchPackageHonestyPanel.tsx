@@ -57,8 +57,13 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
     <div className="card research-honesty-panel" role="region" aria-label="Research package honesty summary">
       <h3 className="research-honesty-title">Research honesty signals</h3>
       <p className="research-honesty-lead">
-        This pass is <strong>deterministic research scaffolding</strong> (retrieval + synthesis + chronology rules), not live
-        AI-authored story prose.
+        This package is <strong>deterministic research scaffolding</strong> (retrieval when enabled, then synthesis + chronology +
+        enrichment rules). It is <strong>not</strong> implied live-authored narrative prose.
+      </p>
+      <p className="muted small" style={{ marginTop: "0.35rem" }}>
+        Separate optional steps — <strong>live</strong> framing (M5-T10), event/section enrichment (M5-T11), and editorial
+        review (M5-T12) — only run when your host arms the AI runtime and you trigger those actions; their modes are stored in
+        their own audit envelopes, not in this honesty block.
       </p>
       <ul className="research-honesty-badges" aria-label="Status badges">
         <li>

@@ -571,6 +571,12 @@ export function BriefIntakeFields({
             ))}
           </select>
         </label>
+        {value.creation_mode === "ai_first" ? (
+          <p className="hint small" style={{ marginTop: "0.35rem" }}>
+            “AI-first” means Storywall&apos;s workflow can call <strong>live</strong> model steps where the host enables them;
+            research packaging, honesty rails, and fallbacks remain rule-based unless those steps succeed.
+          </p>
+        ) : null}
       </section>
 
       <section className="brief-section">

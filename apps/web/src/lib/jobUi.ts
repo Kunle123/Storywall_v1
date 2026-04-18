@@ -1,4 +1,5 @@
 import type { CreatorJobPollData } from "../api/types";
+import { researchJobOutputExplainer } from "./capabilityHonestyCopy";
 
 /** User-facing line for API job status (pending | running | succeeded | failed | cancelled). */
 export function describeJobLifecycle(status: string): string {
@@ -19,7 +20,12 @@ export function describeJobLifecycle(status: string): string {
 }
 
 export function generationHeadline(job: Pick<CreatorJobPollData, "kind">): string {
-  return job.kind === "research_run" ? "Research in progress" : "Assembling your draft";
+  return job.kind === "research_run" ? "Research job in progress" : "Draft assembly in progress";
+}
+
+/** What the finished job layer produces — distinct from end-to-end “AI author”. */
+export function describeJobCapability(job: Pick<CreatorJobPollData, "kind">): string {
+  return researchJobOutputExplainer(job.kind);
 }
 
 export function workflowLabelForJobKind(kind: CreatorJobPollData["kind"]): string {

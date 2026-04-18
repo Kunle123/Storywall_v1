@@ -6,7 +6,8 @@ import type { CreatorJobPollData, ResearchPackageHonestySummary } from "../api/t
 import { ResearchPackageHonestyPanel } from "../components/ResearchPackageHonestyPanel";
 import { useAuth } from "../auth/AuthProvider";
 import { clearActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
-import { describeJobLifecycle, generationHeadline, workflowLabelForJobKind } from "../lib/jobUi";
+import { editorialReviewCapabilitySummary } from "../lib/capabilityHonestyCopy";
+import { describeJobCapability, describeJobLifecycle, generationHeadline, workflowLabelForJobKind } from "../lib/jobUi";
 
 const POLL_MS = 2000;
 
@@ -172,17 +173,7 @@ export function JobStatusPage() {
     }
   }
 
-  const editorial = editorialReview as
-    | {
-        schema_version?: string;
-        review_mode?: string;
-        status?: string;
-        review_findings?: Array<{ id?: string; severity?: string; category?: string; explanation?: string }>;
-        overall_editorial_posture?: string;
-        failure?: { code?: string; message?: string } | null;
-      }
-    | null
-    | undefined;
+  const editorialCaps = editorialReviewCapabilitySummary(editorialReview);
 
   return (
     <div className="page">
@@ -220,47 +211,59 @@ export function JobStatusPage() {
 
       {terminal?.kind === "research_done" ? (
         <div className="card gen-terminal">
-          <h2 className="gen-card-title">Research complete</h2>
+          <h2 className="gen-card-title">Research job complete</h2>
           <p>
-            Story workflow is now <strong>{terminal.workflow}</strong>. Your next step depends on that state (creator workflow
-            section 7).
+            Workflow is now <strong>{terminal.workflow}</strong>. The research package you just built is mostly{" "}
+            <strong>deterministic scaffolding</strong> (retrieval when enabled, then synthesis + chronology + enrichment rules)
+            with honesty signals — not a single live-authored story.
+          </p>
+          <p className="muted small" style={{ marginTop: "0.5rem" }}>
+            Optional <strong>live</strong> steps (framing, event/section enrichment, editorial review) only run when your host
+            enables the AI runtime and you trigger those actions separately.
           </p>
           <ResearchPackageHonestyPanel summary={honestySummary} loading={honestyLoading} error={honestyError} />
           <div style={{ marginTop: "1rem" }}>
             <h3 className="gen-card-title" style={{ fontSize: "1rem" }}>
-              AI editorial review (M5-T12)
+              Editorial risk review (optional, M5-T12)
             </h3>
             <p className="muted small" style={{ marginBottom: "0.75rem" }}>
-              Advisory only — not authoritative validation. Uses the same AI runtime as framing/enrichment when enabled.
+              <strong>Advisory only</strong> — not validation, not legal review, and not a publishability score. When the live
+              model path is off or fails, Storywall may surface the same risks using honesty/coverage-gap signals instead.
             </p>
             {editorialError ? <div className="banner error">{editorialError}</div> : null}
-            {editorialLoading ? <p className="muted small">Loading prior review…</p> : null}
-            {!editorialLoading && editorial?.schema_version === "m5-t12-v1" ? (
+            {editorialLoading ? <p className="muted small">Loading any saved review…</p> : null}
+            {!editorialLoading && editorialReview && (editorialReview as { schema_version?: string }).schema_version === "m5-t12-v1" ? (
               <div className="muted small" style={{ marginBottom: "0.5rem" }}>
-                <strong>Mode:</strong> {editorial.review_mode} · <strong>Status:</strong> {editorial.status}
-                {editorial.failure ? (
-                  <>
-                    {" "}
-                    · <strong>Fallback:</strong> {editorial.failure.code}
-                  </>
-                ) : null}
+                <strong>How produced:</strong> {editorialCaps.modeLabel} · <strong>Outcome:</strong> {editorialCaps.statusLabel}
               </div>
             ) : null}
-            {!editorialLoading && editorial?.review_findings && editorial.review_findings.length > 0 ? (
+            {editorialCaps.fallbackNote ? (
+              <p className="hint small" style={{ marginBottom: "0.5rem" }}>
+                {editorialCaps.fallbackNote}
+              </p>
+            ) : null}
+            {!editorialLoading &&
+            editorialReview &&
+            Array.isArray((editorialReview as { review_findings?: unknown }).review_findings) ? (
               <ul style={{ paddingLeft: "1.1rem", maxHeight: "14rem", overflow: "auto" }}>
-                {editorial.review_findings.slice(0, 8).map((f) => (
-                  <li key={f.id ?? f.explanation} style={{ marginBottom: "0.5rem" }}>
-                    <span className="muted small">
-                      [{f.severity ?? "?"}/{f.category ?? "?"}]
-                    </span>{" "}
-                    {f.explanation}
-                  </li>
-                ))}
+                {(
+                  (editorialReview as { review_findings: Array<{ id?: string; severity?: string; category?: string; explanation?: string }> })
+                    .review_findings
+                )
+                  .slice(0, 8)
+                  .map((f) => (
+                    <li key={f.id ?? f.explanation} style={{ marginBottom: "0.5rem" }}>
+                      <span className="muted small">
+                        [{f.severity ?? "?"}/{f.category ?? "?"}]
+                      </span>{" "}
+                      {f.explanation}
+                    </li>
+                  ))}
               </ul>
             ) : null}
-            {!editorialLoading && editorial?.overall_editorial_posture ? (
+            {!editorialLoading && (editorialReview as { overall_editorial_posture?: string } | null)?.overall_editorial_posture ? (
               <p className="small" style={{ marginTop: "0.5rem" }}>
-                <strong>Posture:</strong> {editorial.overall_editorial_posture}
+                <strong>Posture:</strong> {(editorialReview as { overall_editorial_posture: string }).overall_editorial_posture}
               </p>
             ) : null}
             <button
@@ -270,7 +273,7 @@ export function JobStatusPage() {
               disabled={editorialRunning || !token}
               onClick={() => void runEditorialReview()}
             >
-              {editorialRunning ? "Running review…" : editorial ? "Re-run editorial review" : "Run editorial review"}
+              {editorialRunning ? "Running review…" : editorialReview ? "Re-run editorial review" : "Run editorial review"}
             </button>
           </div>
           <ul className="gen-next-list">
@@ -344,6 +347,9 @@ export function JobStatusPage() {
             <span className={`gen-pill gen-pill-${job.status}`}>{job.status}</span>
           </div>
           <p className="gen-status-body">{describeJobLifecycle(job.status)}</p>
+          <p className="hint small" style={{ marginTop: "0.35rem" }}>
+            {describeJobCapability(job)}
+          </p>
           <dl className="gen-meta">
             <div>
               <dt>Job</dt>

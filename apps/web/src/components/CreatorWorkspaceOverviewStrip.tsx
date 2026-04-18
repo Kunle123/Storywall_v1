@@ -13,7 +13,8 @@ export function CreatorWorkspaceOverviewStrip(props: CreatorWorkspaceOverviewStr
       <div className="creator-overview__head">
         <h2 className="creator-overview__title">Editorial overview</h2>
         <p className="creator-overview__lead muted small">
-          Live signals from your brief, framing row, draft lists, checks, and publish state — no synthetic scores.
+          Current counts from your brief, framing row, draft lists, checks, and publish state — no synthetic scores or hidden AI
+          quality grades.
         </p>
       </div>
       {loading ? (

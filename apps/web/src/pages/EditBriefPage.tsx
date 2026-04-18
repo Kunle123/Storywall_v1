@@ -245,7 +245,7 @@ export function EditBriefPage() {
 
       {storyState === "researching" || storyState === "assembling_draft" ? (
         <div className="banner warn" style={{ marginBottom: "1rem" }}>
-          <strong>Generation is in progress on the server.</strong>{" "}
+          <strong>A long-running server job is in progress.</strong>{" "}
           {activeJobId ? (
             <>
               <Link to={`/creator/stories/${storyId}/jobs/${activeJobId}`}>Open generation status</Link> to watch the unified
@@ -262,11 +262,13 @@ export function EditBriefPage() {
 
       {storyState === "awaiting_framing_choice" || storyState === "ready_for_edit" ? (
         <div className="card gen-actions-card" style={{ marginBottom: "1rem" }}>
-          <h2 className="gen-actions-title">AI generation (M2)</h2>
+          <h2 className="gen-actions-title">Research &amp; draft assembly jobs</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Long-running jobs use one poll endpoint: <code className="inline-code">GET /api/v1/creator/jobs/:jobId</code>. After
-            draft assembly succeeds and workflow is <code className="inline-code">ready_for_edit</code>, you will enter the draft
-            workspace.
+            <strong>Research pass</strong> queues bounded retrieval (when your host enables it), then writes a deterministic
+            research package — synthesis, chronology, and draft enrichment with honesty signals — not a full live “AI author”
+            story. <strong>Assemble full draft</strong> builds a starter manuscript shell from that material. Poll jobs via{" "}
+            <code className="inline-code">GET /api/v1/creator/jobs/:jobId</code>. After assembly succeeds and workflow is{" "}
+            <code className="inline-code">ready_for_edit</code>, open the Draft tab.
           </p>
           <div className="gen-actions-row">
             <button

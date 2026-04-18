@@ -53,8 +53,8 @@ export function NewStoryBriefPage() {
         <div>
           <h1 className="page-title">Start a new Storywall</h1>
           <p className="page-lead muted">
-            Set the canonical brief—title, summary, angle, and scope—before research or drafting. Workflow:{" "}
-            <strong>drafting brief</strong>.
+            Set the canonical brief—title, summary, angle, and scope—before research or drafting. Research and enrichment layers
+            are grounded and mostly deterministic unless your host enables optional live model steps later.
           </p>
         </div>
         <div className="creator-header-actions">

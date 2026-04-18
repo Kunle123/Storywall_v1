@@ -4,6 +4,7 @@ import type { CreatorWorkflowState } from "@storywall/shared";
 import { ApiRequestError, listFrames, selectFrame } from "../api/creatorClient";
 import type { FrameDraftResponse, StoryBriefResponse } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { framingCapabilitySummary } from "../lib/capabilityHonestyCopy";
 import { cacheBriefWorkspace, loadBriefCache } from "../lib/briefCache";
 
 export function FramingChoosePage() {
@@ -17,6 +18,7 @@ export function FramingChoosePage() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [aiFraming, setAiFraming] = useState<unknown | null>(null);
   /** Stable per visit so retries / double-submit replay the same successful outcome (mutation §10.2). */
   const selectIdempotencyKeyRef = useRef<string | null>(null);
   if (!selectIdempotencyKeyRef.current) {
@@ -33,6 +35,7 @@ export function FramingChoosePage() {
         if (cancelled) return;
         setStoryState(r.data.story_state);
         setFrames(r.data.frame_drafts);
+        setAiFraming(r.data.ai_framing_generation ?? null);
         const c = loadBriefCache(storyId);
         if (c?.story_brief) {
           cacheBriefWorkspace(storyId, {
@@ -91,6 +94,7 @@ export function FramingChoosePage() {
   }
 
   const canChoose = storyState === "awaiting_framing_choice" && frames.length > 0;
+  const framingCaps = framingCapabilitySummary(aiFraming);
 
   return (
     <div className="page">
@@ -101,17 +105,27 @@ export function FramingChoosePage() {
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
 
+      {framingCaps ? (
+        <div className="banner" style={{ background: "#f4f6fb", borderColor: "#c8d0e0", marginBottom: "1rem" }} role="status">
+          <strong>{framingCaps.title}</strong>
+          <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
+            {framingCaps.body}
+          </p>
+        </div>
+      ) : null}
+
       {!canChoose && !loadError ? (
         <div className="card">
           {storyState === "awaiting_framing_choice" && frames.length === 0 ? (
             <>
               <p>
-                <strong>No framing candidates yet.</strong> From the brief workspace, run framing generation, wait for
-                options to appear, then return here to pick one.
+                <strong>No framing candidates yet.</strong> From the brief workspace, run framing generation (live model when
+                the host enables the AI runtime, otherwise deterministic scaffolding), wait for options to appear, then return
+                here to pick one.
               </p>
               <p className="muted small" style={{ marginTop: "0.5rem" }}>
-                If generation already finished, refresh this page — candidates only load when the server lists them as
-                proposed.
+                If generation already finished, refresh this page — candidates only load when the server lists them as{" "}
+                <code className="inline-code">proposed</code>.
               </p>
             </>
           ) : storyState === "ready_for_edit" ? (
