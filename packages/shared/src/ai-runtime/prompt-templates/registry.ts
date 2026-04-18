@@ -106,13 +106,15 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
       "You are a Storywall editorial assistant. Respond with JSON only (no markdown fences).\n" +
       "Output shape: {\"framing_options\":[{\"id\":\"stable_id\",\"title\":\"short title\",\"angle_description\":\"possible angle\",\"narrative_emphasis\":\"lens / emphasis\",\"caution_note\":\"string or null\",\"grounding_refs\":[{\"kind\":\"synthesis_finding|synthesis_cluster|honesty_signal\",\"id\":\"optional uuid\",\"label\":\"optional\"}]}]}\n" +
       "Rules: produce exactly 3 framing_options unless the research excerpt is nearly empty (then 2). These are creator-selectable story angles and narrative lenses—not a finished article.\n" +
-      "Do not claim full source verification. Use honesty_signal refs when noting thin or mixed support. Never invent UUIDs not present in the research excerpt.",
+      "Do not claim full source verification. Use honesty_signal refs when noting thin or mixed support. Never invent UUIDs not present in the research excerpt.\n" +
+      "Prefer the structured synthesis brief for human-readable clusters and findings; use the JSON excerpt only for UUIDs and exact ids.",
     user:
       "subject: {{subject}}\n" +
       "story_type: {{story_type}}\n" +
       "research_brief:\n{{research_brief}}\n" +
       "desired_angle:\n{{desired_angle}}\n" +
       "creator_notes:\n{{creator_notes}}\n\n" +
+      "research_synthesis_structured_brief (deterministic M5-T24 spine — clusters + findings):\n{{research_synthesis_structured_brief}}\n\n" +
       "research_synthesis_excerpt (JSON text, may be truncated):\n{{research_synthesis_excerpt}}\n\n" +
       "research_honesty_context_json:\n{{research_honesty_json}}",
     variable_names: [
@@ -121,6 +123,7 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
       "research_brief",
       "desired_angle",
       "creator_notes",
+      "research_synthesis_structured_brief",
       "research_synthesis_excerpt",
       "research_honesty_json",
     ],

@@ -574,6 +574,10 @@ export class FramesService {
           grounding.research_synthesis_excerpt.trim().length > 0
             ? grounding.research_synthesis_excerpt
             : "(no research_synthesis_package yet — rely on brief only; do not invent sources.)",
+        research_synthesis_structured_brief:
+          grounding.research_synthesis_structured_brief.trim().length > 0
+            ? grounding.research_synthesis_structured_brief
+            : "(no structured synthesis brief yet — use JSON excerpt + brief only.)",
         research_honesty_json: JSON.stringify(grounding.honesty_summary).slice(0, 8000),
       };
       const rendered = renderPromptTemplate(def, variables);

@@ -44,6 +44,25 @@ function honestyBase(overrides: Partial<ResearchPackageHonestySummary> = {}): Re
       next_action:
         "Treat findings as structural only; enable live retrieval and re-run when you need web-grounded evidence, or add manual sources.",
     },
+    synthesis_orchestration: {
+      tier: "partial",
+      evidence: {
+        finding_total: 8,
+        sourced_claim_count: 4,
+        gap_note_count: 1,
+        synthesis_summary_count: 1,
+        cluster_count: 1,
+        cluster_member_link_count: 4,
+      },
+      consumer_alignment: {
+        framing_live_prompt_includes_structured_brief: true,
+        chronology_events_materialized: 6,
+        draft_enrichment_package_materialized: true,
+      },
+      pipeline_materialization_coherent: true,
+      headline: "Synthesis orchestration: partial — usable clusters and sourced claims exist.",
+      next_action: "Proceed to framing selection and draft assembly while tightening claims where synthesis gaps remain.",
+    },
     ui_hints: [],
     ...overrides,
   };

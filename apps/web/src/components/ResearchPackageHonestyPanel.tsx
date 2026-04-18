@@ -123,6 +123,74 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
           thin / partial / solid signals here.
         </p>
       )}
+      {summary.synthesis_orchestration ? (
+        <div
+          className="research-synthesis-orchestration"
+          data-testid="research-synthesis-orchestration-rail"
+          role="region"
+          aria-label="Synthesis orchestration assessment"
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.65rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-muted, rgba(0,0,0,0.12))",
+            background: "var(--panel-subtle, rgba(0,0,0,0.03))",
+          }}
+        >
+          <p className="muted small" style={{ margin: 0, fontWeight: 600 }}>
+            Synthesis orchestration (M5-T24)
+          </p>
+          <p className="small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <span
+              className={`research-honesty-badge${
+                summary.synthesis_orchestration.tier === "thin" ? " research-honesty-badge--warn" : ""
+              }`}
+            >
+              {summary.synthesis_orchestration.tier}
+            </span>{" "}
+            {summary.synthesis_orchestration.headline}
+          </p>
+          <ul className="muted small" style={{ margin: "0.5rem 0 0", paddingLeft: "1.1rem" }}>
+            <li>
+              M5-T05 spine: <strong>{summary.synthesis_orchestration.evidence.sourced_claim_count}</strong> sourced_claim ·{" "}
+              <strong>{summary.synthesis_orchestration.evidence.cluster_count}</strong> cluster(s) ·{" "}
+              <strong>{summary.synthesis_orchestration.evidence.finding_total}</strong> findings · cluster links:{" "}
+              <strong>{summary.synthesis_orchestration.evidence.cluster_member_link_count}</strong>
+            </li>
+            <li>
+              Downstream: chronology rows known here:{" "}
+              <strong>
+                {summary.synthesis_orchestration.consumer_alignment.chronology_events_materialized ?? "—"}
+              </strong>
+              {" · "}
+              draft enrichment package:{" "}
+              <strong>
+                {summary.synthesis_orchestration.consumer_alignment.draft_enrichment_package_materialized === null
+                  ? "unknown"
+                  : summary.synthesis_orchestration.consumer_alignment.draft_enrichment_package_materialized
+                    ? "yes"
+                    : "no"}
+              </strong>
+              {summary.synthesis_orchestration.pipeline_materialization_coherent === null ? (
+                <> · Pipeline coherence: not evaluated in this response</>
+              ) : summary.synthesis_orchestration.pipeline_materialization_coherent ? (
+                <> · Pipeline coherence: materialized</>
+              ) : (
+                <> · Pipeline coherence: incomplete (see next step)</>
+              )}
+            </li>
+            <li>Live framing prompts include the structured synthesis brief alongside JSON (when research exists).</li>
+          </ul>
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Next step:</strong> {summary.synthesis_orchestration.next_action}
+          </p>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+          Synthesis orchestration (M5-T24) is not in this API response yet — redeploy the API to separate retrieval depth
+          from structured-package readiness.
+        </p>
+      )}
       <p className="muted small" style={{ marginTop: "0.35rem" }}>
         Separate optional steps — <strong>live</strong> framing (M5-T10), event/section enrichment (M5-T11), and editorial
         review (M5-T12) — only run when your host arms the AI runtime and you trigger those actions; their modes are stored in

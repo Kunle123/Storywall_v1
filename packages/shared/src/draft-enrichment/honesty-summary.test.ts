@@ -158,4 +158,32 @@ describe("buildResearchPackageHonestySummary", () => {
     expect(h.ui_hints.some((l) => l.toLowerCase().includes("partial"))).toBe(true);
     expect(h.retrieval_depth.tier).toBe("partial");
   });
+
+  it("M5-T24: includes synthesis_orchestration with evidence from parseable package", () => {
+    const { pkg, enrich } = sampleEnrichmentAndSynthesis();
+    const h = buildResearchPackageHonestySummary({
+      draftEnrichmentPackage: enrich,
+      researchSynthesisPackage: pkg,
+    });
+    expect(h.synthesis_orchestration.tier).toMatch(/thin|partial|solid/);
+    expect(h.synthesis_orchestration.evidence.cluster_count).toBeGreaterThanOrEqual(1);
+    expect(h.synthesis_orchestration.evidence.sourced_claim_count).toBeGreaterThanOrEqual(1);
+    expect(h.synthesis_orchestration.consumer_alignment.framing_live_prompt_includes_structured_brief).toBe(true);
+    expect(h.synthesis_orchestration.pipeline_materialization_coherent).toBeNull();
+    expect(h.ui_hints.some((l) => l.includes("Synthesis orchestration (M5-T24)"))).toBe(true);
+  });
+
+  it("M5-T24: supplement wires pipeline_materialization when chronology + enrichment known", () => {
+    const { pkg, enrich } = sampleEnrichmentAndSynthesis();
+    const h = buildResearchPackageHonestySummary({
+      draftEnrichmentPackage: enrich,
+      researchSynthesisPackage: pkg,
+      synthesisOrchestrationSupplement: {
+        chronology_event_count: 4,
+        draft_enrichment_package_present: true,
+      },
+    });
+    expect(h.synthesis_orchestration.pipeline_materialization_coherent).toBe(true);
+    expect(h.synthesis_orchestration.consumer_alignment.chronology_events_materialized).toBe(4);
+  });
 });

@@ -33,6 +33,25 @@ describe("buildFallbackEditorialReviewFromHonesty", () => {
         headline: "Retrieval depth: partial — bounded live retrieval reported incomplete coverage.",
         next_action: "Retry research with a clearer brief or wider scope, or add sources manually where gaps appear.",
       },
+      synthesis_orchestration: {
+        tier: "partial" as const,
+        evidence: {
+          finding_total: 6,
+          sourced_claim_count: 3,
+          gap_note_count: 1,
+          synthesis_summary_count: 1,
+          cluster_count: 1,
+          cluster_member_link_count: 3,
+        },
+        consumer_alignment: {
+          framing_live_prompt_includes_structured_brief: true,
+          chronology_events_materialized: 4,
+          draft_enrichment_package_materialized: true,
+        },
+        pipeline_materialization_coherent: true,
+        headline: "Synthesis orchestration: partial — usable clusters and sourced claims exist.",
+        next_action: "Proceed to framing selection.",
+      },
       ui_hints: ["Check temporal anchors on early events."],
     };
     const out = buildFallbackEditorialReviewFromHonesty({
@@ -82,6 +101,25 @@ describe("buildFallbackEditorialReviewFromHonesty", () => {
         },
         headline: "Retrieval depth: solid — bounded live retrieval produced enough diversified candidates.",
         next_action: "Proceed to framing and draft assembly while still verifying claims against primaries before publish.",
+      },
+      synthesis_orchestration: {
+        tier: "solid" as const,
+        evidence: {
+          finding_total: 10,
+          sourced_claim_count: 6,
+          gap_note_count: 0,
+          synthesis_summary_count: 1,
+          cluster_count: 2,
+          cluster_member_link_count: 8,
+        },
+        consumer_alignment: {
+          framing_live_prompt_includes_structured_brief: true,
+          chronology_events_materialized: 8,
+          draft_enrichment_package_materialized: true,
+        },
+        pipeline_materialization_coherent: true,
+        headline: "Synthesis orchestration: solid.",
+        next_action: "Continue.",
       },
       ui_hints: [],
     };

@@ -16,3 +16,12 @@ export {
   type RetrievalDepthEvidence,
   type RetrievalDepthTier,
 } from "./retrieval-depth";
+export {
+  computeSynthesisOrchestrationAssessment,
+  formatSynthesisOrchestrationBriefForPrompt,
+  type ComputeSynthesisOrchestrationInput,
+  type SynthesisConsumerAlignment,
+  type SynthesisOrchestrationAssessment,
+  type SynthesisOrchestrationEvidence,
+  type SynthesisOrchestrationTier,
+} from "./synthesis-orchestration";

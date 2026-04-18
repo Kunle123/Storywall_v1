@@ -120,6 +120,10 @@ export class LiveEnrichmentService {
       draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage ?? null,
       researchSynthesisPackage: syn ?? null,
       candidateSources: pkg.candidateSources.map((s) => ({ source_url: s.sourceUrl })),
+      synthesisOrchestrationSupplement: {
+        chronology_event_count: chrono.events.length,
+        draft_enrichment_package_present: Boolean(pkg.artifact.draftEnrichmentPackage),
+      },
     });
     const honestyJson = JSON.stringify(honesty).slice(0, 8000);
 

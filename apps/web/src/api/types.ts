@@ -437,6 +437,27 @@ export interface ResearchPackageRetrievalDepth {
   next_action: string;
 }
 
+/** M5-T24 — structured synthesis utility + downstream wiring (API-aligned). */
+export interface ResearchPackageSynthesisOrchestration {
+  tier: "thin" | "partial" | "solid";
+  evidence: {
+    finding_total: number;
+    sourced_claim_count: number;
+    gap_note_count: number;
+    synthesis_summary_count: number;
+    cluster_count: number;
+    cluster_member_link_count: number;
+  };
+  consumer_alignment: {
+    framing_live_prompt_includes_structured_brief: true;
+    chronology_events_materialized: number | null;
+    draft_enrichment_package_materialized: boolean | null;
+  };
+  pipeline_materialization_coherent: boolean | null;
+  headline: string;
+  next_action: string;
+}
+
 export interface ResearchPackageHonestySummary {
   schema_version: string;
   narrative_generation_mode: string;
@@ -447,6 +468,8 @@ export interface ResearchPackageHonestySummary {
   support_status_rollup: ResearchPackageHonestySupportRollup;
   /** M5-T23 — truthful retrieval breadth for chronology/draft downstream work (present after API deploy). */
   retrieval_depth?: ResearchPackageRetrievalDepth;
+  /** M5-T24 — synthesis structure vs retrieval depth; pipeline coherence when chronology/enrichment counts known. */
+  synthesis_orchestration?: ResearchPackageSynthesisOrchestration;
   ui_hints: readonly string[];
 }
 

@@ -305,6 +305,8 @@ export class ResearchService {
     jobStatus: string;
     artifact: ResearchArtifact;
     candidateSources: ResearchCandidateSource[];
+    /** M5-T24 — persisted chronology row count for synthesis orchestration / honesty. */
+    chronologyEventCount: number;
     /** M5-T11 — persisted live enrichment when its `research_job_id` matches this job. */
     liveEventDraftEnrichment: unknown | null;
     /** M5-T12 — persisted editorial review when its `research_job_id` matches this job. */
@@ -321,6 +323,7 @@ export class ResearchService {
       include: {
         artifact: true,
         candidateSources: { orderBy: { positionIndex: "asc" } },
+        chronologyAssembly: { select: { _count: { select: { events: true } } } },
       },
     });
 
@@ -373,10 +376,13 @@ export class ResearchService {
       }
     }
 
+    const chronologyEventCount = job.chronologyAssembly?._count.events ?? 0;
+
     return {
       jobStatus: job.status,
       artifact: job.artifact,
       candidateSources: job.candidateSources,
+      chronologyEventCount,
       liveEventDraftEnrichment,
       aiEditorialReview,
     };

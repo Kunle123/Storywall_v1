@@ -9,6 +9,10 @@ import {
   type RetrievalDepthEvidence,
   type RetrievalDepthTier,
 } from "../research-synthesis/retrieval-depth";
+import {
+  computeSynthesisOrchestrationAssessment,
+  type SynthesisOrchestrationAssessment,
+} from "../research-synthesis/synthesis-orchestration";
 import { buildDraftEnrichmentProvenanceIndex } from "./provenance-index";
 import type { DraftEnrichmentProvenanceIndexNode } from "./provenance-index";
 
@@ -37,6 +41,9 @@ export type ResearchPackageRetrievalDepth = {
   next_action: string;
 };
 
+/** M5-T24 — synthesis structure + downstream materialization (no speculative AI scores). */
+export type ResearchPackageSynthesisOrchestration = Omit<SynthesisOrchestrationAssessment, "ui_hint_line">;
+
 export type ResearchPackageHonestySummary = {
   schema_version: typeof RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION;
   /** Current research pipeline output is deterministic scaffolding, not live model-authored story prose. */
@@ -51,6 +58,8 @@ export type ResearchPackageHonestySummary = {
   support_status_rollup: ResearchPackageHonestySupportRollup;
   /** M5-T23 — truthful retrieval breadth vs stub/live mode (deterministic from persisted rows + synthesis). */
   retrieval_depth: ResearchPackageRetrievalDepth;
+  /** M5-T24 — structured synthesis package utility + pipeline wiring hints. */
+  synthesis_orchestration: ResearchPackageSynthesisOrchestration;
   /** Short lines safe to show inline in creator UI. */
   ui_hints: readonly string[];
 };
@@ -182,6 +191,11 @@ export type BuildResearchPackageHonestySummaryInput = {
   candidateSources?: ReadonlyArray<{ source_url?: string | null }>;
   /** When URLs are unavailable but persisted row count is known (e.g. framing rail). */
   candidateSourceCountOverride?: number;
+  /** M5-T24 — optional chronology + enrichment facts for synthesis orchestration (GET package path). */
+  synthesisOrchestrationSupplement?: {
+    chronology_event_count?: number | null;
+    draft_enrichment_package_present?: boolean | null;
+  };
 };
 
 /**
@@ -203,6 +217,20 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
     next_action: depthAssessment.next_action,
   };
 
+  const synthAsm = computeSynthesisOrchestrationAssessment({
+    researchSynthesisPackage: input.researchSynthesisPackage ?? null,
+    chronology_event_count: input.synthesisOrchestrationSupplement?.chronology_event_count,
+    draft_enrichment_package_present: input.synthesisOrchestrationSupplement?.draft_enrichment_package_present,
+  });
+  const synthesis_orchestration: ResearchPackageSynthesisOrchestration = {
+    tier: synthAsm.tier,
+    evidence: synthAsm.evidence,
+    consumer_alignment: synthAsm.consumer_alignment,
+    pipeline_materialization_coherent: synthAsm.pipeline_materialization_coherent,
+    headline: synthAsm.headline,
+    next_action: synthAsm.next_action,
+  };
+
   const raw = input.draftEnrichmentPackage;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     const rollup = emptyRollup();
@@ -216,6 +244,7 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
         has_mixed_or_weak_support,
       }),
       depthAssessment.ui_hint_line,
+      synthAsm.ui_hint_line,
     ];
     return {
       schema_version: RESEARCH_PACKAGE_HONESTY_SUMMARY_VERSION,
@@ -226,6 +255,7 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
       synthesis_retrieval_partial,
       support_status_rollup: rollup,
       retrieval_depth,
+      synthesis_orchestration,
       ui_hints,
     };
   }
@@ -276,6 +306,7 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
       has_mixed_or_weak_support,
     }),
     depthAssessment.ui_hint_line,
+    synthAsm.ui_hint_line,
   ];
 
   return {
@@ -287,6 +318,7 @@ export function buildResearchPackageHonestySummary(input: BuildResearchPackageHo
     synthesis_retrieval_partial,
     support_status_rollup: rollup,
     retrieval_depth,
+    synthesis_orchestration,
     ui_hints,
   };
 }
