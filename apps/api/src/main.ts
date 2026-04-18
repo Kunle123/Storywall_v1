@@ -5,6 +5,7 @@ import { AppModule } from "./app.module";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
 
 /** Staging frontend (Railway); additional origins via comma-separated `CORS_ORIGIN`. */
+/** Keep aligned with `STAGING_WEB_ORIGIN_DEFAULT` in `scripts/lib/staging-web-origin.mjs`. */
 const STAGING_FRONTEND_ORIGIN = "https://frontend-staging-423b.up.railway.app";
 
 function corsAllowedOrigins(): string[] {

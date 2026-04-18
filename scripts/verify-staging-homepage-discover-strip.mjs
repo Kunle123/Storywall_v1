@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * M5-T28 — Staging: same discover/visibility contract as M5-T27, plus deployed web bundle proves
- * HomePage wires `GET /api/v1/stories/discover` (SPA: fetch `/` + main `index-*.js` for `homepage-discover-strip` + `stories/discover`).
+ * M5-T28 + M5-T29 — Staging: discover/visibility contract (M5-T27), deployed bundle proof, and Playwright DOM proof
+ * that the real staging homepage lists the story when public and omits it when unlisted.
  *
- * Staging web origin: `STORYWALL_STAGING_WEB_ORIGIN` or default `https://frontend-staging-423b.up.railway.app` (see apps/api/src/main.ts CORS).
+ * Staging web origin: `STORYWALL_STAGING_WEB_ORIGIN` or `STORYWALL_STAGING_FRONTEND_ORIGIN`, else default from
+ * `scripts/lib/staging-web-origin.mjs` (aligned with `apps/api/src/main.ts` CORS).
+ *
+ * One-time browsers: `pnpm exec playwright install chromium`
  *
  * Usage: pnpm verify:staging:homepage-discover-strip
  */
@@ -21,6 +24,7 @@ import {
   fetchJson,
   ensurePublishableValidation,
 } from "./lib/m5-staging-publish-prep.mjs";
+import { describeStagingWebOriginResolution, resolveStagingWebOrigin } from "./lib/staging-web-origin.mjs";
 
 async function getFraming(token, storyId) {
   const url = `${STAGING_BASE}/api/v1/creator/stories/${encodeURIComponent(storyId)}/framing`;
@@ -49,7 +53,7 @@ async function runValidationForRepublish(token, storyId, record, stepPrefix) {
         include_imagery_checks: true,
         include_dispute_checks: true,
       },
-      idempotencyKey: `m5t28-reval-${attempt}-${Date.now()}`,
+      idempotencyKey: `m5t29-reval-${attempt}-${Date.now()}`,
     });
     const d = body?.data;
     const ok =
@@ -123,7 +127,7 @@ async function patchDraftVisibility(token, storyId, visibility_target, record, s
   const { status: st, body: b } = await fetchJson("PATCH", url, {
     token,
     body: { visibility_target },
-    idempotencyKey: `m5t28-vis-${visibility_target}-${Date.now()}`,
+    idempotencyKey: `m5t29-vis-${visibility_target}-${Date.now()}`,
     ifMatch: draft.last_edited_at,
   });
   const ok = st === 200 && b?.ok === true;
@@ -137,41 +141,143 @@ function slugInDiscover(body, slug) {
   return stories.some((s) => s.slug === slug);
 }
 
-/** Fetch staging web `/` and main JS bundle; prove M5-T28 HomePage code is deployed (not runtime DOM). */
+/** @param {string} href */
+function bundleBasenameFromHref(href) {
+  try {
+    return new URL(href).pathname.split("/").pop() ?? href;
+  } catch {
+    return href;
+  }
+}
+
+/** Collect Vite main chunk paths from index.html (quote-order tolerant). */
+function extractViteMainIndexPaths(html) {
+  const paths = new Set();
+  const res = [
+    ...html.matchAll(/type=["']module["'][^>]*\ssrc=["'](\/assets\/index-[^"'?#]+\.js)["']/gi),
+    ...html.matchAll(/\ssrc=["'](\/assets\/index-[^"'?#]+\.js)["'][^>]*type=["']module["']/gi),
+    ...html.matchAll(/\ssrc=["'](\/assets\/index-[^"'?#]+\.js)["']/gi),
+  ];
+  for (const m of res) {
+    if (m[1]) paths.add(m[1]);
+  }
+  return [...paths];
+}
+
+/** Fetch staging web `/` and main JS bundle; prove HomePage discover-strip code is deployed. */
 async function probeHomepageDiscoverBundle(webOrigin) {
   const base = webOrigin.replace(/\/$/, "");
   const homeRes = await fetch(`${base}/`);
   const html = await homeRes.text();
-  const m = html.match(/src="(\/assets\/index-[^"]+\.js)"/);
-  if (!m) {
+  const candidates = extractViteMainIndexPaths(html);
+  if (candidates.length === 0) {
     return {
       ok: false,
       homeStatus: homeRes.status,
-      reason: "Could not find /assets/index-*.js script in index.html",
+      reason: "Could not find /assets/index-*.js entry in index.html",
+      index_html_snippet_has_module: /type=["']module["']/i.test(html),
     };
   }
-  const assetUrl = new URL(m[1], `${base}/`).href;
-  const jsRes = await fetch(assetUrl);
-  const js = await jsRes.text();
-  const hasStrip = js.includes("homepage-discover-strip");
-  const hasDiscoverPath = js.includes("stories/discover");
+  /** @type {Record<string, unknown> | null} */
+  let last = null;
+  for (const p of candidates) {
+    const assetUrl = new URL(p, `${base}/`).href;
+    const jsRes = await fetch(assetUrl);
+    const js = await jsRes.text();
+    const hasStrip = js.includes("homepage-discover-strip");
+    const hasDiscoverPath = /stories\/discover/.test(js);
+    last = {
+      homeStatus: homeRes.status,
+      index_etag: homeRes.headers.get("etag"),
+      assetStatus: jsRes.status,
+      asset_href: assetUrl,
+      bundle_basename: bundleBasenameFromHref(assetUrl),
+      asset_etag: jsRes.headers.get("etag"),
+      asset_bytes: js.length,
+      hasStrip,
+      hasDiscoverPath,
+      ok: hasStrip && hasDiscoverPath,
+    };
+    if (last.ok) return last;
+  }
   return {
-    ok: hasStrip && hasDiscoverPath,
-    homeStatus: homeRes.status,
-    assetStatus: jsRes.status,
-    asset_href: assetUrl,
-    hasStrip,
-    hasDiscoverPath,
+    ok: false,
+    ...last,
+    reason: "No candidate /assets/index-*.js contained homepage-discover-strip and stories/discover",
+    candidates_tried: candidates.length,
   };
 }
 
+/**
+ * Real browser: homepage must issue GET discover and DOM must match JSON for this slug.
+ * @param {string} webOrigin
+ * @param {string} storySlug
+ * @param {boolean} expectSlugListed
+ */
+async function probeHomepageDiscoverDom(webOrigin, storySlug, expectSlugListed) {
+  let chromiumMod;
+  try {
+    chromiumMod = await import("playwright");
+  } catch (e) {
+    return {
+      ok: false,
+      blocked: true,
+      reason: "Add devDependency playwright and run: pnpm exec playwright install chromium",
+      error: String(/** @type {Error} */ (e)?.message ?? e),
+    };
+  }
+  const { chromium } = chromiumMod;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const home = `${webOrigin.replace(/\/$/, "")}/`;
+    if (/["'\\<>]/.test(storySlug)) {
+      return { ok: false, blocked: false, reason: "slug contains characters not supported by DOM probe selector" };
+    }
+    const slugSel = `[data-discover-slug="${storySlug}"]`;
+    const discoverWait = page.waitForResponse(
+      (r) =>
+        r.request().method() === "GET" &&
+        r.status() === 200 &&
+        /\/api\/v1\/stories\/discover/.test(r.url()),
+      { timeout: 90_000 },
+    );
+    await page.goto(home, { waitUntil: "domcontentloaded", timeout: 90_000 });
+    const discoverRes = await discoverWait;
+    const discoverJson = await discoverRes.json();
+    const listed = slugInDiscover(discoverJson, storySlug);
+    await page.waitForSelector('[data-testid="homepage-discover-strip"]', { state: "visible", timeout: 60_000 });
+    const domCount = await page.locator(slugSel).count();
+    const ok = expectSlugListed ? listed && domCount > 0 : !listed && domCount === 0;
+    return {
+      ok,
+      blocked: false,
+      discover_request_url: discoverRes.url(),
+      discover_json_ok: discoverJson?.ok === true,
+      slug_listed_in_browser_discover_json: listed,
+      dom_nodes_matching_data_discover_slug: domCount,
+      expect_slug_listed: expectSlugListed,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
 async function main() {
-  const STAGING_WEB = (process.env.STORYWALL_STAGING_WEB_ORIGIN ?? "https://frontend-staging-423b.up.railway.app").replace(
-    /\/$/,
-    "",
+  const originMeta = describeStagingWebOriginResolution();
+  const STAGING_WEB = originMeta.origin;
+  console.log("\n" + "#".repeat(72));
+  console.log("M5-T29 — staging homepage discover verification");
+  console.log("Web origin under test:", STAGING_WEB);
+  console.log(
+    "Origin resolution:",
+    originMeta.explicit ? `explicit (${originMeta.env_key})` : "default (scripts/lib/staging-web-origin.mjs; must match apps/api/src/main.ts CORS)",
   );
-  const marker = `m5-t28-home-${Date.now()}`;
-  const email = `staging-home-disc-${Date.now()}@example.test`;
+  console.log("API under test:", STAGING_BASE);
+  console.log("#".repeat(72));
+
+  const marker = `m5-t29-home-${Date.now()}`;
+  const email = `staging-home-t29-${Date.now()}@example.test`;
   const password = "StagingHomeDiscover9!";
 
   /** @type {{ step: string, method: string, url: string, status: number | null, verdict: string, body: unknown, notes?: string }[]} */
@@ -198,7 +304,7 @@ async function main() {
   {
     const url = `${STAGING_BASE}/api/v1/auth/register`;
     const { status, body } = await fetchJson("POST", url, {
-      body: { email, password, displayName: "M5-T28 homepage discover" },
+      body: { email, password, displayName: "M5-T29 homepage discover" },
     });
     const ok = isHttpSuccess(status) && body?.data?.access_token;
     if (ok) token = body.data.access_token;
@@ -249,8 +355,8 @@ async function main() {
     const u = `${STAGING_BASE}/api/v1/creator/stories/${encodeURIComponent(storyId)}/frames/generate`;
     const r = await fetchJson("POST", u, {
       token,
-      body: { notes: "M5-T28" },
-      idempotencyKey: `m5t28-f-${Date.now()}`,
+      body: { notes: "M5-T29" },
+      idempotencyKey: `m5t29-f-${Date.now()}`,
     });
     record("4 — POST frames/generate", "POST", u, r.status, isHttpSuccess(r.status) && r.body?.ok ? "passed on staging" : "attempted on staging but failed", r.body);
   }
@@ -258,8 +364,8 @@ async function main() {
     const u = `${STAGING_BASE}/api/v1/creator/stories/${encodeURIComponent(storyId)}/research`;
     const r = await fetchJson("POST", u, {
       token,
-      body: { mode: "full", respect_existing_manual_events: true, respect_existing_sources: true, notes: "M5-T28" },
-      idempotencyKey: `m5t28-r-${Date.now()}`,
+      body: { mode: "full", respect_existing_manual_events: true, respect_existing_sources: true, notes: "M5-T29" },
+      idempotencyKey: `m5t29-r-${Date.now()}`,
     });
     if (r.body?.data?.job_id) researchJobId = r.body.data.job_id;
     record("5 — POST research", "POST", u, r.status, researchJobId ? "passed on staging" : "attempted on staging but failed", r.body);
@@ -304,7 +410,7 @@ async function main() {
     const r = await fetchJson("POST", u, {
       token,
       body: { frame_id: frameId, selection_mode: "accept" },
-      idempotencyKey: `m5t28-sel-${Date.now()}`,
+      idempotencyKey: `m5t29-sel-${Date.now()}`,
     });
     record("8 — POST frames/select", "POST", u, r.status, r.body?.ok ? "passed on staging" : "attempted on staging but failed", r.body);
   }
@@ -318,7 +424,7 @@ async function main() {
         preserve_manual_event_positions: false,
         preserve_approved_images: true,
       },
-      idempotencyKey: `m5t28-asm-${Date.now()}`,
+      idempotencyKey: `m5t29-asm-${Date.now()}`,
     });
     if (r.body?.data?.job_id) assembleJobId = r.body.data.job_id;
     record("9 — POST draft/assemble", "POST", u, r.status, assembleJobId ? "passed on staging" : "attempted on staging but failed", r.body);
@@ -362,7 +468,7 @@ async function main() {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": `m5t28-publish1-${Date.now()}`,
+        "Idempotency-Key": `m5t29-publish1-${Date.now()}`,
       },
       body: JSON.stringify(publishBody),
     });
@@ -439,19 +545,24 @@ async function main() {
     const probe = await probeHomepageDiscoverBundle(STAGING_WEB);
     const ok = probe.ok === true;
     record(
-      "15 — GET staging web `/` + main bundle (HomePage discover wiring deployed)",
+      "15 — GET staging web `/` + main bundle (deployed HomePage discover wiring)",
       "GET",
       STAGING_WEB,
       probe.homeStatus ?? null,
       ok ? "passed on staging" : "attempted on staging but failed",
       {
-        asset_status: probe.assetStatus,
-        has_homepage_discover_testid: probe.hasStrip,
-        has_stories_discover_fetch: probe.hasDiscoverPath,
+        bundle_basename: probe.bundle_basename ?? null,
+        asset_href: probe.asset_href ?? null,
+        asset_status: probe.assetStatus ?? null,
+        asset_bytes: probe.asset_bytes ?? null,
+        asset_etag: probe.asset_etag ?? null,
+        index_etag: probe.index_etag ?? null,
+        has_homepage_discover_strip_string: probe.hasStrip,
+        has_stories_discover_string: probe.hasDiscoverPath,
+        candidates_tried: probe.candidates_tried,
         ...(probe.reason ? { reason: probe.reason } : {}),
-        ...(probe.asset_href ? { asset_href: probe.asset_href } : {}),
       },
-      "SPA: bundle must include discover fetch + strip markers; which slugs render follows API discover (step 14), not initial HTML.",
+      "Identifies exact deployed Vite main chunk under test; must include homepage-discover-strip + discover path strings.",
     );
     if (!ok) {
       printTable(steps);
@@ -459,12 +570,33 @@ async function main() {
     }
   }
 
-  if (!(await patchDraftVisibility(token, storyId, "unlisted", record, "16 — PATCH draft visibility_target unlisted"))) {
+  {
+    const dom = await probeHomepageDiscoverDom(STAGING_WEB, storySlug, true);
+    const blocked = dom.blocked === true;
+    const verdict = blocked ? "blocked on staging" : dom.ok ? "passed on staging" : "attempted on staging but failed";
+    record(
+      "16 — Playwright: deployed homepage shows slug (browser discover JSON + DOM)",
+      "BROWSER",
+      `${STAGING_WEB}/#homepage-discover`,
+      null,
+      verdict,
+      dom,
+      blocked
+        ? dom.reason
+        : "Chromium loads staging /; first GET …/stories/discover must list slug and [data-discover-slug] must appear.",
+    );
+    if (blocked || !dom.ok) {
+      printTable(steps);
+      process.exit(1);
+    }
+  }
+
+  if (!(await patchDraftVisibility(token, storyId, "unlisted", record, "17 — PATCH draft visibility_target unlisted"))) {
     printTable(steps);
     process.exit(1);
   }
 
-  if (!(await republish(token, storyId, record, "17", "m5t28-pub-unlisted"))) {
+  if (!(await republish(token, storyId, record, "18", "m5t29-pub-unlisted"))) {
     printTable(steps);
     process.exit(1);
   }
@@ -473,7 +605,7 @@ async function main() {
     const url = `${STAGING_BASE}/api/v1/stories/${encodeURIComponent(storySlug)}`;
     const r = await fetchJson("GET", url, {});
     const ok = r.status === 200 && r.body?.ok === true;
-    record("18 — GET public by slug (unlisted still readable)", "GET", url, r.status, ok ? "passed on staging" : "attempted on staging but failed", ok ? {} : r.body);
+    record("19 — GET public by slug (unlisted still readable)", "GET", url, r.status, ok ? "passed on staging" : "attempted on staging but failed", ok ? {} : r.body);
     if (!ok) {
       printTable(steps);
       process.exit(1);
@@ -484,7 +616,7 @@ async function main() {
     const r = await fetchJson("GET", discoverUrl, {});
     const absent = r.status === 200 && r.body?.ok === true && !slugInDiscover(r.body, storySlug);
     record(
-      "19 — GET discover (unlisted story must be absent)",
+      "20 — GET discover (unlisted story must be absent)",
       "GET",
       discoverUrl,
       r.status,
@@ -497,12 +629,33 @@ async function main() {
     }
   }
 
-  if (!(await patchDraftVisibility(token, storyId, "private", record, "20 — PATCH draft visibility_target private"))) {
+  {
+    const dom = await probeHomepageDiscoverDom(STAGING_WEB, storySlug, false);
+    const blocked = dom.blocked === true;
+    const verdict = blocked ? "blocked on staging" : dom.ok ? "passed on staging" : "attempted on staging but failed";
+    record(
+      "21 — Playwright: deployed homepage omits slug after unlisted (browser discover JSON + DOM)",
+      "BROWSER",
+      `${STAGING_WEB}/#homepage-discover`,
+      null,
+      verdict,
+      dom,
+      blocked
+        ? dom.reason
+        : "After republish to unlisted, browser discover JSON must omit slug and DOM must have no matching [data-discover-slug].",
+    );
+    if (blocked || !dom.ok) {
+      printTable(steps);
+      process.exit(1);
+    }
+  }
+
+  if (!(await patchDraftVisibility(token, storyId, "private", record, "22 — PATCH draft visibility_target private"))) {
     printTable(steps);
     process.exit(1);
   }
 
-  if (!(await republish(token, storyId, record, "21", "m5t28-pub-private"))) {
+  if (!(await republish(token, storyId, record, "23", "m5t29-pub-private"))) {
     printTable(steps);
     process.exit(1);
   }
@@ -511,7 +664,7 @@ async function main() {
     const url = `${STAGING_BASE}/api/v1/stories/${encodeURIComponent(storySlug)}`;
     const r = await fetchJson("GET", url, {});
     const ok = r.status === 404;
-    record("22 — GET public by slug (private — expect 404)", "GET", url, r.status, ok ? "passed on staging" : "attempted on staging but failed", { status: r.status });
+    record("24 — GET public by slug (private — expect 404)", "GET", url, r.status, ok ? "passed on staging" : "attempted on staging but failed", { status: r.status });
     if (!ok) {
       printTable(steps);
       process.exit(1);
@@ -522,7 +675,7 @@ async function main() {
     const r = await fetchJson("GET", discoverUrl, {});
     const absent = r.status === 200 && r.body?.ok === true && !slugInDiscover(r.body, storySlug);
     record(
-      "23 — GET discover (private story still absent)",
+      "25 — GET discover (private story still absent)",
       "GET",
       discoverUrl,
       r.status,
@@ -536,26 +689,27 @@ async function main() {
   }
 
   record(
-    "24 — Next creator action",
+    "26 — Next creator action",
     "—",
     "—",
     null,
     "passed on staging",
     {
       staging_web_origin: STAGING_WEB,
-      homepage_route: "GET / (SPA loads discover strip client-side)",
+      staging_web_origin_resolution: originMeta.explicit ? `explicit:${originMeta.env_key}` : "default:scripts/lib/staging-web-origin.mjs",
+      homepage_route: "GET / (SPA + Playwright confirms discover strip vs live API)",
       discovery_route: "GET /api/v1/stories/discover",
       slug_read_route: "GET /api/v1/stories/:slug",
       contract:
-        "HomePage uses discover API; list is public-only. Unlisted/private omitted from discover; unlisted slug-readable until private.",
-      next: "Restore public visibility via draft + checks + update-live if you want the story discoverable again on homepage.",
+        "HomePage uses discover API; strip is public-only. Unlisted/private omitted from discover; unlisted slug-readable until private.",
+      next: "Restore public visibility via draft + checks + republish if you want the story on the homepage strip again.",
     },
   );
 
   printTable(steps);
   const failed = steps.some((s) => s.verdict === "attempted on staging but failed" || s.verdict === "blocked on staging");
   if (failed) process.exit(1);
-  console.log("\nM5-T28 staging verify: homepage discover strip + API contract passed.");
+  console.log("\nM5-T29 staging verify: homepage discover strip (bundle + Playwright) + API contract passed.");
 }
 
 main().catch((e) => {
