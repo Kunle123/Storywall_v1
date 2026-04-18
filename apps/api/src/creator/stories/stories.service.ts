@@ -459,12 +459,7 @@ export class StoriesService {
         where: { id: draft.id },
       });
 
-      if (dto.visibility_target !== undefined && story.storyStatus === "published") {
-        await tx.story.update({
-          where: { id: storyId },
-          data: { visibility: dto.visibility_target },
-        });
-      }
+      /** M5-T26 — `stories.visibility` (anonymous read gate) updates only on publish/republish, not on draft PATCH. */
 
       const st = await tx.story.findUniqueOrThrow({
         where: { id: storyId },

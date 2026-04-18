@@ -101,6 +101,8 @@ export interface ListFramesSuccess {
     published_at?: string | null;
     /** Public reader slug (same as published URL). */
     story_slug?: string;
+    /** M5-T26 — `stories.visibility` after last publish (anonymous read gate); draft `visibility_target` can differ until update-live. */
+    live_story_visibility?: string;
     frame_drafts: FrameDraftResponse[];
     /** Present when a `story_draft` row exists (after frame select / assembly). */
     story_draft: StoryDraftResponse | null;

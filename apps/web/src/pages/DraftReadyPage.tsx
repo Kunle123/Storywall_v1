@@ -42,6 +42,14 @@ import { readActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
 
+/** M5-T26 — matches API `story_draft.visibility_target` / `stories.visibility` enum. */
+const STORY_VISIBILITY_TARGETS = ["public", "unlisted", "private"] as const;
+type StoryVisibilityTarget = (typeof STORY_VISIBILITY_TARGETS)[number];
+
+function isStoryVisibilityTarget(v: string): v is StoryVisibilityTarget {
+  return (STORY_VISIBILITY_TARGETS as readonly string[]).includes(v);
+}
+
 /** M3-T07 — publish confirmation wiring from DraftReadyPage into PublishReadinessBlock. */
 type EditorPublishFlowProps = {
   needsWarningAck: boolean;
@@ -358,6 +366,7 @@ type LocalDraftFields = {
   lens: string;
   conclusion: string;
   imageryMode: BriefImageryMode;
+  visibilityTarget: StoryVisibilityTarget;
 };
 
 function normalizeSubtitle(s: string | null | undefined): string {
@@ -375,6 +384,10 @@ function isDirtyVersusServer(draft: StoryDraftResponse, local: LocalDraftFields)
   if (local.lens !== draft.lens) return true;
   if (local.conclusion !== normalizeConclusion(draft.conclusion)) return true;
   if (local.imageryMode !== (draft.imagery_mode as BriefImageryMode)) return true;
+  const draftVis = isStoryVisibilityTarget(draft.visibility_target)
+    ? draft.visibility_target
+    : "private";
+  if (local.visibilityTarget !== draftVis) return true;
   return false;
 }
 
@@ -399,6 +412,12 @@ function buildValidPatch(draft: StoryDraftResponse, local: LocalDraftFields): Pa
   if (local.imageryMode !== (draft.imagery_mode as BriefImageryMode)) {
     p.imagery_mode = local.imageryMode;
   }
+  const draftVis = isStoryVisibilityTarget(draft.visibility_target)
+    ? draft.visibility_target
+    : "private";
+  if (local.visibilityTarget !== draftVis) {
+    p.visibility_target = local.visibilityTarget;
+  }
   if (Object.keys(p).length === 0) return null;
   if (p.title !== undefined && p.title.trim().length < 1) return null;
   if (p.summary !== undefined && p.summary.trim().length < 1) return null;
@@ -416,6 +435,7 @@ function mergeDraftWithLocalForPreview(draft: StoryDraftResponse, local: LocalDr
     lens: local.lens,
     conclusion: local.conclusion === "" ? null : local.conclusion,
     imagery_mode: local.imageryMode,
+    visibility_target: local.visibilityTarget,
   };
 }
 
@@ -426,6 +446,7 @@ function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setLens: (v: string) => void;
   setConclusion: (v: string) => void;
   setImageryMode: (v: BriefImageryMode) => void;
+  setVisibilityTarget: (v: StoryVisibilityTarget) => void;
 }) {
   setters.setTitle(d.title);
   setters.setSubtitle(normalizeSubtitle(d.subtitle));
@@ -433,6 +454,9 @@ function applyServerDraftToForm(d: StoryDraftResponse, setters: {
   setters.setLens(d.lens);
   setters.setConclusion(normalizeConclusion(d.conclusion));
   setters.setImageryMode(d.imagery_mode as BriefImageryMode);
+  setters.setVisibilityTarget(
+    isStoryVisibilityTarget(d.visibility_target) ? d.visibility_target : "private",
+  );
 }
 
 /**
@@ -450,6 +474,8 @@ export function DraftReadyPage() {
   const [lens, setLens] = useState("");
   const [conclusion, setConclusion] = useState("");
   const [imageryMode, setImageryMode] = useState<BriefImageryMode>("selective_editorial");
+  const [visibilityTarget, setVisibilityTarget] = useState<StoryVisibilityTarget>("private");
+  const [liveStoryVisibility, setLiveStoryVisibility] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
@@ -491,11 +517,19 @@ export function DraftReadyPage() {
     target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
-  const localFields: LocalDraftFields = { title, subtitle, summary, lens, conclusion, imageryMode };
+  const localFields: LocalDraftFields = {
+    title,
+    subtitle,
+    summary,
+    lens,
+    conclusion,
+    imageryMode,
+    visibilityTarget,
+  };
 
   const previewDraftMerged = useMemo(
     () => (draft ? mergeDraftWithLocalForPreview(draft, localFields) : null),
-    [draft, title, subtitle, summary, lens, conclusion, imageryMode],
+    [draft, title, subtitle, summary, lens, conclusion, imageryMode, visibilityTarget],
   );
 
   const ingestFramesData = useCallback((data: ListFramesSuccess["data"]) => {
@@ -503,6 +537,7 @@ export function DraftReadyPage() {
     setStoryLifecycleStatus(data.story_lifecycle_status ?? null);
     setPublishedAtIso(data.published_at ?? null);
     setStorySlug(data.story_slug ?? null);
+    setLiveStoryVisibility(data.live_story_visibility ?? null);
     const d = data.story_draft;
     setDraft(d);
     if (d) {
@@ -513,6 +548,7 @@ export function DraftReadyPage() {
         setLens,
         setConclusion,
         setImageryMode,
+        setVisibilityTarget,
       });
     }
   }, []);
@@ -825,6 +861,7 @@ export function DraftReadyPage() {
             setLens,
             setConclusion,
             setImageryMode,
+            setVisibilityTarget,
           });
           setSaveError(null);
           setSaveOk(true);
@@ -841,6 +878,7 @@ export function DraftReadyPage() {
                 setLens,
                 setConclusion,
                 setImageryMode,
+                setVisibilityTarget,
               });
             }
             setSaveError("Version conflict — loaded the latest draft from the server.");
@@ -852,7 +890,7 @@ export function DraftReadyPage() {
     }, AUTOSAVE_MS);
 
     return () => clearTimeout(t);
-  }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion, imageryMode]);
+  }, [token, storyId, draft, workflow, title, subtitle, summary, lens, conclusion, imageryMode, visibilityTarget]);
 
   const handleRunValidation = useCallback(async () => {
     if (!token || !storyId) return;
@@ -981,6 +1019,16 @@ export function DraftReadyPage() {
       {saveOk ? (
         <div className="banner success">
           <p>Deck saved to the server.</p>
+          {storyLivePublished &&
+          draft &&
+          liveStoryVisibility &&
+          draft.visibility_target !== liveStoryVisibility ? (
+            <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+              Working draft visibility is <code className="inline-code">{draft.visibility_target}</code>, but the live
+              anonymous reader gate is still <code className="inline-code">{liveStoryVisibility}</code> until you run{" "}
+              <strong>Run checks</strong> and <strong>Update live story</strong>.
+            </p>
+          ) : null}
           {workflow && isEditorialValidationWorkspace(workflow) && workflow !== "published" ? (
             <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
               Next: keep refining sections, timeline, or evidence — or use <strong>Readiness → Run checks</strong> when you
@@ -1166,6 +1214,17 @@ export function DraftReadyPage() {
                     <p className="editor-panel__hint muted small">
                       When draft edits should go live, run <strong>Run checks</strong>, then use <strong>Update live story</strong>{" "}
                       from publish readiness — that is the only path here to refresh the frozen snapshot.
+                    </p>
+                    <p className="editor-panel__hint muted small">
+                      <strong>Live anonymous visibility</strong> (what <code className="inline-code">GET /api/v1/stories/:slug</code>{" "}
+                      uses today):{" "}
+                      <code className="inline-code">
+                        {liveStoryVisibility ?? "—"}
+                      </code>
+                      . <code className="inline-code">public</code> and <code className="inline-code">unlisted</code> allow
+                      that read; <code className="inline-code">private</code> means the slug is not served to anonymous
+                      readers. Your <strong>working draft visibility target</strong> in Deck &amp; discovery can differ
+                      until you update the live story.
                     </p>
                   </div>
                   <p className="muted small">
@@ -1423,6 +1482,46 @@ export function DraftReadyPage() {
                         maxLength={100_000}
                         disabled={compositionReadOnly}
                       />
+                    </label>
+                    <label className="field">
+                      <span className="label">Visibility target (working draft)</span>
+                      <span className="field__hint">
+                        Intent for how this story should be reachable once published or after a live update.{" "}
+                        {storyLivePublished ? (
+                          <>
+                            Changing this alone does <strong>not</strong> change anonymous reader access — run checks,
+                            then <strong>Update live story</strong> so <code className="inline-code">GET /api/v1/stories/:slug</code>{" "}
+                            picks up the new setting.
+                          </>
+                        ) : (
+                          <>
+                            At publish, this is copied to the live story row together with the reader snapshot. Only{" "}
+                            <code className="inline-code">public</code> or <code className="inline-code">unlisted</code>{" "}
+                            allow anonymous read by slug; <code className="inline-code">private</code> keeps the public
+                            read path off.
+                          </>
+                        )}
+                      </span>
+                      <select
+                        className="input"
+                        aria-label="Story visibility target"
+                        value={visibilityTarget}
+                        disabled={compositionReadOnly}
+                        onChange={(ev) => {
+                          const v = ev.target.value;
+                          if (isStoryVisibilityTarget(v)) setVisibilityTarget(v);
+                        }}
+                      >
+                        {STORY_VISIBILITY_TARGETS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt === "public"
+                              ? "Public — slug readable without auth"
+                              : opt === "unlisted"
+                                ? "Unlisted — slug readable; not promoted in discovery"
+                                : "Private — no anonymous reader page"}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   </div>
                   <div className="editor-fieldgroup editor-fieldgroup--creator">

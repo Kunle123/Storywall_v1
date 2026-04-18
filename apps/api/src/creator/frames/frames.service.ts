@@ -58,6 +58,8 @@ export class FramesService {
     storyState: CreatorWorkflowState;
     /** Story lifecycle (`stories.story_status`) — distinct from creator workflow. M4-T09 post-publish UX. */
     storyLifecycleStatus: string;
+    /** M5-T26 — `stories.visibility`: what anonymous `GET /api/v1/stories/:slug` uses today (last publish), not draft-only intent. */
+    storyVisibility: string;
     publishedAt: Date | null;
     storySlug: string;
     frameDrafts: StoryFrameDraft[];
@@ -82,6 +84,7 @@ export class FramesService {
       storyId: story.id,
       storyState: story.workflowState,
       storyLifecycleStatus: story.storyStatus,
+      storyVisibility: story.visibility,
       publishedAt: story.publishedAt,
       storySlug: story.slug,
       frameDrafts,
