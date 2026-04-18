@@ -63,6 +63,21 @@ export class FramesController {
     @Param("storyId") storyId: string,
     @CurrentCreator() creator: AuthenticatedCreator,
   ) {
+    return this.buildFramesListResponse(storyId, creator);
+  }
+
+  /**
+   * M5-T16 — public contract alias for `GET …/frames` (same truthful payload when framing data is absent).
+   */
+  @Get(":storyId/framing")
+  async listFramingContract(
+    @Param("storyId") storyId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+  ) {
+    return this.buildFramesListResponse(storyId, creator);
+  }
+
+  private async buildFramesListResponse(storyId: string, creator: AuthenticatedCreator) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
     const result = await this.frames.listFrames(storyId, creator.id);
     return {

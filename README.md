@@ -127,9 +127,10 @@ Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M
 ## Health checks (Railway)
 
 - **API:** `GET /health` → JSON with `ok`, `service`, `api_version`, `generated_at` (aligns with public envelope fields in `storywall_api_response_contracts_homepage_timeline.md`).
+- **Versioned alias (M5-T16):** `GET /api/v1/health` and `GET /api/v1/health/ready` return the same truthful payloads as `/health` and `/health/ready` for API-contract clients and staging baselines.
 - **Readiness (DB):** `GET /health/ready` → `200` when PostgreSQL is reachable (`PrismaService` / M1-T01); `503` if not. Use after `pnpm db:deploy` on deploy.
 
-Set the deployment **health check path** to `/health` and **port** from `PORT` (default `3001`).
+Set the deployment **health check path** to `/health` (or `/api/v1/health` if your probe must stay under `/api/v1`) and **port** from `PORT` (default `3001`).
 
 **API start command (staging/production):** Use the package **`start`** script from `apps/api` (for example `pnpm --filter @storywall/api start` or Railway **Start Command** `pnpm start` with root directory `apps/api`). It runs **`prisma migrate deploy`** before `node dist/main.js`, so the database schema is not left behind application code. Avoid a bare `node dist/main.js` start unless you run an equivalent release-phase migration step.
 

@@ -236,6 +236,14 @@ The first write surface should create and update the `story_brief` record.
 
 Framing selection is central to Storywall’s editorial model, so it should have explicit command endpoints rather than being hidden inside one draft mutation.
 
+### 10.0 Read framing workspace (candidates + draft shell)
+
+| Item | Contract |
+|---|---|
+| **Method and path** | `GET /api/v1/creator/stories/:storyId/frames` |
+| **Public alias (M5-T16)** | `GET /api/v1/creator/stories/:storyId/framing` — same response envelope as `…/frames`. |
+| **Purpose** | Lists framing candidates, optional `story_draft`, and `ai_framing_generation` when present |
+
 ### 10.1 Generate framing options
 
 | Item | Contract |
@@ -298,6 +306,7 @@ Research and draft assembly are heavier actions that should be modeled as asynch
 | Item | Contract |
 |---|---|
 | **Method and path** | `POST /api/v1/creator/stories/:storyId/research/run` |
+| **Public alias (M5-T16)** | `POST /api/v1/creator/stories/:storyId/research` — same body, same `Idempotency-Key` requirement, same state machine and responses as `…/research/run`. |
 | **Purpose** | Builds evidence package, candidate events, source matches, and risk flags |
 | **Idempotency** | Required |
 | **Allowed states** | `awaiting_framing_choice`, `ready_for_edit` when requesting rerun |

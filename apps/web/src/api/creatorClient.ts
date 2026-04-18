@@ -378,7 +378,7 @@ export async function patchSource(
 }
 
 export async function listFrames(token: string, storyId: string): Promise<ListFramesSuccess> {
-  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/frames`, {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/framing`, {
     headers: authHeaders(token),
   });
   const data = await parseJson(res);
@@ -467,7 +467,7 @@ export async function runResearchPass(
   body: RunResearchPassBody,
   idempotencyKey: string,
 ): Promise<RunResearchPassSuccess> {
-  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/research/run`, {
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/research`, {
     method: "POST",
     headers: {
       ...authHeaders(token),

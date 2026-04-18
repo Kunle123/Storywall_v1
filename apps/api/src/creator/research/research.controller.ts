@@ -195,6 +195,29 @@ export class ResearchController {
     @Body() body: RunResearchPassDto,
     @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
   ) {
+    return this.executeResearchRun(storyId, creator, body, idempotencyKeyHeader);
+  }
+
+  /**
+   * M5-T16 — public contract alias for `POST …/research/run` (same body, `Idempotency-Key`, state machine).
+   * Declared after `…/research/run` and job sub-routes so paths are not ambiguous.
+   */
+  @Post(":storyId/research")
+  async runPublicContract(
+    @Param("storyId") storyId: string,
+    @CurrentCreator() creator: AuthenticatedCreator,
+    @Body() body: RunResearchPassDto,
+    @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
+  ) {
+    return this.executeResearchRun(storyId, creator, body, idempotencyKeyHeader);
+  }
+
+  private async executeResearchRun(
+    storyId: string,
+    creator: AuthenticatedCreator,
+    body: RunResearchPassDto,
+    idempotencyKeyHeader: string | undefined,
+  ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
     const idempotencyKey = normalizeResearchIdempotencyKey(idempotencyKeyHeader);
     const result = await this.research.startResearchPass({

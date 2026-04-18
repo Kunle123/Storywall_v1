@@ -72,7 +72,7 @@ export interface PatchBriefSuccess {
   };
 }
 
-/** GET /creator/stories/:id/frames — M1-T12 */
+/** GET /creator/stories/:id/framing — M1-T12 (M5-T16 public path; alias of frames list) */
 export interface FrameDraftResponse {
   id: string;
   story_brief_id: string;
@@ -366,7 +366,7 @@ export interface PollJobSuccess {
   data: CreatorJobPollData;
 }
 
-/** POST …/research/run (mutation §11.1). */
+/** POST …/research (mutation §11.1; M5-T16 public path, same as …/research/run). */
 export interface RunResearchPassBody {
   mode: "full";
   respect_existing_manual_events: boolean;
