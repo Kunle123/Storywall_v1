@@ -109,11 +109,14 @@ export function PostAssemblyDepthNudge(props: PostAssemblyDepthNudgeProps) {
 
       <p className="post-assembly-depth-nudge__cta-label muted small">Jump to the highest-impact areas</p>
       <div className="post-assembly-depth-nudge__actions">
-        <Link to={`${base}#narrative-composition`} className="btn ghost inline">
-          Narrative sections
+        <Link to={`${base}#canonical-chronology-first-surfacing`} className="btn ghost inline">
+          Chronology overview
         </Link>
         <Link to={`${base}#timeline-events`} className="btn ghost inline">
           Timeline &amp; events
+        </Link>
+        <Link to={`${base}#narrative-composition`} className="btn ghost inline">
+          Narrative sections
         </Link>
         <Link to={`${base}#evidence-workspace`} className="btn ghost inline">
           Sources &amp; coverage

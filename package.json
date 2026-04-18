@@ -24,6 +24,7 @@
     "verify:staging:framing-selection": "node ./scripts/verify-staging-framing-selection.mjs",
     "verify:staging:draft-assembly": "node ./scripts/verify-staging-draft-assembly.mjs",
     "verify:staging:draft-review": "node ./scripts/verify-staging-draft-review-workspace.mjs",
+    "verify:staging:canonical-timeline-surfacing": "node ./scripts/verify-staging-canonical-timeline-surfacing.mjs",
     "verify:staging:draft-editing": "node ./scripts/verify-staging-draft-editing.mjs",
     "verify:staging:validation-checks": "node ./scripts/verify-staging-validation-checks.mjs",
     "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs",

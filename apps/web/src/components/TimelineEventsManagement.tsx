@@ -355,7 +355,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
             not available in the editor yet — new events are appended at the end.
           </p>
           <p className="editor-panel__hint muted small">
-            Main narrative prose lives under <strong>Narrative sections</strong> above. Use events for dated or ordered
+            Main narrative prose lives under <strong>Narrative sections</strong> below. Use events for dated or ordered
             beats and evidence rows.
           </p>
         </div>
@@ -397,7 +397,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
         <div className="muted small timeline-mgmt__empty" role="status">
           <p>
             <strong>No timeline events yet.</strong> Events carry dated beats, references, and evidence — add one with{" "}
-            <strong>Add event</strong>, optionally tying it to a narrative section above.
+            <strong>Add event</strong>, optionally tying it to a narrative section below.
           </p>
           <p style={{ marginTop: "0.5rem" }}>
             Without events, the evidence workspace has nothing to attach sources to, and the reader preview timeline

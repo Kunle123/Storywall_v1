@@ -31,6 +31,7 @@ import type {
   ListFramesSuccess,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ChronologyFirstArtifactCard } from "../components/ChronologyFirstArtifactCard";
 import { NarrativeSectionsCompositionPanel } from "../components/NarrativeSectionsComposition";
 import { CreatorPreviewPanel } from "../components/CreatorPreviewPanel";
 import { EvidenceWorkspacePanel } from "../components/EvidenceWorkspacePanel";
@@ -1114,12 +1115,13 @@ export function DraftReadyPage() {
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
               <strong>Story draft</strong> (title, lens, summary below) comes from your selected framing.{" "}
-              <strong>Timeline events</strong> are <code className="inline-code">event_draft</code> rows from research +
-              assembly — editable beats, not publish-ready prose. <strong>Narrative sections</strong> are ordered body
-              blocks; <strong>Sources &amp; coverage</strong> ties evidence to events.{" "}
+              <strong>Timeline events</strong> are listed <strong>first in this workspace</strong> as{" "}
+              <code className="inline-code">event_draft</code> rows from research + assembly — editable beats, not
+              publish-ready prose. <strong>Narrative sections</strong> follow as ordered body blocks;{" "}
+              <strong>Sources &amp; coverage</strong> ties evidence to events.{" "}
               {workflow === "assembling_draft" ? (
                 <>
-                  Deck, narrative sections, timeline, and evidence controls are <strong>locked</strong> until workflow
+                  Timeline, narrative sections, deck, and evidence controls are <strong>locked</strong> until workflow
                   returns to <code className="inline-code">ready_for_edit</code> — you can still read counts and open
                   the job link above.
                 </>
@@ -1414,6 +1416,26 @@ export function DraftReadyPage() {
                 ) : null}
               </section>
 
+              <ChronologyFirstArtifactCard events={events} eventsLoadError={eventsLoadError} workflow={workflow} />
+
+              <TimelineEventsManagementPanel
+                token={token!}
+                storyId={storyId}
+                events={events}
+                sections={sections}
+                eventsLoadError={eventsLoadError}
+                addingEvent={addingEvent}
+                onAddEvent={handleAddEvent}
+                onEventPatched={handleEventPatched}
+                onEventVersionConflict={handleEventConflict}
+                onEventSaveError={handleEventSaveError}
+                onRefreshEvents={refreshEvents}
+                regenInFlight={scopedRegenBusy}
+                regenEventId={scopedRegenTarget?.kind === "event" ? scopedRegenTarget.id : null}
+                onScopedEventRegenerate={startScopedEventRegenerate}
+                readOnly={compositionReadOnly}
+              />
+
               <NarrativeSectionsCompositionPanel
                 token={token!}
                 storyId={storyId}
@@ -1564,24 +1586,6 @@ export function DraftReadyPage() {
                 value={imageryMode}
                 onChange={setImageryMode}
                 disabled={!token || !draft || compositionReadOnly}
-              />
-
-              <TimelineEventsManagementPanel
-                token={token!}
-                storyId={storyId}
-                events={events}
-                sections={sections}
-                eventsLoadError={eventsLoadError}
-                addingEvent={addingEvent}
-                onAddEvent={handleAddEvent}
-                onEventPatched={handleEventPatched}
-                onEventVersionConflict={handleEventConflict}
-                onEventSaveError={handleEventSaveError}
-                onRefreshEvents={refreshEvents}
-                regenInFlight={scopedRegenBusy}
-                regenEventId={scopedRegenTarget?.kind === "event" ? scopedRegenTarget.id : null}
-                onScopedEventRegenerate={startScopedEventRegenerate}
-                readOnly={compositionReadOnly}
               />
 
               <EvidenceWorkspacePanel
