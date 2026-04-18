@@ -26,6 +26,39 @@ const ALLOWED_EVENT_EDIT_STATES: CreatorWorkflowState[] = [
 export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * M5-T15 — read-only list context: creator-owned story may exist before a `StoryDraft`
+   * row is created (draft shell is created with framing generation). LIST must not 404
+   * in those phases; return an empty event list instead. Mutations still use
+   * {@link getStoryDraftContext} with stricter rules.
+   */
+  private async resolveStoryForEventList(params: {
+    storyId: string;
+    creatorId: string;
+  }): Promise<{
+    storyState: CreatorWorkflowState;
+    storyDraftId: string | null;
+  }> {
+    const { storyId, creatorId } = params;
+    const story = await this.prisma.story.findFirst({
+      where: { id: storyId, creatorId },
+      include: {
+        storyBrief: { include: { storyDraft: true } },
+      },
+    });
+    if (!story) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "story_not_found", message: "Story not found" },
+      });
+    }
+    const draft = story.storyBrief?.storyDraft ?? null;
+    return {
+      storyState: story.workflowState,
+      storyDraftId: draft?.id ?? null,
+    };
+  }
+
   private async getStoryDraftContext(params: {
     storyId: string;
     creatorId: string;
@@ -68,13 +101,24 @@ export class EventsService {
   async listEvents(params: {
     storyId: string;
     creatorId: string;
-  }): Promise<{ events: EventDraft[]; storyState: CreatorWorkflowState }> {
-    const ctx = await this.getStoryDraftContext(params);
+  }): Promise<{
+    events: EventDraft[];
+    storyState: CreatorWorkflowState;
+    listMeta?: { event_list_scope: "no_story_draft" };
+  }> {
+    const { storyState, storyDraftId } = await this.resolveStoryForEventList(params);
+    if (!storyDraftId) {
+      return {
+        events: [],
+        storyState,
+        listMeta: { event_list_scope: "no_story_draft" },
+      };
+    }
     const events = await this.prisma.eventDraft.findMany({
-      where: { storyDraftId: ctx.storyDraftId, status: { not: "removed" } },
+      where: { storyDraftId, status: { not: "removed" } },
       orderBy: { positionIndex: "asc" },
     });
-    return { events, storyState: ctx.workflowState };
+    return { events, storyState };
   }
 
   async createEvent(params: {

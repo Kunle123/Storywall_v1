@@ -24,6 +24,7 @@ export function CreatorWorkspaceLayout() {
   const [framesData, setFramesData] = useState<ListFramesSuccess["data"] | null>(null);
   const [sectionCount, setSectionCount] = useState<number | null>(null);
   const [eventCount, setEventCount] = useState<number | null>(null);
+  const [eventsFetchFailed, setEventsFetchFailed] = useState(false);
   const [validationData, setValidationData] = useState<GetLatestValidationSuccess["data"] | null>(null);
   const [validationFetchFailed, setValidationFetchFailed] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -41,6 +42,7 @@ export function CreatorWorkspaceLayout() {
       setValidationFetchFailed(false);
       setSectionCount(null);
       setEventCount(null);
+      setEventsFetchFailed(false);
       setValidationData(null);
       try {
         const fr = await listFrames(token, storyId);
@@ -49,7 +51,9 @@ export function CreatorWorkspaceLayout() {
         setFramesData(fr.data);
         const [sec, ev, valRes] = await Promise.all([
           listSections(token, storyId).catch(() => null),
-          listEvents(token, storyId).catch(() => null),
+          listEvents(token, storyId)
+            .then((r) => ({ ok: true as const, r }))
+            .catch(() => ({ ok: false as const })),
           getLatestValidation(token, storyId)
             .then((r) => ({ data: r.data, failed: false as const }))
             .catch(() => ({ data: null, failed: true as const })),
@@ -57,8 +61,13 @@ export function CreatorWorkspaceLayout() {
         if (cancelled) return;
         if (sec) setSectionCount(sec.data.sections.length);
         else setSectionCount(null);
-        if (ev) setEventCount(ev.data.events.length);
-        else setEventCount(null);
+        if (ev.ok) {
+          setEventCount(ev.r.data.events.length);
+          setEventsFetchFailed(false);
+        } else {
+          setEventCount(null);
+          setEventsFetchFailed(true);
+        }
         setValidationData(valRes.data);
         setValidationFetchFailed(valRes.failed);
       } catch {
@@ -68,6 +77,7 @@ export function CreatorWorkspaceLayout() {
           setFramesData(null);
           setSectionCount(null);
           setEventCount(null);
+          setEventsFetchFailed(false);
           setValidationData(null);
           setValidationFetchFailed(false);
         }
@@ -89,6 +99,7 @@ export function CreatorWorkspaceLayout() {
       frames: framesData,
       sectionCount,
       eventCount,
+      eventsFetchFailed,
       validation: validationData,
       validationFetchFailed,
     });
@@ -100,6 +111,7 @@ export function CreatorWorkspaceLayout() {
     framesData,
     sectionCount,
     eventCount,
+    eventsFetchFailed,
     validationData,
     validationFetchFailed,
   ]);
@@ -224,10 +236,14 @@ export function CreatorWorkspaceLayout() {
           </section>
           <section className="creator-workspace-rail__block">
             <h2 className="creator-workspace-rail__h">Evidence</h2>
-            {eventCount !== null ? (
+            {eventsFetchFailed ? (
+              <p className="creator-workspace-rail__status muted small">
+                Timeline events could not be loaded — open the Draft tab to retry, or refresh if the problem persists.
+              </p>
+            ) : eventCount !== null ? (
               <p className="creator-workspace-rail__status muted small">
                 {eventCount === 0
-                  ? "No events yet — add timeline rows to anchor references."
+                  ? "No events yet — add timeline rows to anchor references (after a draft shell exists, events save here)."
                   : `${eventCount} event${eventCount === 1 ? "" : "s"} — attach references per row in Sources & coverage.`}
               </p>
             ) : null}

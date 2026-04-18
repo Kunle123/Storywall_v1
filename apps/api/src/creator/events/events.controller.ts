@@ -35,7 +35,7 @@ export class EventsController {
     @CurrentCreator() creator: AuthenticatedCreator,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
-    const { events, storyState } = await this.events.listEvents({
+    const { events, storyState, listMeta } = await this.events.listEvents({
       storyId,
       creatorId: creator.id,
     });
@@ -47,6 +47,7 @@ export class EventsController {
         events: events.map((e) => this.events.eventToResponsePayload(e)),
         story_state: storyState,
       },
+      ...(listMeta ? { meta: listMeta } : {}),
     };
   }
 

@@ -68,10 +68,22 @@ export function buildEditorialOverviewTiles(input: {
   frames: ListFramesSuccess["data"] | null;
   sectionCount: number | null;
   eventCount: number | null;
+  /** True when GET …/events failed (network, 5xx, or unexpected error) — not the same as “zero events”. */
+  eventsFetchFailed: boolean;
   validation: GetLatestValidationSuccess["data"] | null;
   validationFetchFailed: boolean;
 }): EditorialDimensionTile[] {
-  const { base, brief, workflow, frames, sectionCount, eventCount, validation, validationFetchFailed } = input;
+  const {
+    base,
+    brief,
+    workflow,
+    frames,
+    sectionCount,
+    eventCount,
+    eventsFetchFailed,
+    validation,
+    validationFetchFailed,
+  } = input;
   const wf = workflow;
 
   const briefPrimary = brief
@@ -116,10 +128,16 @@ export function buildEditorialOverviewTiles(input: {
   const val = validationPrimary(validation, validationFetchFailed);
 
   const ev = eventCount;
-  const timelinePrimary =
-    ev === null ? "Timeline status unavailable" : ev === 0 ? "No ordered events yet" : `${ev} ordered event${ev === 1 ? "" : "s"}`;
-  const timelineSecondary =
-    ev !== null && ev > 0
+  const timelinePrimary = eventsFetchFailed
+    ? "Could not load timeline events"
+    : ev === null
+      ? "Timeline status unavailable"
+      : ev === 0
+        ? "No ordered events yet"
+        : `${ev} ordered event${ev === 1 ? "" : "s"}`;
+  const timelineSecondary = eventsFetchFailed
+    ? "The events API returned an error or was unreachable — retry from the Draft tab."
+    : ev !== null && ev > 0
       ? "Evidence is threaded per event in Sources & coverage."
       : "Add events to anchor dates, then attach references.";
 
@@ -179,7 +197,7 @@ export function buildEditorialOverviewTiles(input: {
       label: "Timeline & evidence",
       primary: timelinePrimary,
       secondary: timelineSecondary,
-      tone: ev !== null && ev > 0 ? "neutral" : "quiet",
+      tone: eventsFetchFailed ? "caution" : ev !== null && ev > 0 ? "neutral" : "quiet",
       to: `${base}/draft#timeline-events`,
     },
   ];

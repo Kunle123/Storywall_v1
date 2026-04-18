@@ -221,6 +221,10 @@ export interface ListEventsSuccess {
     events: EventDraftResponse[];
     story_state: CreatorWorkflowState;
   };
+  /** M5-T15 — present when the story exists but no draft row yet (empty `events` is truthful, not an error). */
+  meta?: {
+    event_list_scope?: "no_story_draft";
+  };
 }
 
 export interface CreateEventSuccess {

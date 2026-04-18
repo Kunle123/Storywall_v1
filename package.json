@@ -13,6 +13,7 @@
     "db:migrate": "pnpm --filter @storywall/api exec prisma migrate dev",
     "db:deploy": "pnpm --filter @storywall/api exec prisma migrate deploy",
     "db:generate": "pnpm --filter @storywall/api exec prisma generate",
-    "verify:m5-t14": "pnpm --filter @storywall/web run verify:m5-t14"
+    "verify:m5-t14": "pnpm --filter @storywall/web run verify:m5-t14",
+    "verify:m5-t15": "pnpm --filter @storywall/api run verify:m5-t15"
   }
 }
