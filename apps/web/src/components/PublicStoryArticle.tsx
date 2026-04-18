@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { PublicStoryData } from "../api/publicTypes";
+import { ApiRequestError } from "../api/creatorClient";
+import { getPublicStoryReferences } from "../api/publicClient";
+import type { PublicStoryData, PublicStoryReferencesData } from "../api/publicTypes";
 import { computeBeatPresentations } from "../lib/publicStoryBeatPresentation";
 import { PublicTrustExplainer } from "./PublicTrustExplainer";
 
@@ -43,6 +45,101 @@ function sortEvents(events: PublicStoryData["events"]) {
 function sortSections(sections: PublicStoryData["sections"]) {
   return [...sections].sort(
     (a, b) => a.position_index - b.position_index || a.label.localeCompare(b.label),
+  );
+}
+
+type RefsIxState =
+  | { kind: "loading" }
+  | { kind: "ready"; storySourceCount: number; timelineRefCount: number }
+  | { kind: "empty" }
+  | { kind: "unavailable" }
+  | { kind: "error" };
+
+/** M5-T31 — live `GET /api/v1/stories/:slug/references` summary on the published reader (same visibility as the story). */
+function PublishedReferencesIndexCard({ slug }: { slug: string }) {
+  const [st, setSt] = useState<RefsIxState>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setSt({ kind: "loading" });
+      try {
+        const r = await getPublicStoryReferences(slug);
+        if (cancelled) return;
+        const d = r.data;
+        const storySourceCount = (d.sources ?? []).length;
+        const timelineRefCount = (d.events ?? []).reduce((acc, ev) => acc + (ev.references ?? []).length, 0);
+        if (storySourceCount === 0 && timelineRefCount === 0) {
+          setSt({ kind: "empty" });
+        } else {
+          setSt({ kind: "ready", storySourceCount, timelineRefCount });
+        }
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof ApiRequestError && e.status === 404) {
+          setSt({ kind: "unavailable" });
+        } else {
+          setSt({ kind: "error" });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  return (
+    <section
+      className="public-story-block public-story-block--refs-api"
+      data-testid="public-story-references-index"
+      aria-labelledby="public-story-refs-api-heading"
+    >
+      <h2 id="public-story-refs-api-heading" className="public-story-block__title">
+        References index
+      </h2>
+      <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+        Snapshot from <code className="inline-code">GET /api/v1/stories/…/references</code> (same anonymous rules as the
+        story body).
+      </p>
+      {st.kind === "loading" ? (
+        <p className="muted small" role="status">
+          Loading references from API…
+        </p>
+      ) : null}
+      {st.kind === "ready" ? (
+        <>
+          <p className="muted small">
+            <strong>{st.storySourceCount}</strong> story-level source{st.storySourceCount === 1 ? "" : "s"} and{" "}
+            <strong>{st.timelineRefCount}</strong> timeline inline reference row{st.timelineRefCount === 1 ? "" : "s"}.
+          </p>
+          <p>
+            <Link to={`/stories/${encodeURIComponent(slug)}/references`}>Open full references index</Link>
+          </p>
+        </>
+      ) : null}
+      {st.kind === "empty" ? (
+        <>
+          <p className="muted small" role="status">
+            The references index returned no rows for this snapshot (timeline may carry no outbound links yet, or the
+            public contract may omit some rows).
+          </p>
+          <p>
+            <Link to={`/stories/${encodeURIComponent(slug)}/references`}>Open full references index</Link>
+          </p>
+        </>
+      ) : null}
+      {st.kind === "unavailable" ? (
+        <p className="muted small" role="status">
+          References are not available here — same visibility as the story (for example, live{" "}
+          <strong>private</strong> blocks anonymous access).
+        </p>
+      ) : null}
+      {st.kind === "error" ? (
+        <p className="muted small" role="alert">
+          Could not load the references index. Try again later.
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -270,6 +367,8 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
           <p className="muted small">No public sources are listed for this story.</p>
         )}
       </section>
+
+      {variant === "published" ? <PublishedReferencesIndexCard slug={slug} /> : null}
 
       {story.conclusion ? (
         <section className="public-story-block public-story-block--closing" aria-labelledby="public-story-conclusion-label">

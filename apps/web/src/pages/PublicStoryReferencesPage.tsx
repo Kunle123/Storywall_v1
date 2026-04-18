@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PublicTrustExplainer } from "../components/PublicTrustExplainer";
+import { ApiRequestError } from "../api/creatorClient";
 import { getPublicStoryReferences } from "../api/publicClient";
 import type { PublicStoryReferencesData } from "../api/publicTypes";
+
+type RefsFailKind = "not_found" | "load_error";
 
 export function PublicStoryReferencesPage() {
   const { slug } = useParams<{ slug: string }>();
   const [payload, setPayload] = useState<PublicStoryReferencesData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [unavailable, setUnavailable] = useState(false);
+  const [failKind, setFailKind] = useState<RefsFailKind | null>(null);
 
   const eventsWithRefs = useMemo(
     () => (payload?.events ?? []).filter((e) => (e.references ?? []).length > 0),
@@ -18,21 +21,25 @@ export function PublicStoryReferencesPage() {
   useEffect(() => {
     if (!slug) {
       setLoading(false);
-      setUnavailable(true);
+      setFailKind("not_found");
       return;
     }
     let cancelled = false;
     void (async () => {
       setLoading(true);
-      setUnavailable(false);
+      setFailKind(null);
       try {
         const r = await getPublicStoryReferences(slug);
         if (!cancelled) {
           setPayload(r.data);
         }
-      } catch {
+      } catch (e) {
         if (!cancelled) {
-          setUnavailable(true);
+          if (e instanceof ApiRequestError && e.status === 404) {
+            setFailKind("not_found");
+          } else {
+            setFailKind("load_error");
+          }
           setPayload(null);
         }
       } finally {
@@ -48,7 +55,7 @@ export function PublicStoryReferencesPage() {
 
   if (!slug) {
     return (
-      <div className="page public-story-page">
+      <div className="page public-story-page" data-testid="public-story-refs-unavailable">
         <p className="public-story-unavailable">Invalid address.</p>
         <Link to="/" className="public-story-back">
           Home
@@ -65,13 +72,22 @@ export function PublicStoryReferencesPage() {
     );
   }
 
-  if (unavailable || !payload) {
+  if (failKind !== null || !payload) {
+    const isNotFound = failKind === "not_found";
     return (
-      <div className="page public-story-page">
+      <div className="page public-story-page" data-testid="public-story-refs-unavailable">
         <header className="public-story-header">
-          <h1 className="public-story-title">References unavailable</h1>
+          <h1 className="public-story-title">{isNotFound ? "References unavailable" : "Could not load references"}</h1>
           <p className="public-story-lead muted">
-            This Storywall does not exist, is not published, or is not visible here.
+            {isNotFound ? (
+              <>
+                The references index uses the same anonymous visibility rules as the story. If live visibility is{" "}
+                <strong>private</strong>, anonymous readers cannot open it. <strong>Unlisted</strong> stays readable by
+                direct link (including this page) when the story is.
+              </>
+            ) : (
+              <>The server returned an error while loading references. Try again later.</>
+            )}
           </p>
         </header>
         <Link to="/" className="public-story-back">
@@ -86,7 +102,7 @@ export function PublicStoryReferencesPage() {
   const hasAnyRefs = hasStorySources || hasTimelineRefs;
 
   return (
-    <article className="page public-story-page public-story-refs-page">
+    <article className="page public-story-page public-story-refs-page" data-testid="public-story-refs-article">
       <nav className="public-story-refs-page__nav" aria-label="Story">
         <Link to={`/stories/${encodeURIComponent(payload.slug)}`} className="public-story-back">
           ← Back to story
