@@ -119,8 +119,9 @@ function PublishReadinessBlock(props: {
         <p className="editor-panel__eyebrow">Publish</p>
         <p className="editor-publish-readiness__status">Checks required</p>
         <p className="editor-publish-readiness__detail muted small">
-          Publishing is not available in this workflow state until you run checks and the story can advance. Use{" "}
-          <strong>Run checks</strong> above.
+          Publish stays gated until workflow advances. If you have not run checks yet, use <strong>Run checks</strong>{" "}
+          above. If you already did, review the latest report and issues, make manuscript fixes, then run checks again —
+          manuscript edits in this tab still save while you are here.
         </p>
         {storyLivePublished ? (
           <p className="editor-publish-readiness__detail muted small">
@@ -190,7 +191,9 @@ function PublishReadinessBlock(props: {
           <p className="editor-publish-readiness__detail muted small">
             {republish
               ? "Checks allow refreshing the published reader snapshot from your current draft."
-              : "Your workflow allows moving toward publish. The latest recorded check run did not report blockers."}
+              : report.overall_result === "warn"
+                ? "Your workflow allows moving toward publish. The latest run reported warnings (not blockers) — read the list below; publishing may require acknowledging those warnings."
+                : "Your workflow allows moving toward publish. The latest recorded check run did not report blockers."}
           </p>
         ) : hasRun && !report ? (
           <p className="editor-publish-readiness__detail muted small">
@@ -466,6 +469,7 @@ export function DraftReadyPage() {
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [runValidationBusy, setRunValidationBusy] = useState(false);
+  const [checkSuccessNote, setCheckSuccessNote] = useState<string | null>(null);
   const [resolutionBusyIssueId, setResolutionBusyIssueId] = useState<string | null>(null);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
@@ -851,8 +855,9 @@ export function DraftReadyPage() {
     if (!token || !storyId) return;
     setRunValidationBusy(true);
     setValidationError(null);
+    setCheckSuccessNote(null);
     try {
-      await runStoryValidation(token, storyId, crypto.randomUUID(), {
+      const run = await runStoryValidation(token, storyId, crypto.randomUUID(), {
         run_type: "full",
         include_style_checks: true,
         include_imagery_checks: true,
@@ -864,6 +869,12 @@ export function DraftReadyPage() {
       await refreshEvents();
       const latest = await getLatestValidation(token, storyId);
       setValidationData(latest.data);
+      const wf = run.data.story_state;
+      const overall = run.data.overall_result;
+      setCheckSuccessNote(
+        `Checks finished in one request (${overall}). Workflow is now ${wf}. This is an editorial readiness signal — not automatic publish approval. Re-run after substantive edits.`,
+      );
+      window.setTimeout(() => setCheckSuccessNote(null), 14_000);
     } catch (e) {
       setValidationError(
         e instanceof ApiRequestError ? JSON.stringify(e.body) : "Validation run failed.",
@@ -959,6 +970,11 @@ export function DraftReadyPage() {
 
       {loadError ? <div className="banner error">{loadError}</div> : null}
       {saveError ? <div className="banner error">{saveError}</div> : null}
+      {checkSuccessNote ? (
+        <div className="banner success" role="status">
+          <p>{checkSuccessNote}</p>
+        </div>
+      ) : null}
       {saveOk ? (
         <div className="banner success">
           <p>Deck saved to the server.</p>
@@ -1142,12 +1158,15 @@ export function DraftReadyPage() {
                     Validation &amp; publish gate
                   </h3>
                   <p className="editor-panel__kicker muted small">
-                    This panel is the contract with readers: checks must reflect the manuscript you intend to ship.
+                    Rule-based structural checks and source visibility — an editorial readiness signal, not a substitute
+                    for human fact-checking or legal review.
                   </p>
                   <p className="editor-panel__hint">
-                    Latest checks against Storywall baseline and reference rules. Re-run after you edit — results decide
-                    whether you can publish or refresh the live reader snapshot, and list concrete issues when the engine
-                    finds them.
+                    <strong>Run checks</strong> calls <code className="inline-code">POST …/validation/run</code> and
+                    completes in that request (no separate job). The server stores a validation report, returns counts,
+                    and may move workflow to <code className="inline-code">blocked</code> (blockers) or{" "}
+                    <code className="inline-code">ready_to_publish</code> (pass or warnings only). Re-run after edits;
+                    results appear below and in publish readiness.
                   </p>
                   {compositionReadOnly ? (
                     <p className="editor-panel__hint muted small" role="status">
@@ -1203,9 +1222,10 @@ export function DraftReadyPage() {
                   <p className="hint">{validationError}</p>
                 ) : validationData && !validationData.has_validation_run ? (
                   <p className="muted small">
-                    No check run is stored for this story yet. When you want a publish or republish signal, use{" "}
-                    <strong>Run checks</strong> — a snapshot will appear below and your workflow will move to match the
-                    outcome (for example blocked or ready to publish).
+                    No check run is stored for this story yet. Use <strong>Run checks</strong> — the run finishes
+                    immediately, a snapshot appears below, and workflow updates to <code className="inline-code">blocked</code>{" "}
+                    if there are blockers, otherwise <code className="inline-code">ready_to_publish</code> for a
+                    publish-readiness signal (warnings can still appear in the list).
                   </p>
                 ) : validationData?.validation_report ? (
                   <div className="editor-validation-body" id="editor-validation-report-start">
