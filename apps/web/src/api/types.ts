@@ -369,6 +369,8 @@ export interface CreatorJobPollData {
   kind: "research_run" | "draft_assemble";
   status: string;
   story_id: string;
+  /** Present when API is M5-T18+ — live story workflow (e.g. `researching` while job active). */
+  story_state?: CreatorWorkflowState;
   mode: string;
   created_at: string;
   started_at: string | null;

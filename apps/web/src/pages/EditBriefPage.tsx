@@ -274,11 +274,16 @@ export function EditBriefPage() {
 
       {storyState === "researching" || storyState === "assembling_draft" ? (
         <div className="banner warn" style={{ marginBottom: "1rem" }}>
-          <strong>A long-running server job is in progress.</strong>{" "}
+          <strong>A long-running server job is in progress.</strong> The story workflow is{" "}
+          <code className="inline-code">{storyState}</code> until the worker finishes.{" "}
           {activeJobId ? (
             <>
-              <Link to={`/creator/stories/${storyId}/jobs/${activeJobId}`}>Open generation status</Link> to watch the unified
-              job poll.
+              <Link to={`/creator/stories/${storyId}/jobs/${activeJobId}`}>Open generation status</Link> to poll{" "}
+              <code className="inline-code">GET /api/v1/creator/jobs/{activeJobId}</code> — you will see honest{" "}
+              <code className="inline-code">pending</code> / <code className="inline-code">running</code> / terminal job
+              status, and (on current APIs) the live <code className="inline-code">story_state</code> on the same payload. When
+              research completes, workflow returns to where you started (often{" "}
+              <code className="inline-code">awaiting_framing_choice</code>) and the status page lists the next steps.
             </>
           ) : (
             <>

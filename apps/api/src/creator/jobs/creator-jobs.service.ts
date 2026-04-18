@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { CreatorWorkflowState } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -11,6 +12,8 @@ export class CreatorJobsService {
     kind: "research_run" | "draft_assemble";
     status: string;
     story_id: string;
+    /** Live `stories.workflow_state` — e.g. `researching` while job runs, restored after research success (M5-T18). */
+    story_state: CreatorWorkflowState;
     mode: string;
     created_at: string;
     started_at: string | null;
@@ -19,7 +22,7 @@ export class CreatorJobsService {
   }> {
     const research = await this.prisma.researchJob.findFirst({
       where: { id: jobId, story: { creatorId } },
-      include: { story: { select: { id: true } } },
+      include: { story: { select: { id: true, workflowState: true } } },
     });
     if (research) {
       return {
@@ -27,6 +30,7 @@ export class CreatorJobsService {
         kind: "research_run",
         status: research.status,
         story_id: research.story.id,
+        story_state: research.story.workflowState,
         mode: research.mode,
         created_at: research.createdAt.toISOString(),
         started_at: research.startedAt?.toISOString() ?? null,
@@ -37,7 +41,7 @@ export class CreatorJobsService {
 
     const draft = await this.prisma.draftAssemblyJob.findFirst({
       where: { id: jobId, story: { creatorId } },
-      include: { story: { select: { id: true } } },
+      include: { story: { select: { id: true, workflowState: true } } },
     });
     if (draft) {
       return {
@@ -45,6 +49,7 @@ export class CreatorJobsService {
         kind: "draft_assemble",
         status: draft.status,
         story_id: draft.story.id,
+        story_state: draft.story.workflowState,
         mode: draft.mode,
         created_at: draft.createdAt.toISOString(),
         started_at: draft.startedAt?.toISOString() ?? null,

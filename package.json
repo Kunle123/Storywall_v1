@@ -16,6 +16,7 @@
     "verify:m5-t14": "pnpm --filter @storywall/web run verify:m5-t14",
     "verify:m5-t15": "pnpm --filter @storywall/api run verify:m5-t15",
     "verify:staging:creator-baseline": "node ./scripts/verify-staging-creator-baseline.mjs",
-    "verify:staging:research-entry": "node ./scripts/verify-staging-research-entry.mjs"
+    "verify:staging:research-entry": "node ./scripts/verify-staging-research-entry.mjs",
+    "verify:staging:research-status": "node ./scripts/verify-staging-research-status.mjs"
   }
 }

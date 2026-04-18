@@ -42,6 +42,8 @@ export function JobStatusPage() {
   const [aiFramingGeneration, setAiFramingGeneration] = useState<unknown | null>(null);
 
   const stoppedRef = useRef(false);
+  /** Which job kind triggered the finishing overlay (refs do not re-render). */
+  const finishingKindRef = useRef<CreatorJobPollData["kind"] | null>(null);
 
   const finishSucceeded = useCallback(
     async (j: CreatorJobPollData) => {
@@ -91,6 +93,7 @@ export function JobStatusPage() {
 
         if (j.status === "succeeded") {
           stoppedRef.current = true;
+          finishingKindRef.current = j.kind;
           setFinishing(true);
           await finishSucceeded(j);
           return;
@@ -341,6 +344,12 @@ export function JobStatusPage() {
       {terminal?.kind === "failed" ? (
         <div className="card gen-terminal gen-terminal-error">
           <h2 className="gen-card-title">Job failed</h2>
+          {terminal.job.story_state ? (
+            <p className="muted small" style={{ marginBottom: "0.5rem" }}>
+              Story workflow at failure: <code className="inline-code">{terminal.job.story_state}</code> (from the same job
+              poll).
+            </p>
+          ) : null}
           <p className="gen-error-detail">
             {terminal.job.error_message ?? "No error details were returned — check server logs."}
           </p>
@@ -382,6 +391,21 @@ export function JobStatusPage() {
           <p className="hint small" style={{ marginTop: "0.35rem" }}>
             {describeJobCapability(job)}
           </p>
+          {job.kind === "research_run" ? (
+            <p className="hint small" style={{ marginTop: "0.35rem" }}>
+              <strong>Truthful signals:</strong> <code className="inline-code">status</code> here is the persisted{" "}
+              <code className="inline-code">research_job.status</code> (queued / running / terminal).{" "}
+              {job.story_state ? (
+                <>
+                  <code className="inline-code">story_state</code> is the live story workflow — usually{" "}
+                  <code className="inline-code">researching</code> until the worker finishes, then it returns to the state you
+                  had before starting research (for example <code className="inline-code">awaiting_framing_choice</code>).
+                </>
+              ) : (
+                <>Your API may be older than M5-T18; refresh the brief page or poll again after the job shows succeeded.</>
+              )}
+            </p>
+          ) : null}
           <dl className="gen-meta">
             <div>
               <dt>Job</dt>
@@ -393,6 +417,14 @@ export function JobStatusPage() {
               <dt>Kind</dt>
               <dd>{job.kind}</dd>
             </div>
+            {job.story_state ? (
+              <div>
+                <dt>Story workflow</dt>
+                <dd>
+                  <code className="inline-code">{job.story_state}</code>
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt>Mode</dt>
               <dd>{job.mode}</dd>
@@ -413,7 +445,17 @@ export function JobStatusPage() {
 
       {finishing ? (
         <div className="banner" style={{ background: "#e8f0ff", borderColor: "#a8c0f0" }}>
-          Finishing up — entering the editorial workspace when the story is <code className="inline-code">ready_for_edit</code>…
+          {finishingKindRef.current === "draft_assemble" ? (
+            <>
+              Finishing up — entering the draft workspace when the story is{" "}
+              <code className="inline-code">ready_for_edit</code>…
+            </>
+          ) : (
+            <>
+              Finishing up — restoring story workflow and loading the research package (honesty summary, optional editorial
+              tools)…
+            </>
+          )}
         </div>
       ) : null}
 
