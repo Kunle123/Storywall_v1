@@ -77,3 +77,24 @@ export interface GetPublicStoryReferencesSuccess {
   request_id?: string;
   api_version?: string;
 }
+
+/** M5-T27 — anonymous discovery list card (snake_case from API). */
+export interface PublicDiscoveryStoryCard {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  summary: string;
+  published_at: string;
+}
+
+/** M5-T27 + M5-T28 — GET /api/v1/stories/discover */
+export interface GetPublicDiscoverSuccess {
+  ok: true;
+  data: {
+    discovery_contract: string;
+    limit_applied: number;
+    stories: PublicDiscoveryStoryCard[];
+  };
+  request_id?: string;
+  api_version?: string;
+}

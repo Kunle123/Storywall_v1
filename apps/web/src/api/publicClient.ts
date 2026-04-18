@@ -1,5 +1,9 @@
 import { ApiRequestError } from "./creatorClient";
-import type { GetPublicStoryReferencesSuccess, GetPublicStorySuccess } from "./publicTypes";
+import type {
+  GetPublicDiscoverSuccess,
+  GetPublicStoryReferencesSuccess,
+  GetPublicStorySuccess,
+} from "./publicTypes";
 
 function apiBase(): string {
   const u = import.meta.env.VITE_API_URL;
@@ -35,4 +39,18 @@ export async function getPublicStoryReferences(slug: string): Promise<GetPublicS
     throw new ApiRequestError(`Public references failed (${res.status})`, res.status, data);
   }
   return data as GetPublicStoryReferencesSuccess;
+}
+
+/** M5-T27 — GET …/stories/discover (public live visibility only; optional limit 1–200). */
+export async function getPublicDiscover(limit?: number): Promise<GetPublicDiscoverSuccess> {
+  const q =
+    limit !== undefined && Number.isFinite(limit)
+      ? `?limit=${encodeURIComponent(String(Math.min(Math.max(Math.trunc(limit), 1), 200)))}`
+      : "";
+  const res = await fetch(`${apiBase()}/stories/discover${q}`);
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Public discover failed (${res.status})`, res.status, data);
+  }
+  return data as GetPublicDiscoverSuccess;
 }
