@@ -20,6 +20,9 @@ export * from "./research-synthesis";
 // --- M5-T07 — draft enrichment from synthesis + chronology (deterministic; browser-safe) ---
 export * from "./draft-enrichment";
 
+// --- M5-T10 — AI framing generation audit package (browser-safe JSON types) ---
+export * from "./ai-framing-generation";
+
 /** Public reader + CMS subject classification */
 export type SubjectType =
   | "person"

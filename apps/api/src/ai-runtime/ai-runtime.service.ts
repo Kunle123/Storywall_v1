@@ -37,6 +37,7 @@ export class AiRuntimeService implements OnModuleInit {
       config: this.snapshot,
       limiter: this.limiter,
       sink: this.sink,
+      openAiApiKey: process.env.STORYWALL_AI_API_KEY?.trim() ?? null,
     });
   }
 
@@ -66,7 +67,7 @@ export class AiRuntimeService implements OnModuleInit {
 
   /**
    * Safe health payload — never exposes secret values.
-   * `execution_available` stays false until a later M5 ticket implements transport.
+   * `execution_available` is true when OpenAI-compatible HTTP transport is wired (M5-T10).
    */
   getHealthSummary(): {
     surface: AiRuntimeConfigSnapshot["surface"];
@@ -82,8 +83,8 @@ export class AiRuntimeService implements OnModuleInit {
       max_calls_per_window: number;
       window_ms: number;
     };
-    execution_available: false;
-    transport: "not_implemented_m5_t03";
+    execution_available: boolean;
+    transport: "openai_compatible_http_v1" | "not_implemented_m5_t03";
     prompt_registry: {
       schema: StorywallPromptRegistrySchemaId;
       registered_count: number;
@@ -93,6 +94,7 @@ export class AiRuntimeService implements OnModuleInit {
     const o = this.snapshot.operational;
     const refs = listRegisteredPromptTemplateRefs();
     const retrievalPolicy = parseBoundedRetrievalPolicyFromEnv(process.env);
+    const exec = this.port.implementationId === "openai_compatible_http_v1";
     return {
       surface: this.snapshot.surface,
       provider: this.snapshot.provider,
@@ -107,8 +109,8 @@ export class AiRuntimeService implements OnModuleInit {
         max_calls_per_window: o.maxCallsPerWindow,
         window_ms: o.windowMs,
       },
-      execution_available: false,
-      transport: "not_implemented_m5_t03",
+      execution_available: exec,
+      transport: exec ? "openai_compatible_http_v1" : "not_implemented_m5_t03",
       prompt_registry: {
         schema: getPromptTemplateRegistrySchemaId(),
         registered_count: refs.length,

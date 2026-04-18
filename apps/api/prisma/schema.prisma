@@ -560,6 +560,9 @@ model StoryBrief {
   recommendedCreationMode   CreationMode? @map("recommended_creation_mode")
   normalizationStatus     NormalizationStatus @default(pending) @map("normalization_status")
 
+  /// M5-T10 — last framing generation audit envelope (live AI, deterministic fallback, or failure metadata).
+  aiFramingGenerationPackage Json? @map("ai_framing_generation_package")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

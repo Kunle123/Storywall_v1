@@ -11,18 +11,34 @@ import {
   type StoryDraft,
   type StoryFrameDraft,
 } from "@prisma/client";
+import {
+  AI_FRAMING_GENERATION_SCHEMA_VERSION,
+  type AiFramingGenerationOption,
+  type AiFramingGenerationPackageV1,
+  applyPromptAuditToInvocationContext,
+  getCanonicalPromptTemplate,
+  parseFramingOptionsFromLlmJson,
+  renderPromptTemplate,
+} from "@storywall/shared";
+import { AiRuntimeService } from "../../ai-runtime/ai-runtime.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { GenerateFramesDto } from "./dto/generate-frames.dto";
 import type { SelectFrameDto } from "./dto/select-frame.dto";
+import { loadFramingResearchGrounding } from "./framing-ai-context";
 
 const ALLOWED_WORKFLOW_FOR_GENERATE: CreatorWorkflowState[] = [
   "drafting_brief",
   "awaiting_framing_choice",
 ];
 
-/** M1-T11: deterministic mock framing (2–4 options). No external AI call. */
+/** M1-T11 / M5-T10: three framing rows per generate call. */
 const OPTION_COUNT = 3;
+
+const FRAMING_PROMPT_TEMPLATE_KEY = "framing.live_package_m5_t10_v1" as const;
+
+const NOT_PUBLISHABLE_FRAMING_NOTE =
+  "Model-generated framing guidance for creator selection only. It is not a publish-ready story, may omit nuance, and must be checked against primary sources before publication.";
 
 /** Idempotency for `POST …/frames/select` is persisted in `creator_frame_select_idempotency` only (M1-T12). Other mutation commands do not share this mechanism yet. */
 
@@ -31,6 +47,7 @@ export class FramesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflowTransitions: WorkflowTransitionService,
+    private readonly aiRuntime: AiRuntimeService,
   ) {}
 
   /** GET list — minimal read for framing chooser (M1-T12); not full workspace. */
@@ -43,6 +60,7 @@ export class FramesService {
     storySlug: string;
     frameDrafts: StoryFrameDraft[];
     storyDraft: StoryDraft | null;
+    aiFramingGeneration: unknown | null;
   }> {
     const story = await this.prisma.story.findFirst({
       where: { id: storyId, creatorId },
@@ -66,6 +84,7 @@ export class FramesService {
       storySlug: story.slug,
       frameDrafts,
       storyDraft: story.storyBrief.storyDraft ?? null,
+      aiFramingGeneration: story.storyBrief.aiFramingGenerationPackage ?? null,
     };
   }
 
@@ -350,7 +369,8 @@ export class FramesService {
 
   /**
    * Generate framing candidates from latest brief snapshot (mutation §10.1).
-   * Synchronous persistence — no job queue in M1-T11.
+   * M5-T10: when AI runtime transport is available, calls live model with brief + research synthesis + honesty context;
+   * otherwise persists an honest deterministic fallback with the same `story_frame_draft` rows.
    */
   async generateFramingOptions(params: {
     storyId: string;
@@ -361,75 +381,82 @@ export class FramesService {
     storyState: CreatorWorkflowState;
     frameDrafts: StoryFrameDraft[];
     reusedExisting: boolean;
+    aiFramingGeneration: AiFramingGenerationPackageV1 | null;
   }> {
     const { storyId, creatorId, dto } = params;
     const replace = dto.replace_existing_unselected_frames === true;
 
-    return this.prisma.$transaction(async (tx) => {
-      const story = await tx.story.findFirst({
-        where: { id: storyId, creatorId },
-        include: { storyBrief: true },
+    const story = await this.prisma.story.findFirst({
+      where: { id: storyId, creatorId },
+      include: { storyBrief: true },
+    });
+
+    if (!story?.storyBrief) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "story_not_found", message: "Story or brief not found" },
       });
+    }
 
-      if (!story?.storyBrief) {
-        throw new NotFoundException({
-          ok: false,
-          error: { code: "story_not_found", message: "Story or brief not found" },
-        });
-      }
+    if (!ALLOWED_WORKFLOW_FOR_GENERATE.includes(story.workflowState)) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "invalid_state_transition",
+          message: "Framing generation is not allowed in the current workflow state",
+          details: { story_state: story.workflowState },
+        },
+      });
+    }
 
-      if (!ALLOWED_WORKFLOW_FOR_GENERATE.includes(story.workflowState)) {
-        throw new BadRequestException({
-          ok: false,
-          error: {
-            code: "invalid_state_transition",
-            message: "Framing generation is not allowed in the current workflow state",
-            details: { story_state: story.workflowState },
-          },
-        });
-      }
+    const brief = story.storyBrief;
 
-      const brief = story.storyBrief;
+    const existingProposed = await this.prisma.storyFrameDraft.findMany({
+      where: {
+        storyBriefId: brief.id,
+        status: "proposed",
+        isSelected: false,
+      },
+      orderBy: { candidateRank: "asc" },
+    });
 
-      const existingProposed = await tx.storyFrameDraft.findMany({
+    if (!replace && existingProposed.length > 0) {
+      return {
+        storyId: story.id,
+        storyState: story.workflowState,
+        frameDrafts: existingProposed,
+        reusedExisting: true,
+        aiFramingGeneration: (brief.aiFramingGenerationPackage as AiFramingGenerationPackageV1 | null) ?? null,
+      };
+    }
+
+    if (replace && existingProposed.length > 0) {
+      await this.prisma.storyFrameDraft.updateMany({
         where: {
           storyBriefId: brief.id,
           status: "proposed",
           isSelected: false,
         },
-        orderBy: { candidateRank: "asc" },
+        data: { status: "superseded" },
       });
+    }
 
-      if (!replace && existingProposed.length > 0) {
-        return {
-          storyId: story.id,
-          storyState: story.workflowState,
-          frameDrafts: existingProposed,
-          reusedExisting: true,
-        };
-      }
+    const maxRank = await this.prisma.storyFrameDraft.aggregate({
+      where: { storyBriefId: brief.id },
+      _max: { candidateRank: true },
+    });
+    const startRank = (maxRank._max.candidateRank ?? 0) + 1;
 
-      if (replace && existingProposed.length > 0) {
-        await tx.storyFrameDraft.updateMany({
-          where: {
-            storyBriefId: brief.id,
-            status: "proposed",
-            isSelected: false,
-          },
-          data: { status: "superseded" },
-        });
-      }
+    const batch = await this.buildFramingBatch({
+      storyId,
+      brief,
+      dto,
+      startRank,
+    });
 
-      const maxRank = await tx.storyFrameDraft.aggregate({
-        where: { storyBriefId: brief.id },
-        _max: { candidateRank: true },
-      });
-      const startRank = (maxRank._max.candidateRank ?? 0) + 1;
-
-      const seeds = this.buildFrameSeeds(brief, dto.notes, startRank);
-
+    return this.prisma.$transaction(async (tx) => {
       await tx.storyFrameDraft.createMany({
-        data: seeds.map(
+        data: batch.seeds.map(
           (s): Prisma.StoryFrameDraftCreateManyInput => ({
             ...s,
             storyBriefId: brief.id,
@@ -454,6 +481,13 @@ export class FramesService {
         select: { workflowState: true },
       });
 
+      await tx.storyBrief.update({
+        where: { id: brief.id },
+        data: {
+          aiFramingGenerationPackage: batch.package as unknown as Prisma.InputJsonValue,
+        },
+      });
+
       await this.workflowTransitions.appendIfChanged(tx, {
         storyId: story.id,
         fromState: wfBeforeGenerate,
@@ -468,8 +502,149 @@ export class FramesService {
         storyState: updatedStory.workflowState,
         frameDrafts: created,
         reusedExisting: false,
+        aiFramingGeneration: batch.package,
       };
     });
+  }
+
+  private async buildFramingBatch(params: {
+    storyId: string;
+    brief: StoryBrief;
+    dto: GenerateFramesDto;
+    startRank: number;
+  }): Promise<{
+    seeds: Omit<Prisma.StoryFrameDraftCreateManyInput, "storyBriefId">[];
+    package: AiFramingGenerationPackageV1;
+  }> {
+    const grounding = await loadFramingResearchGrounding(this.prisma, params.storyId);
+    const cfg = this.aiRuntime.getSnapshot();
+    const port = this.aiRuntime.getTextGenerationPort();
+
+    const base = (): Pick<
+      AiFramingGenerationPackageV1,
+      | "schema_version"
+      | "prompt_template_key"
+      | "prompt_version"
+      | "provider"
+      | "story_id"
+      | "research_job_id"
+      | "not_publishable_framing_note"
+      | "honesty_context"
+      | "generated_at"
+    > => ({
+      schema_version: AI_FRAMING_GENERATION_SCHEMA_VERSION,
+      prompt_template_key: FRAMING_PROMPT_TEMPLATE_KEY,
+      prompt_version: "1.0.0",
+      provider: cfg.provider === "none" ? "none" : cfg.provider,
+      story_id: params.storyId,
+      research_job_id: grounding.research_job_id,
+      not_publishable_framing_note: NOT_PUBLISHABLE_FRAMING_NOTE,
+      honesty_context: grounding.honesty_summary,
+      generated_at: new Date().toISOString(),
+    });
+
+    const detSeeds = this.buildFrameSeeds(params.brief, params.dto.notes, params.startRank);
+
+    try {
+      if (port.implementationId !== "openai_compatible_http_v1") {
+        throw new Error("ai_transport_unavailable");
+      }
+      const def = getCanonicalPromptTemplate({ key: FRAMING_PROMPT_TEMPLATE_KEY });
+      const variables: Record<string, string> = {
+        subject: params.brief.subject.trim().slice(0, 400),
+        story_type: String(params.brief.storyType),
+        research_brief: params.brief.researchBrief.trim().slice(0, 6000),
+        desired_angle: params.brief.desiredAngle.trim().slice(0, 3000),
+        creator_notes: params.dto.notes?.trim().slice(0, 1500) ?? "(none)",
+        research_synthesis_excerpt:
+          grounding.research_synthesis_excerpt.trim().length > 0
+            ? grounding.research_synthesis_excerpt
+            : "(no research_synthesis_package yet — rely on brief only; do not invent sources.)",
+        research_honesty_json: JSON.stringify(grounding.honesty_summary).slice(0, 8000),
+      };
+      const rendered = renderPromptTemplate(def, variables);
+      const ctx = applyPromptAuditToInvocationContext(
+        { purpose: "framing_generation", storyId: params.storyId },
+        rendered.audit,
+      );
+      const completion = await port.completeChat({ messages: rendered.messages, context: ctx });
+      const parsed = parseFramingOptionsFromLlmJson(completion.text);
+      if (!parsed.ok) {
+        throw new Error(parsed.error);
+      }
+      const picked = parsed.options.slice(0, OPTION_COUNT);
+      if (picked.length < OPTION_COUNT) {
+        throw new Error("llm_insufficient_framing_options");
+      }
+      const seeds = this.mapAiOptionsToSeeds(picked, params.startRank);
+      return {
+        seeds,
+        package: {
+          ...base(),
+          generation_mode: "live_ai_backed",
+          status: "succeeded",
+          model: completion.providerModelLabel ?? null,
+          framing_options: picked,
+          failure: null,
+        },
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const options = this.mapDeterministicSeedsToFramingOptions(detSeeds, params.startRank);
+      return {
+        seeds: detSeeds,
+        package: {
+          ...base(),
+          generation_mode: "deterministic_scaffolding_fallback",
+          status: "fallback_deterministic",
+          model: null,
+          framing_options: options,
+          failure: {
+            code: "framing_live_generation_unavailable",
+            message: msg.slice(0, 2000),
+          },
+        },
+      };
+    }
+  }
+
+  private mapAiOptionsToSeeds(
+    options: AiFramingGenerationOption[],
+    startRank: number,
+  ): Omit<Prisma.StoryFrameDraftCreateManyInput, "storyBriefId">[] {
+    return options.map((o, i) => {
+      const body = [o.angle_description, o.narrative_emphasis].filter(Boolean).join("\n\n");
+      const coverage = o.grounding_refs.map((g) => g.label ?? g.kind);
+      return {
+        titleCandidate: o.title.slice(0, 500),
+        subtitleCandidate: null,
+        summaryCandidate: body.slice(0, 8000),
+        lensCandidate: o.angle_description.slice(0, 8000),
+        scopeRationale: o.narrative_emphasis.slice(0, 8000),
+        coverageImplications: coverage.length > 0 ? coverage : ["Framing guidance"],
+        balanceNote: o.caution_note,
+        confidenceSummaryInitial: "mixed",
+        candidateRank: startRank + i,
+        isSelected: false,
+        selectionSource: "ai_proposed" as const,
+        status: "proposed" as const,
+      };
+    });
+  }
+
+  private mapDeterministicSeedsToFramingOptions(
+    seeds: Omit<Prisma.StoryFrameDraftCreateManyInput, "storyBriefId">[],
+    startRank: number,
+  ): AiFramingGenerationOption[] {
+    return seeds.map((s, i) => ({
+      id: `deterministic:${startRank + i}`,
+      title: String(s.titleCandidate).slice(0, 500),
+      angle_description: String(s.summaryCandidate).slice(0, 2000),
+      narrative_emphasis: String(s.scopeRationale).slice(0, 2000),
+      caution_note:
+        "Deterministic Storywall scaffolding frame (live model call did not complete for this run). Treat as non-authoritative.",
+      grounding_refs: [],
+    }));
   }
 
   private buildFrameSeeds(

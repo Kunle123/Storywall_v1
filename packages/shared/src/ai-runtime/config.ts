@@ -115,7 +115,7 @@ export function formatAiRuntimeBootstrapLogLine(cfg: AiRuntimeConfigSnapshot): s
     `policy_cap=${p.maxCallsPerWindow}/${p.windowMs}ms`,
     `timeout_ms=${p.timeoutMs}`,
     `max_retries=${p.maxRetries}`,
-    `transport=not_implemented_m5_t03`,
+    `transport=openai_compatible_http_m5_t10_or_stub`,
   ];
   if (cfg.misconfigurationReasons.length > 0) {
     parts.push(`issues=${cfg.misconfigurationReasons.length}`);

@@ -71,17 +71,19 @@ AI-first, creator-led **non-fiction** stories with mandatory **timeline** and **
    pnpm --filter @storywall/worker dev
    ```
 
-### M5-T06 local E2E (research → synthesis package → chronology)
+### M5-T06 local E2E (research → synthesis package → chronology + framing audit)
 
 Checked-in script: `apps/api/scripts/e2e-m5-t06-research-chronology.mjs` (also `pnpm --filter @storywall/api run e2e:m5-t06`).
 
-**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`), companion **`draft_enrichment_provenance`** flat index, and **`honesty_summary`** (`m5-t09-v1`: deterministic-scaffolding posture, provenance availability, support rollup) on `GET …/package` for creator audit.
+**What it proves:** bounded retrieval (live when configured), persisted `research_synthesis_package` (`m5-t05-v1`), chronology extraction at `m5-t06-v1` with M5-T06 `context_label` / `creator_note` provenance and `[temporal]` honesty markers, plus persisted **`draft_enrichment_package`** (`m5-t08-v1`: M5-T07 scaffolding + **M5-T08** per-node `provenance` / `support_status`), companion **`draft_enrichment_provenance`** flat index, and **`honesty_summary`** (`m5-t09-v1`) on `GET …/package`. It also asserts **`ai_framing_generation`** (`m5-t10-v1`) on **`POST …/frames/generate`** (initial + post-research regenerate), including embedded **M5-T09** honesty context and `research_job_id` linkage after research.
 
-**Operational:** restart **API and worker** after deploy so the queue and HTTP layer serve the current response contract (M5-T08/09 fields); keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below) so jobs are not acked by a stale worker binary while you verify against a different Postgres.
+**Operational:** restart **API and worker** after deploy so the queue and HTTP layer serve the current response contract; keep **API and worker on the same `REDIS_URL` logical DB** (see isolation rule below). After schema changes (e.g. `ai_framing_generation_package`), run **`pnpm db:deploy`** (or `prisma migrate deploy`) before E2E.
+
+**Optional live AI framing (M5-T10):** set `STORYWALL_AI_RUNTIME_ENABLED=true`, `STORYWALL_AI_PROVIDER=openai_compatible`, `STORYWALL_AI_BASE_URL` (e.g. `https://api.openai.com/v1`), and `STORYWALL_AI_API_KEY` on the **API** process only. If unset, the script still passes using the **honest deterministic fallback** (`generation_mode: deterministic_scaffolding_fallback`).
 
 **Prerequisites**
 
-- **Postgres:** use an empty or dedicated database for this flow; run `pnpm db:deploy` (or `pnpm db:migrate`) so schema includes M5-T05 (`research_synthesis_package`).
+- **Postgres:** use an empty or dedicated database for this flow; run `pnpm db:deploy` (or `pnpm db:migrate`) so schema includes M5-T05 (`research_synthesis_package`) and **M5-T10** (`story_brief.ai_framing_generation_package`).
 - **API + worker** both running, with **identical** `DATABASE_URL` on both processes.
 - **Live Wikipedia (recommended for this script’s live assertions):** on **both** API and worker, set `STORYWALL_RETRIEVAL_ENABLED=true`, `STORYWALL_RETRIEVAL_ALLOWED_API_HOSTS` (must allow `en.wikipedia.org` for the bundled adapter), and `STORYWALL_RETRIEVAL_USER_AGENT` per `.env.example`. If retrieval is stub, the script still passes synthesis/chronology checks but skips the live Wikipedia URL assertion.
 - **`JWT_SECRET`** (and other API env) set for the API process.
@@ -120,7 +122,7 @@ pnpm --filter @storywall/worker start
 API_URL=http://127.0.0.1:3001 pnpm --filter @storywall/api exec node ./scripts/e2e-m5-t06-research-chronology.mjs
 ```
 
-Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty_summary e2e passed.`
+Success ends with `OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation e2e passed.`
 
 ## Health checks (Railway)
 

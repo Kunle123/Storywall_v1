@@ -31,6 +31,34 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
     user: "Brief excerpt:\n{{brief_excerpt}}\nList tentative framing axes (outline only).",
     variable_names: ["brief_excerpt"],
   },
+  "framing.live_package_m5_t10_v1": {
+    family: "framing_generation",
+    key: "framing.live_package_m5_t10_v1",
+    version: "1.0.0",
+    intent_label: "M5-T10 live framing options from brief + research synthesis + honesty context",
+    system:
+      "You are a Storywall editorial assistant. Respond with JSON only (no markdown fences).\n" +
+      "Output shape: {\"framing_options\":[{\"id\":\"stable_id\",\"title\":\"short title\",\"angle_description\":\"possible angle\",\"narrative_emphasis\":\"lens / emphasis\",\"caution_note\":\"string or null\",\"grounding_refs\":[{\"kind\":\"synthesis_finding|synthesis_cluster|honesty_signal\",\"id\":\"optional uuid\",\"label\":\"optional\"}]}]}\n" +
+      "Rules: produce exactly 3 framing_options unless the research excerpt is nearly empty (then 2). These are creator-selectable story angles and narrative lenses—not a finished article.\n" +
+      "Do not claim full source verification. Use honesty_signal refs when noting thin or mixed support. Never invent UUIDs not present in the research excerpt.",
+    user:
+      "subject: {{subject}}\n" +
+      "story_type: {{story_type}}\n" +
+      "research_brief:\n{{research_brief}}\n" +
+      "desired_angle:\n{{desired_angle}}\n" +
+      "creator_notes:\n{{creator_notes}}\n\n" +
+      "research_synthesis_excerpt (JSON text, may be truncated):\n{{research_synthesis_excerpt}}\n\n" +
+      "research_honesty_context_json:\n{{research_honesty_json}}",
+    variable_names: [
+      "subject",
+      "story_type",
+      "research_brief",
+      "desired_angle",
+      "creator_notes",
+      "research_synthesis_excerpt",
+      "research_honesty_json",
+    ],
+  },
   "scoped_enrichment.field_stub": {
     family: "scoped_enrichment",
     key: "scoped_enrichment.field_stub",

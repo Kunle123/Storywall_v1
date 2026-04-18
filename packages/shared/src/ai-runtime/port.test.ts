@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseAiRuntimeConfigFromEnv } from "./config";
 import { AiCallRateLimiter } from "./policy";
 import {
@@ -110,5 +110,70 @@ describe("NonExecutableAiTextGenerationPort", () => {
     await expect(port.completeChat(req)).rejects.toBeInstanceOf(AiRuntimeTransportNotImplementedError);
     await expect(port.completeChat(req)).rejects.toBeInstanceOf(AiRuntimeBlockedByPolicyError);
     expect(events.filter((e) => e.outcome_class === "blocked_by_policy").length).toBe(1);
+  });
+});
+
+describe("OpenAiCompatibleHttpTextGenerationPort", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns JSON text when fetch succeeds", async () => {
+    const cfg = parseAiRuntimeConfigFromEnv({
+      STORYWALL_AI_RUNTIME_ENABLED: "true",
+      STORYWALL_AI_PROVIDER: "openai_compatible",
+      STORYWALL_AI_BASE_URL: "https://api.example.com/v1",
+      STORYWALL_AI_API_KEY: "secret",
+    });
+    const { sink, events } = memorySink();
+    const payload = JSON.stringify({
+      framing_options: [
+        {
+          id: "1",
+          title: "A",
+          angle_description: "ad",
+          narrative_emphasis: "ne",
+          caution_note: null,
+          grounding_refs: [],
+        },
+        {
+          id: "2",
+          title: "B",
+          angle_description: "ad",
+          narrative_emphasis: "ne",
+          caution_note: null,
+          grounding_refs: [],
+        },
+        {
+          id: "3",
+          title: "C",
+          angle_description: "ad",
+          narrative_emphasis: "ne",
+          caution_note: null,
+          grounding_refs: [],
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: payload } }] }),
+      }),
+    );
+    const port = createAiTextGenerationPort({
+      config: cfg,
+      limiter: new AiCallRateLimiter(cfg.operational),
+      sink,
+      openAiApiKey: "sk-test-key",
+    });
+    expect(port.implementationId).toBe("openai_compatible_http_v1");
+    const r = await port.completeChat({
+      messages: [{ role: "user", content: "x" }],
+      context: { purpose: "framing_generation" },
+    });
+    expect(r.text).toContain("framing_options");
+    expect(r.providerModelLabel).toBeTruthy();
+    expect(events.some((e) => e.outcome_class === "succeeded")).toBe(true);
   });
 });

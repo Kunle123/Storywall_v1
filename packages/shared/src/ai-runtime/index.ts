@@ -35,6 +35,7 @@ export {
   AiRuntimeMisconfiguredError,
   AiRuntimeTransportNotImplementedError,
   NonExecutableAiTextGenerationPort,
+  OpenAiCompatibleHttpTextGenerationPort,
   createAiTextGenerationPort,
 } from "./port";
 export * from "./prompt-templates";

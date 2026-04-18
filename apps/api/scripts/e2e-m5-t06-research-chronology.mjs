@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * M5-T06–M5-T09 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
+ * M5-T06–M5-T10 — repeatable local end-to-end: live bounded retrieval → research_synthesis_package (M5-T05)
  * → chronology (M5-T06) → draft_enrichment_package (M5-T07/08) with traceable provenance + honesty markers,
  * `draft_enrichment_provenance` flat index (M5-T08), and `honesty_summary` (M5-T09).
  *
@@ -154,6 +154,13 @@ async function main() {
   });
   const genJson = await j(gen);
   assert(gen.ok, `frames/generate ${gen.status} ${JSON.stringify(genJson)}`);
+  const afg0 = genJson.data?.ai_framing_generation;
+  assert(afg0 && afg0.schema_version === "m5-t10-v1", "initial ai_framing_generation envelope");
+  assert(
+    afg0.generation_mode === "live_ai_backed" || afg0.generation_mode === "deterministic_scaffolding_fallback",
+    "generation_mode",
+  );
+  assert(Array.isArray(afg0.framing_options) && afg0.framing_options.length === 3, "initial framing_options");
 
   const run = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/research/run`, {
     method: "POST",
@@ -242,6 +249,20 @@ async function main() {
   assert(Array.isArray(honesty.ui_hints) && honesty.ui_hints.length >= 1, "honesty ui_hints");
   assert(honesty.has_mixed_or_weak_support === true, "expected mixed/thin/weak support somewhere in deterministic Marie Curie fixture");
 
+  const regen = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames/generate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ replace_existing_unselected_frames: true }),
+  });
+  const regenJson = await j(regen);
+  assert(regen.ok, `frames/regenerate after research ${regen.status}`);
+  const afg1 = regenJson.data?.ai_framing_generation;
+  assert(afg1 && afg1.schema_version === "m5-t10-v1", "post-research ai_framing_generation");
+  assert(afg1.research_job_id === jobId, "ai framing package should reference succeeded research job");
+  assert(afg1.honesty_context && afg1.honesty_context.schema_version === "m5-t09-v1", "honesty_context embedded");
+  assert(afg1.prompt_template_key === "framing.live_package_m5_t10_v1", "prompt template key");
+  assert(Array.isArray(afg1.framing_options) && afg1.framing_options.length === 3, "post-research framing_options");
+
   const chRes = await fetch(
     `${BASE}/api/v1/creator/stories/${storyId}/research/jobs/${jobId}/chronology`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -274,7 +295,7 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log(
-    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty_summary e2e passed.",
+    "OK: M5-T06 research → synthesis → chronology → M5-T07/M5-T08 draft enrichment + provenance + M5-T09 honesty + M5-T10 ai_framing_generation e2e passed.",
   );
 }
 

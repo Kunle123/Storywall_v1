@@ -24,7 +24,8 @@
     "smoke:m2-03": "node ./scripts/smoke-m2-03-chronology.mjs",
     "smoke:m2-04": "node ./scripts/smoke-m2-03-chronology.mjs",
     "smoke:m2-05": "node ./scripts/smoke-m2-05-draft-assemble.mjs",
-    "e2e:m5-t06": "node ./scripts/e2e-m5-t06-research-chronology.mjs"
+    "e2e:m5-t06": "node ./scripts/e2e-m5-t06-research-chronology.mjs",
+    "smoke:m5-t10": "node ./scripts/smoke-m5-t10-ai-framing.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
