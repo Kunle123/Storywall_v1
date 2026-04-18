@@ -23,6 +23,7 @@
     "verify:staging:draft-review": "node ./scripts/verify-staging-draft-review-workspace.mjs",
     "verify:staging:draft-editing": "node ./scripts/verify-staging-draft-editing.mjs",
     "verify:staging:validation-checks": "node ./scripts/verify-staging-validation-checks.mjs",
-    "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs"
+    "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs",
+    "verify:staging:live-story-update": "node ./scripts/verify-staging-live-story-update.mjs"
   }
 }

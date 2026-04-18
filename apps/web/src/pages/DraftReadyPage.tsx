@@ -992,7 +992,22 @@ export function DraftReadyPage() {
       {publishOk ? (
         <div className="banner success" role="status">
           {publishOutcomeKindRef.current === "republish" ? (
-            <p>Published reader snapshot updated from your current draft.</p>
+            <>
+              <p>Live story updated — the frozen public snapshot now matches your current working draft.</p>
+              <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+                Workflow <code className="inline-code">published</code> · lifecycle <code className="inline-code">published</code>
+                {publishedAtIso ? (
+                  <>
+                    {" "}
+                    · last publish snapshot time{" "}
+                    {new Date(publishedAtIso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                  </>
+                ) : null}
+                . This step used the same API as first publish:{" "}
+                <code className="inline-code">POST /api/v1/creator/stories/:storyId/publish</code> (checks + warning
+                acknowledgment rules unchanged).
+              </p>
+            </>
           ) : (
             <p>Story published — workflow is now published and the frozen reader snapshot was written.</p>
           )}
@@ -1185,6 +1200,15 @@ export function DraftReadyPage() {
                     and may move workflow to <code className="inline-code">blocked</code> (blockers) or{" "}
                     <code className="inline-code">ready_to_publish</code> (pass or warnings only). Re-run after edits;
                     results appear below and in publish readiness.
+                    {storyLivePublished ? (
+                      <>
+                        {" "}
+                        While already live, workflow stays <code className="inline-code">published</code> until checks
+                        run; then readiness can offer <strong>Update live story</strong>, which calls the same{" "}
+                        <code className="inline-code">POST …/publish</code> route as first publish to refresh the frozen
+                        reader snapshot (slug unchanged).
+                      </>
+                    ) : null}
                   </p>
                   {compositionReadOnly ? (
                     <p className="editor-panel__hint muted small" role="status">
