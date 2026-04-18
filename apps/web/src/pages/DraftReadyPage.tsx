@@ -234,7 +234,10 @@ function PublishReadinessBlock(props: {
                 ) : (
                   <>
                     Publishing marks this story as published in Storywall. You can keep editing from other flows when
-                    available, but this step is meant to be deliberate.
+                    available, but this step is meant to be deliberate. The live reader gate uses your draft{" "}
+                    <strong>visibility target</strong> (Deck &amp; discovery): only <code className="inline-code">public</code>{" "}
+                    or <code className="inline-code">unlisted</code> resolves at <code className="inline-code">GET /api/v1/stories/:slug</code>{" "}
+                    — <code className="inline-code">private</code> keeps the anonymous read path unavailable by design.
                   </>
                 )}
               </p>
@@ -987,10 +990,25 @@ export function DraftReadyPage() {
         </div>
       ) : null}
       {publishOk ? (
-        <div className="banner success">
-          {publishOutcomeKindRef.current === "republish"
-            ? "Published reader snapshot updated from your current draft."
-            : "Story published."}
+        <div className="banner success" role="status">
+          {publishOutcomeKindRef.current === "republish" ? (
+            <p>Published reader snapshot updated from your current draft.</p>
+          ) : (
+            <p>Story published — workflow is now published and the frozen reader snapshot was written.</p>
+          )}
+          {storySlug ? (
+            <p className="muted small" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
+              Public reader:{" "}
+              <Link to={`/stories/${encodeURIComponent(storySlug)}`}>/stories/{storySlug}</Link> · API:{" "}
+              <code className="inline-code">GET /api/v1/stories/{storySlug}</code> (requires public or unlisted visibility).
+              Next: keep editing here for the working draft; run checks then <strong>Update live story</strong> when you
+              want readers to see new edits.
+            </p>
+          ) : (
+            <p className="muted small" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
+              Next: open Readiness when you want to refresh the live snapshot after further edits.
+            </p>
+          )}
         </div>
       ) : null}
 
