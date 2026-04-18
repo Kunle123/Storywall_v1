@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * M5-T23 — Staging: research job success + GET …/research/jobs/:jobId/package shows truthful retrieval_depth
- * (tier, counts, mode) — not merely job status succeeded.
+ * M5-T23 — Staging: research success + package `honesty_summary.retrieval_depth`, then framing honesty after
+ * **POST frames/generate** with `replace_existing_unselected_frames` (otherwise persisted framing predates research).
  *
  * Usage: pnpm verify:staging:canonical-retrieval-depth
  */
@@ -72,6 +72,36 @@ async function main() {
   let token = null;
   let storyId = null;
   let jobId = null;
+
+  // 0 GET health — optional deploy fingerprint (Railway / CI)
+  {
+    const url = `${STAGING_BASE}/api/v1/health`;
+    let status = null;
+    let body = null;
+    try {
+      const res = await fetch(url);
+      status = res.status;
+      const rb = await readBody(res);
+      body = rb.parsed ?? rb.raw;
+    } catch (e) {
+      body = { error: String(e) };
+    }
+    const sha = body?.deployment?.git_commit_sha ?? null;
+    const ok = status === 200 && body?.ok === true;
+    record(
+      "0 — GET api/v1/health (deploy fingerprint)",
+      "GET",
+      url,
+      status,
+      ok ? "passed on staging" : "attempted on staging but failed",
+      body,
+      ok
+        ? sha
+          ? `deployment.git_commit_sha=${sha} (compare to expected staging deploy).`
+          : "deployment.git_commit_sha absent — host may not inject RAILWAY_GIT_COMMIT_SHA / GITHUB_SHA (non-fatal)."
+        : undefined,
+    );
+  }
 
   // 1 Register
   {
@@ -273,6 +303,48 @@ async function main() {
     printTable(steps);
     process.exit(1);
     return;
+  }
+
+  // 6b POST frames/generate — replace unselected so ai_framing_generation is rebuilt with post-research honesty_context
+  {
+    const url = `${STAGING_BASE}/api/v1/creator/stories/${sid}/frames/generate`;
+    const bodyIn = {
+      notes: "M5-T23 verify — refresh framing after research for honesty_context.retrieval_depth",
+      replace_existing_unselected_frames: true,
+    };
+    let status = null;
+    let body = null;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "Idempotency-Key": `m5t23-frames-refresh-${Date.now()}`,
+        },
+        body: JSON.stringify(bodyIn),
+      });
+      status = res.status;
+      const rb = await readBody(res);
+      body = rb.parsed ?? rb.raw;
+    } catch (e) {
+      body = { error: String(e) };
+    }
+    const ok = isHttpSuccess(status) && body?.ok === true;
+    record(
+      "6b — POST frames/generate (replace; post-research honesty refresh)",
+      "POST",
+      url,
+      status,
+      ok ? "passed on staging" : "attempted on staging but failed",
+      body,
+      ok ? "Framing package on brief should now reference latest succeeded research job." : undefined,
+    );
+    if (!ok) {
+      printTable(steps);
+      process.exit(1);
+      return;
+    }
   }
 
   // 7 GET research package — M5-T23 retrieval_depth + real counts

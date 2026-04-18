@@ -1,6 +1,7 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { API_CONTRACT_VERSION } from "@storywall/shared";
 import { AiRuntimeService } from "../ai-runtime/ai-runtime.service";
+import { deployMetaForHealth } from "./deploy-meta";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -21,6 +22,7 @@ export class ApiV1HealthController {
       service: "storywall-api",
       api_version: API_CONTRACT_VERSION,
       generated_at: new Date().toISOString(),
+      deployment: deployMetaForHealth(),
       ai_runtime: this.aiRuntime.getHealthSummary(),
     };
   }
@@ -34,6 +36,7 @@ export class ApiV1HealthController {
         service: "storywall-api",
         api_version: API_CONTRACT_VERSION,
         generated_at: new Date().toISOString(),
+        deployment: deployMetaForHealth(),
         database: "reachable",
         ai_runtime: this.aiRuntime.getHealthSummary(),
       };
@@ -43,6 +46,7 @@ export class ApiV1HealthController {
         service: "storywall-api",
         api_version: API_CONTRACT_VERSION,
         generated_at: new Date().toISOString(),
+        deployment: deployMetaForHealth(),
         database: "unreachable",
       });
     }
