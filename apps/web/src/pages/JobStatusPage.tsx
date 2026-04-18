@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CreatorWorkflowState } from "@storywall/shared";
 import { ApiRequestError, generateEditorialReview, getCreatorJob, getResearchPackage, listFrames } from "../api/creatorClient";
-import type { CreatorJobPollData, ResearchPackageHonestySummary } from "../api/types";
+import type { CreatorJobPollData, GetResearchPackageSuccess, ResearchPackageHonestySummary } from "../api/types";
 import { ResearchPackageHonestyPanel } from "../components/ResearchPackageHonestyPanel";
+import { ValidationAssistPanel } from "../components/ValidationAssistPanel";
 import { useAuth } from "../auth/AuthProvider";
 import { clearActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 import { editorialReviewCapabilitySummary } from "../lib/capabilityHonestyCopy";
+import { buildValidationAssistFromArtifacts } from "../lib/validationAssist";
 import { describeJobCapability, describeJobLifecycle, generationHeadline, workflowLabelForJobKind } from "../lib/jobUi";
 
 const POLL_MS = 2000;
@@ -35,6 +37,9 @@ export function JobStatusPage() {
   const [editorialLoading, setEditorialLoading] = useState(false);
   const [editorialError, setEditorialError] = useState<string | null>(null);
   const [editorialRunning, setEditorialRunning] = useState(false);
+
+  const [packageSnapshot, setPackageSnapshot] = useState<GetResearchPackageSuccess["data"] | null>(null);
+  const [aiFramingGeneration, setAiFramingGeneration] = useState<unknown | null>(null);
 
   const stoppedRef = useRef(false);
 
@@ -130,10 +135,16 @@ export function JobStatusPage() {
       try {
         const res = await getResearchPackage(token, storyId, jobId);
         if (cancelled) return;
+        setPackageSnapshot(res.data);
         setHonestySummary(res.data.honesty_summary);
         setEditorialReview(res.data.ai_editorial_review ?? null);
+        const fr = await listFrames(token, storyId);
+        if (cancelled) return;
+        setAiFramingGeneration(fr.data.ai_framing_generation ?? null);
       } catch (e) {
         if (cancelled) return;
+        setPackageSnapshot(null);
+        setAiFramingGeneration(null);
         setHonestySummary(null);
         setEditorialReview(null);
         setHonestyError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Could not load research package honesty summary.");
@@ -166,6 +177,11 @@ export function JobStatusPage() {
     try {
       const res = await generateEditorialReview(token, storyId, jobId, { notes: "Job status page" });
       setEditorialReview(res.data.ai_editorial_review);
+      const pkg = await getResearchPackage(token, storyId, jobId);
+      setPackageSnapshot(pkg.data);
+      setHonestySummary(pkg.data.honesty_summary);
+      const fr = await listFrames(token, storyId);
+      setAiFramingGeneration(fr.data.ai_framing_generation ?? null);
     } catch (e) {
       setEditorialError(e instanceof ApiRequestError ? JSON.stringify(e.body) : "Editorial review request failed.");
     } finally {
@@ -174,6 +190,19 @@ export function JobStatusPage() {
   }
 
   const editorialCaps = editorialReviewCapabilitySummary(editorialReview);
+
+  const validationAssist = useMemo(() => {
+    if (terminal?.kind !== "research_done" || !jobId || !packageSnapshot) return null;
+    return buildValidationAssistFromArtifacts({
+      researchJobId: jobId,
+      workflow: terminal.workflow,
+      honesty: packageSnapshot.honesty_summary ?? honestySummary,
+      draftEnrichmentProvenance: packageSnapshot.draft_enrichment_provenance,
+      liveEventDraftEnrichment: packageSnapshot.live_event_draft_enrichment ?? null,
+      aiEditorialReview: editorialReview ?? packageSnapshot.ai_editorial_review ?? null,
+      aiFramingGeneration,
+    });
+  }, [terminal, jobId, packageSnapshot, honestySummary, editorialReview, aiFramingGeneration]);
 
   return (
     <div className="page">
@@ -222,6 +251,9 @@ export function JobStatusPage() {
             enables the AI runtime and you trigger those actions separately.
           </p>
           <ResearchPackageHonestyPanel summary={honestySummary} loading={honestyLoading} error={honestyError} />
+          <div style={{ marginTop: "1rem" }}>
+            <ValidationAssistPanel summary={validationAssist} loading={honestyLoading && !packageSnapshot} />
+          </div>
           <div style={{ marginTop: "1rem" }}>
             <h3 className="gen-card-title" style={{ fontSize: "1rem" }}>
               Editorial risk review (optional, M5-T12)
