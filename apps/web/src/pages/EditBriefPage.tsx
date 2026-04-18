@@ -5,6 +5,7 @@ import {
   ApiRequestError,
   assembleDraft,
   extractConflictBrief,
+  generateFramingOptions,
   listFrames,
   patchStoryBrief,
   runResearchPass,
@@ -171,6 +172,34 @@ export function EditBriefPage() {
 
   const activeJobId = storyId ? readActiveJob(storyId) : null;
 
+  async function onGenerateFraming() {
+    if (!token || !storyId) return;
+    setGenError(null);
+    setGenBusy("framing");
+    try {
+      await generateFramingOptions(
+        token,
+        storyId,
+        { notes: "Creator-initiated framing generation (M5-T17 prerequisite for research)." },
+        crypto.randomUUID(),
+      );
+      const refreshed = await listFrames(token, storyId);
+      setStoryState(refreshed.data.story_state);
+      const briefRow = serverRef.current ?? serverBrief;
+      if (briefRow) {
+        cacheBriefWorkspace(storyId, {
+          story_brief: briefRow,
+          story_state: refreshed.data.story_state,
+          cached_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not generate framing candidates.");
+    } finally {
+      setGenBusy(null);
+    }
+  }
+
   async function onRunResearch() {
     if (!token || !storyId) return;
     setGenError(null);
@@ -257,6 +286,27 @@ export function EditBriefPage() {
               this page — you cannot safely start a duplicate run while workflow is <code className="inline-code">{storyState}</code>.
             </>
           )}
+        </div>
+      ) : null}
+
+      {storyState === "drafting_brief" ? (
+        <div className="card gen-actions-card" style={{ marginBottom: "1rem" }}>
+          <h2 className="gen-actions-title">Before research</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Research runs are only allowed after framing candidates exist (workflow{" "}
+            <code className="inline-code">awaiting_framing_choice</code> or <code className="inline-code">ready_for_edit</code>).
+            Generate three framing options from your brief first (mutation contract §10.1).
+          </p>
+          <div className="gen-actions-row">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!!genBusy}
+              onClick={() => void onGenerateFraming()}
+            >
+              {genBusy === "framing" ? "Generating…" : "Generate framing candidates"}
+            </button>
+          </div>
         </div>
       ) : null}
 

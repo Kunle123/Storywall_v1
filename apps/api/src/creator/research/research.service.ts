@@ -181,7 +181,17 @@ export class ResearchService {
           error: {
             code: "invalid_state_transition",
             message: "Research run is not allowed in the current workflow state",
-            details: { story_state: storyRow.workflowState },
+            details: {
+              story_state: storyRow.workflowState,
+              allowed_states: [...ALLOWED_PRE_RESEARCH],
+              ...(storyRow.workflowState === "drafting_brief"
+                ? {
+                    next_creator_step: "frames_generate" as const,
+                    next_creator_step_hint:
+                      "Call POST /api/v1/creator/stories/:storyId/frames/generate to produce framing candidates; workflow becomes awaiting_framing_choice, then research is allowed.",
+                  }
+                : {}),
+            },
           },
         });
       }

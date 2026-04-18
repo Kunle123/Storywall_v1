@@ -109,6 +109,21 @@ export interface ListFramesSuccess {
   };
 }
 
+/** POST …/frames/generate — mutation contract §10.1 (M5-T17 research-entry prerequisite). */
+export interface GenerateFramesSuccess {
+  ok: true;
+  data: {
+    story_id: string;
+    story_state: CreatorWorkflowState;
+    frame_drafts: FrameDraftResponse[];
+    ai_framing_generation?: unknown | null;
+  };
+  meta?: {
+    reused_existing?: boolean;
+    idempotency_key?: string;
+  };
+}
+
 export interface StoryDraftResponse {
   id: string;
   story_brief_id: string;

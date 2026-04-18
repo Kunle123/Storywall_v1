@@ -4,6 +4,7 @@ import type {
   CreateStoryBody,
   CreateStorySuccess,
   ListFramesSuccess,
+  GenerateFramesSuccess,
   PatchBriefSuccess,
   PatchDraftSuccess,
   PatchStoryBriefBody,
@@ -386,6 +387,27 @@ export async function listFrames(token: string, storyId: string): Promise<ListFr
     throw new ApiRequestError(`List frames failed (${res.status})`, res.status, data);
   }
   return data as ListFramesSuccess;
+}
+
+/** Mutation §10.1 — from `drafting_brief` (or regenerate while `awaiting_framing_choice`). Advances to `awaiting_framing_choice` when new rows are written. */
+export async function generateFramingOptions(
+  token: string,
+  storyId: string,
+  body: { replace_existing_unselected_frames?: boolean; notes?: string } = {},
+  idempotencyKey?: string,
+): Promise<GenerateFramesSuccess> {
+  const headers: Record<string, string> = { ...authHeaders(token), "Content-Type": "application/json" };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  const res = await fetch(`${apiBase()}/creator/stories/${encodeURIComponent(storyId)}/frames/generate`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new ApiRequestError(`Generate framing failed (${res.status})`, res.status, data);
+  }
+  return data as GenerateFramesSuccess;
 }
 
 export async function selectFrame(
