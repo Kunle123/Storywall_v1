@@ -24,13 +24,14 @@ export type EvidenceWorkspacePanelProps = {
   onSaveError: (message: string) => void;
   onVersionConflict: () => void;
   onRefreshEvents: () => void | Promise<void>;
+  readOnly?: boolean;
 };
 
 /**
  * M4-T06 — evidence overview: sources attach to timeline events only; grouped by narrative section when set.
  */
 export function EvidenceWorkspacePanel(props: EvidenceWorkspacePanelProps) {
-  const { token, storyId, events, sections, onSaveError, onVersionConflict, onRefreshEvents } = props;
+  const { token, storyId, events, sections, onSaveError, onVersionConflict, onRefreshEvents, readOnly = false } = props;
 
   const orderedSections = useMemo(
     () => [...sections].sort((a, b) => a.position_index - b.position_index || a.id.localeCompare(b.id)),
@@ -217,6 +218,7 @@ export function EvidenceWorkspacePanel(props: EvidenceWorkspacePanelProps) {
                                 onSaveError={onSaveError}
                                 onVersionConflict={onVersionConflict}
                                 onAfterMutation={handleAfterSourceMutation}
+                                readOnly={readOnly}
                               />
                             </div>
                           </details>

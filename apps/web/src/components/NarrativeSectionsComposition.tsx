@@ -35,6 +35,7 @@ function NarrativeSectionDraftRow(props: {
   regenInFlight: boolean;
   regenActive: boolean;
   onScopedSectionRegenerate: () => void | Promise<void>;
+  readOnly?: boolean;
 }) {
   const {
     token,
@@ -48,6 +49,7 @@ function NarrativeSectionDraftRow(props: {
     regenInFlight,
     regenActive,
     onScopedSectionRegenerate,
+    readOnly = false,
   } = props;
   const [label, setLabel] = useState(section.label);
   const [summary, setSummary] = useState(section.summary ?? "");
@@ -58,7 +60,7 @@ function NarrativeSectionDraftRow(props: {
   }, [section.id, section.updated_at]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || readOnly) return;
     const patch = buildSectionPatch(section, label, summary);
     if (!patch) return;
 
@@ -92,6 +94,7 @@ function NarrativeSectionDraftRow(props: {
     onPatched,
     onVersionConflict,
     onSaveError,
+    readOnly,
   ]);
 
   return (
@@ -117,6 +120,7 @@ function NarrativeSectionDraftRow(props: {
             onChange={(ev) => setLabel(ev.target.value)}
             autoComplete="off"
             maxLength={500}
+            disabled={readOnly}
           />
         </label>
         <label className="field">
@@ -128,6 +132,7 @@ function NarrativeSectionDraftRow(props: {
             onChange={(ev) => setSummary(ev.target.value)}
             rows={10}
             maxLength={100000}
+            disabled={readOnly}
           />
         </label>
       </div>
@@ -136,7 +141,7 @@ function NarrativeSectionDraftRow(props: {
         <button
           type="button"
           className="btn ghost inline"
-          disabled={!token || regenInFlight}
+          disabled={!token || regenInFlight || readOnly}
           onClick={() => void onScopedSectionRegenerate()}
         >
           {regenActive ? "Starting…" : "Reload from framing candidate"}
@@ -162,6 +167,8 @@ export type NarrativeSectionsCompositionPanelProps = {
   regenInFlight: boolean;
   regenSectionId: string | null;
   onScopedSectionRegenerate: (sectionId: string) => void | Promise<void>;
+  /** When true (e.g. workflow assembling_draft), hide mutations — server rejects PATCH in that phase. */
+  readOnly?: boolean;
 };
 
 /**
@@ -181,6 +188,7 @@ export function NarrativeSectionsCompositionPanel(props: NarrativeSectionsCompos
     regenInFlight,
     regenSectionId,
     onScopedSectionRegenerate,
+    readOnly = false,
   } = props;
 
   const ordered = useMemo(
@@ -209,7 +217,12 @@ export function NarrativeSectionsCompositionPanel(props: NarrativeSectionsCompos
             in the manuscript is planned for a later milestone.
           </p>
         </div>
-        <button type="button" className="btn ghost inline" disabled={!token || addingSection} onClick={onAddSection}>
+        <button
+          type="button"
+          className="btn ghost inline"
+          disabled={!token || addingSection || readOnly}
+          onClick={onAddSection}
+        >
           {addingSection ? "Adding…" : "Add section"}
         </button>
       </div>
@@ -241,6 +254,7 @@ export function NarrativeSectionsCompositionPanel(props: NarrativeSectionsCompos
             regenInFlight={regenInFlight}
             regenActive={regenInFlight && regenSectionId === sec.id}
             onScopedSectionRegenerate={() => void onScopedSectionRegenerate(sec.id)}
+            readOnly={readOnly}
           />
         ))}
       </div>

@@ -22,9 +22,51 @@ const ALLOWED_SECTION_EDIT_STATES: CreatorWorkflowState[] = [
   "published",
 ];
 
+/** M5-T21 — listSections is read-only; allow while draft assembly runs so the Draft tab can load. */
+const ALLOWED_SECTION_LIST_STATES: CreatorWorkflowState[] = [...ALLOWED_SECTION_EDIT_STATES, "assembling_draft"];
+
 @Injectable()
 export class SectionsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async getStoryDraftContextForList(params: {
+    storyId: string;
+    creatorId: string;
+  }): Promise<{
+    storyId: string;
+    workflowState: CreatorWorkflowState;
+    storyDraftId: string;
+  }> {
+    const { storyId, creatorId } = params;
+    const story = await this.prisma.story.findFirst({
+      where: { id: storyId, creatorId },
+      include: {
+        storyBrief: { include: { storyDraft: true } },
+      },
+    });
+    const draft = story?.storyBrief?.storyDraft;
+    if (!story || !draft) {
+      throw new NotFoundException({
+        ok: false,
+        error: { code: "story_not_found", message: "Story or draft not found" },
+      });
+    }
+    if (!ALLOWED_SECTION_LIST_STATES.includes(story.workflowState)) {
+      throw new BadRequestException({
+        ok: false,
+        error: {
+          code: "invalid_state_transition",
+          message: "Sections list is not available in the current workflow state",
+          details: { story_state: story.workflowState },
+        },
+      });
+    }
+    return {
+      storyId: story.id,
+      workflowState: story.workflowState,
+      storyDraftId: draft.id,
+    };
+  }
 
   private async getStoryDraftContext(params: {
     storyId: string;
@@ -69,7 +111,7 @@ export class SectionsService {
     storyId: string;
     creatorId: string;
   }): Promise<{ sections: SectionDraft[]; storyState: CreatorWorkflowState }> {
-    const ctx = await this.getStoryDraftContext(params);
+    const ctx = await this.getStoryDraftContextForList(params);
     const sections = await this.prisma.sectionDraft.findMany({
       where: { storyDraftId: ctx.storyDraftId },
       orderBy: { positionIndex: "asc" },

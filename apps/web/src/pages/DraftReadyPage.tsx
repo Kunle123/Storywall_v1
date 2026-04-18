@@ -38,7 +38,7 @@ import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
 import { PostAssemblyDepthNudge } from "../components/PostAssemblyDepthNudge";
 import { PrePublishReflectionPanel } from "../components/PrePublishReflectionPanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
-import { rememberActiveJob } from "../lib/activeJobStorage";
+import { readActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
 
@@ -69,6 +69,11 @@ const EDITORIAL_VALIDATION_WORKFLOWS: CreatorWorkflowState[] = [
 
 function isEditorialValidationWorkspace(w: CreatorWorkflowState | null): boolean {
   return w !== null && EDITORIAL_VALIDATION_WORKFLOWS.includes(w);
+}
+
+/** M5-T21 — show Draft tab shell while assembly runs (read-only-ish: no autosave until ready_for_edit). */
+function isDraftReviewShellWorkflow(w: CreatorWorkflowState | null): boolean {
+  return w !== null && (EDITORIAL_VALIDATION_WORKFLOWS.includes(w) || w === "assembling_draft");
 }
 
 /** M3-T06 + M3-T07 — publish readiness copy; `workflow` is primary; validation snapshot is explanatory only. */
@@ -281,6 +286,20 @@ function PublishReadinessBlock(props: {
             </div>
           )
         ) : null}
+      </div>
+    );
+  }
+
+  if (workflow === "assembling_draft") {
+    return (
+      <div className="editor-publish-readiness">
+        <p className="editor-panel__eyebrow">Publish</p>
+        <p className="editor-publish-readiness__status">Draft assembly in progress</p>
+        <p className="editor-publish-readiness__detail muted small">
+          Automated checks and publish are not the active step while the worker writes timeline rows. When the job
+          succeeds and workflow returns to <code className="inline-code">ready_for_edit</code>, continue shaping the
+          manuscript here, then run checks if you want a publish-readiness signal.
+        </p>
       </div>
     );
   }
@@ -748,7 +767,7 @@ export function DraftReadyPage() {
   }, [token, storyId, ingestFramesData]);
 
   useEffect(() => {
-    if (!token || !storyId || !draft || !isEditorialValidationWorkspace(workflow)) return;
+    if (!token || !storyId || !draft || !isDraftReviewShellWorkflow(workflow)) return;
     void refreshSections();
     void refreshEvents();
   }, [token, storyId, draft, workflow, refreshSections, refreshEvents]);
@@ -926,6 +945,9 @@ export function DraftReadyPage() {
     );
   }
 
+  const compositionReadOnly = workflow === "assembling_draft";
+  const storedActiveJobId = readActiveJob(storyId);
+
   const storyLivePublished = storyLifecycleStatus === "published";
 
   return (
@@ -946,11 +968,12 @@ export function DraftReadyPage() {
         </div>
       ) : null}
 
-      {!loadError && workflow && !isEditorialValidationWorkspace(workflow) ? (
+      {!loadError && workflow && !isDraftReviewShellWorkflow(workflow) ? (
         <div className="banner warn">
           <p>
-            Current workflow is <strong>{workflow}</strong>. This page is for editing an assembled draft. Use the brief
-            workspace to run research or draft assembly, or open generation status if you have a job link.
+            Current workflow is <strong>{workflow}</strong>. This Draft tab is for reviewing material after framing and
+            draft assembly. Use the brief workspace to move research and assembly forward, or open generation status if you
+            have a job link.
           </p>
           <div style={{ marginTop: "0.75rem" }}>
             <Link to={`/creator/stories/${storyId}/brief`} className="btn primary inline">
@@ -960,16 +983,45 @@ export function DraftReadyPage() {
         </div>
       ) : null}
 
-      {!loadError && isEditorialValidationWorkspace(workflow) ? (
+      {!loadError && isDraftReviewShellWorkflow(workflow) ? (
         <div className="card draft-ready-card">
           <p className="draft-ready-badge">{workflow}</p>
+          {workflow === "assembling_draft" ? (
+            <div className="banner" style={{ background: "#e8f0ff", borderColor: "#a8c0f0", marginBottom: "1rem" }}>
+              <strong>Draft assembly in progress.</strong> The worker is writing <code className="inline-code">event_draft</code>{" "}
+              rows from your research chronology — this is <strong>starter structure</strong>, not a finished article.{" "}
+              {storedActiveJobId ? (
+                <>
+                  <Link to={`/creator/stories/${storyId}/jobs/${storedActiveJobId}`}>Open generation status</Link> to
+                  watch <code className="inline-code">draft_assemble</code>; reload this tab when the job shows succeeded.
+                </>
+              ) : (
+                <>
+                  Open <Link to={`/creator/stories/${storyId}/brief`}>Brief</Link> and use your last job link, or refresh
+                  after assembly completes.
+                </>
+              )}
+            </div>
+          ) : null}
           <div className="editor-workspace-intro">
             <h2 className="draft-ready-title">Your draft workspace is open</h2>
             <p className="editor-workspace-lead muted small">
-              Use <strong>Narrative sections</strong> for the ordered story body, <strong>Events</strong> for the
-              timeline, <strong>Sources &amp; coverage</strong> for evidence, <strong>Hero imagery policy</strong> for
-              how visuals are treated, <strong>Reader preview</strong> to see draft content in the public reader layout,
-              and deck fields for discovery copy. Changes save automatically.
+              <strong>Story draft</strong> (title, lens, summary below) comes from your selected framing.{" "}
+              <strong>Timeline events</strong> are <code className="inline-code">event_draft</code> rows from research +
+              assembly — editable beats, not publish-ready prose. <strong>Narrative sections</strong> are ordered body
+              blocks; <strong>Sources &amp; coverage</strong> ties evidence to events.{" "}
+              {workflow === "assembling_draft" ? (
+                <>
+                  Deck, narrative sections, timeline, and evidence controls are <strong>locked</strong> until workflow
+                  returns to <code className="inline-code">ready_for_edit</code> — you can still read counts and open
+                  the job link above.
+                </>
+              ) : (
+                <>
+                  Changes to deck fields save automatically. Publishing and checks are separate honest steps — see Readiness
+                  below.
+                </>
+              )}
               {storyLivePublished ? (
                 <>
                   {" "}
@@ -979,28 +1031,34 @@ export function DraftReadyPage() {
               ) : null}
             </p>
           </div>
-          {!loadError && workflow && isEditorialValidationWorkspace(workflow) ? (
+          {!loadError && workflow && isDraftReviewShellWorkflow(workflow) ? (
             <div className="draft-atlas" aria-label="Composition and readiness snapshot">
               <div className="draft-atlas__cell">
                 <span className="draft-atlas__label">Narrative sections</span>
                 <span className="draft-atlas__value">{sections.length}</span>
-                <span className="draft-atlas__hint muted small">Ordered body blocks</span>
+                <span className="draft-atlas__hint muted small">section_draft · ordered body blocks</span>
               </div>
               <div className="draft-atlas__cell">
                 <span className="draft-atlas__label">Timeline events</span>
                 <span className="draft-atlas__value">{events.length}</span>
-                <span className="draft-atlas__hint muted small">Dated story beats</span>
+                <span className="draft-atlas__hint muted small">event_draft · dated beats</span>
               </div>
               <div className="draft-atlas__cell draft-atlas__cell--wide">
                 <span className="draft-atlas__label">Latest checks</span>
                 <span className="draft-atlas__value draft-atlas__value--text">
-                  {validationLoading
-                    ? "Loading…"
-                    : validationData?.has_validation_run && validationData.validation_report
-                      ? `${validationData.validation_report.overall_result} · ${validationData.validation_report.blocker_count} blocker${validationData.validation_report.blocker_count === 1 ? "" : "s"} · ${validationData.validation_report.warning_count} warning${validationData.validation_report.warning_count === 1 ? "" : "s"}`
-                      : "No validation run stored yet"}
+                  {workflow === "assembling_draft"
+                    ? "Not applicable during assembly"
+                    : validationLoading
+                      ? "Loading…"
+                      : validationData?.has_validation_run && validationData.validation_report
+                        ? `${validationData.validation_report.overall_result} · ${validationData.validation_report.blocker_count} blocker${validationData.validation_report.blocker_count === 1 ? "" : "s"} · ${validationData.validation_report.warning_count} warning${validationData.validation_report.warning_count === 1 ? "" : "s"}`
+                        : "No validation run stored yet"}
                 </span>
-                <span className="draft-atlas__hint muted small">Run checks after substantive edits</span>
+                <span className="draft-atlas__hint muted small">
+                  {workflow === "assembling_draft"
+                    ? "Run checks after workflow returns to ready_for_edit"
+                    : "Run checks after substantive edits"}
+                </span>
               </div>
             </div>
           ) : null}
@@ -1073,10 +1131,16 @@ export function DraftReadyPage() {
                     whether you can publish or refresh the live reader snapshot, and list concrete issues when the engine
                     finds them.
                   </p>
+                  {compositionReadOnly ? (
+                    <p className="editor-panel__hint muted small" role="status">
+                      While <code className="inline-code">draft_assemble</code> runs, checks are deferred — finish the
+                      job first, then reload this tab.
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     className="btn ghost inline"
-                    disabled={!token || runValidationBusy || validationLoading}
+                    disabled={!token || runValidationBusy || validationLoading || compositionReadOnly}
                     onClick={() => void handleRunValidation()}
                   >
                     {runValidationBusy ? "Running checks…" : "Run checks"}
@@ -1223,6 +1287,7 @@ export function DraftReadyPage() {
                 regenInFlight={scopedRegenBusy}
                 regenSectionId={scopedRegenTarget?.kind === "section" ? scopedRegenTarget.id : null}
                 onScopedSectionRegenerate={startScopedSectionRegenerate}
+                readOnly={compositionReadOnly}
               />
 
               <section className="editor-panel editor-panel--story" aria-labelledby="editor-story-heading">
@@ -1251,6 +1316,7 @@ export function DraftReadyPage() {
                         onChange={(ev) => setTitle(ev.target.value)}
                         autoComplete="off"
                         maxLength={500}
+                        disabled={compositionReadOnly}
                       />
                     </label>
                     <label className="field">
@@ -1263,6 +1329,7 @@ export function DraftReadyPage() {
                         onChange={(ev) => setSubtitle(ev.target.value)}
                         autoComplete="off"
                         maxLength={500}
+                        disabled={compositionReadOnly}
                       />
                     </label>
                     <label className="field">
@@ -1274,6 +1341,7 @@ export function DraftReadyPage() {
                         onChange={(ev) => setSummary(ev.target.value)}
                         rows={5}
                         maxLength={100_000}
+                        disabled={compositionReadOnly}
                       />
                     </label>
                   </div>
@@ -1291,6 +1359,7 @@ export function DraftReadyPage() {
                         onChange={(ev) => setLens(ev.target.value)}
                         rows={5}
                         maxLength={100_000}
+                        disabled={compositionReadOnly}
                       />
                     </label>
                     <label className="field">
@@ -1302,6 +1371,7 @@ export function DraftReadyPage() {
                         onChange={(ev) => setConclusion(ev.target.value)}
                         rows={4}
                         maxLength={100_000}
+                        disabled={compositionReadOnly}
                       />
                     </label>
                   </div>
@@ -1311,7 +1381,7 @@ export function DraftReadyPage() {
               <HeroMediaWorkflowPanel
                 value={imageryMode}
                 onChange={setImageryMode}
-                disabled={!token || !draft}
+                disabled={!token || !draft || compositionReadOnly}
               />
 
               <TimelineEventsManagementPanel
@@ -1329,6 +1399,7 @@ export function DraftReadyPage() {
                 regenInFlight={scopedRegenBusy}
                 regenEventId={scopedRegenTarget?.kind === "event" ? scopedRegenTarget.id : null}
                 onScopedEventRegenerate={startScopedEventRegenerate}
+                readOnly={compositionReadOnly}
               />
 
               <EvidenceWorkspacePanel
@@ -1339,6 +1410,7 @@ export function DraftReadyPage() {
                 onSaveError={handleEventSaveError}
                 onVersionConflict={handleEventConflict}
                 onRefreshEvents={refreshEvents}
+                readOnly={compositionReadOnly}
               />
 
               <CreatorPreviewPanel

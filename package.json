@@ -19,6 +19,7 @@
     "verify:staging:research-entry": "node ./scripts/verify-staging-research-entry.mjs",
     "verify:staging:research-status": "node ./scripts/verify-staging-research-status.mjs",
     "verify:staging:framing-selection": "node ./scripts/verify-staging-framing-selection.mjs",
-    "verify:staging:draft-assembly": "node ./scripts/verify-staging-draft-assembly.mjs"
+    "verify:staging:draft-assembly": "node ./scripts/verify-staging-draft-assembly.mjs",
+    "verify:staging:draft-review": "node ./scripts/verify-staging-draft-review-workspace.mjs"
   }
 }

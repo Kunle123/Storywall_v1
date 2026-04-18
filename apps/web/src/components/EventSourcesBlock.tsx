@@ -11,13 +11,14 @@ export type EventSourcesBlockProps = {
   onVersionConflict: () => void;
   /** Called after a source is added so parents can refresh aggregates or event rows. */
   onAfterMutation?: () => void | Promise<void>;
+  readOnly?: boolean;
 };
 
 /**
  * Loads and edits source rows for one timeline event (mutation §15).
  */
 export function EventSourcesBlock(props: EventSourcesBlockProps) {
-  const { token, storyId, eventId, onSaveError, onVersionConflict, onAfterMutation } = props;
+  const { token, storyId, eventId, onSaveError, onVersionConflict, onAfterMutation, readOnly = false } = props;
   const [sources, setSources] = useState<SourceRecordResponse[]>([]);
   const [sourcesLoadError, setSourcesLoadError] = useState<string | null>(null);
   const [addingSource, setAddingSource] = useState(false);
@@ -48,7 +49,7 @@ export function EventSourcesBlock(props: EventSourcesBlockProps) {
         <button
           type="button"
           className="btn ghost inline"
-          disabled={!token || addingSource}
+          disabled={!token || addingSource || readOnly}
           onClick={() => {
             if (!token || !storyId) return;
             setAddingSource(true);
@@ -90,6 +91,7 @@ export function EventSourcesBlock(props: EventSourcesBlockProps) {
           onPatched={handleSourcePatched}
           onVersionConflict={onVersionConflict}
           onSaveError={onSaveError}
+          readOnly={readOnly}
         />
       ))}
     </div>

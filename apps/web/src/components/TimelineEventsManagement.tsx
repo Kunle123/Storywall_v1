@@ -66,6 +66,7 @@ function TimelineEventDraftRow(props: {
   regenInFlight: boolean;
   regenActive: boolean;
   onScopedEventRegenerate: () => void | Promise<void>;
+  readOnly?: boolean;
 }) {
   const {
     token,
@@ -81,6 +82,7 @@ function TimelineEventDraftRow(props: {
     regenInFlight,
     regenActive,
     onScopedEventRegenerate,
+    readOnly = false,
   } = props;
   const [headline, setHeadline] = useState(event.headline);
   const [dek, setDek] = useState(normalizeDek(event.dek));
@@ -97,7 +99,7 @@ function TimelineEventDraftRow(props: {
   }, [event.id, event.updated_at]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || readOnly) return;
     const patch = buildEventPatch(event, headline, summary, creatorNote, dek, displayDate);
     if (!patch) return;
 
@@ -137,6 +139,7 @@ function TimelineEventDraftRow(props: {
     onPatched,
     onVersionConflict,
     onSaveError,
+    readOnly,
   ]);
 
   return (
@@ -177,6 +180,7 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setHeadline(ev.target.value)}
             autoComplete="off"
             maxLength={500}
+            disabled={readOnly}
           />
         </label>
         <label className="field">
@@ -189,6 +193,7 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setDek(ev.target.value)}
             autoComplete="off"
             maxLength={2000}
+            disabled={readOnly}
           />
         </label>
         <label className="field">
@@ -204,6 +209,7 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setDisplayDate(ev.target.value)}
             autoComplete="off"
             maxLength={500}
+            disabled={readOnly}
           />
         </label>
         <label className="field">
@@ -215,6 +221,7 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setSummary(ev.target.value)}
             rows={5}
             maxLength={100000}
+            disabled={readOnly}
           />
         </label>
       </div>
@@ -232,6 +239,7 @@ function TimelineEventDraftRow(props: {
             onChange={(ev) => setCreatorNote(ev.target.value)}
             rows={3}
             maxLength={100000}
+            disabled={readOnly}
           />
         </label>
       </div>
@@ -240,7 +248,7 @@ function TimelineEventDraftRow(props: {
         <button
           type="button"
           className="btn ghost inline"
-          disabled={!token || regenInFlight}
+          disabled={!token || regenInFlight || readOnly}
           onClick={() => void onScopedEventRegenerate()}
         >
           {regenActive ? "Starting…" : "Regenerate event from research"}
@@ -260,6 +268,7 @@ function TimelineEventDraftRow(props: {
             onSaveError={onSaveError}
             onVersionConflict={onVersionConflict}
             onAfterMutation={onRefreshEvents}
+            readOnly={readOnly}
           />
         </div>
       </details>
@@ -282,6 +291,7 @@ export type TimelineEventsManagementPanelProps = {
   regenInFlight: boolean;
   regenEventId: string | null;
   onScopedEventRegenerate: (eventId: string) => void | Promise<void>;
+  readOnly?: boolean;
 };
 
 /**
@@ -303,6 +313,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
     regenInFlight,
     regenEventId,
     onScopedEventRegenerate,
+    readOnly = false,
   } = props;
 
   const [assignSectionId, setAssignSectionId] = useState<string>("");
@@ -356,6 +367,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
               value={assignSectionId}
               onChange={(e) => setAssignSectionId(e.target.value)}
               aria-label="Assign new event to narrative section"
+              disabled={readOnly}
             >
               <option value="">None (timeline-wide)</option>
               {orderedSections.map((s) => (
@@ -369,7 +381,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
           <button
             type="button"
             className="btn ghost inline timeline-mgmt__add-btn"
-            disabled={!token || addingEvent}
+            disabled={!token || addingEvent || readOnly}
             onClick={() =>
               onAddEvent({
                 section_id: assignSectionId === "" ? undefined : assignSectionId,
@@ -414,6 +426,7 @@ export function TimelineEventsManagementPanel(props: TimelineEventsManagementPan
             regenInFlight={regenInFlight}
             regenActive={regenInFlight && regenEventId === ev.id}
             onScopedEventRegenerate={() => void onScopedEventRegenerate(ev.id)}
+            readOnly={readOnly}
           />
         ))}
       </div>

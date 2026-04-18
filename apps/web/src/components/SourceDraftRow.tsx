@@ -35,10 +35,11 @@ export type SourceDraftRowProps = {
   onPatched: (s: SourceRecordResponse) => void;
   onVersionConflict: () => void;
   onSaveError: (message: string) => void;
+  readOnly?: boolean;
 };
 
 export function SourceDraftRow(props: SourceDraftRowProps) {
-  const { token, storyId, eventId, source, onPatched, onVersionConflict, onSaveError } = props;
+  const { token, storyId, eventId, source, onPatched, onVersionConflict, onSaveError, readOnly = false } = props;
   const [sourceTitle, setSourceTitle] = useState(source.source_title);
   const [relevanceNote, setRelevanceNote] = useState(source.relevance_note);
   const [sourceUrl, setSourceUrl] = useState(source.source_url);
@@ -50,7 +51,7 @@ export function SourceDraftRow(props: SourceDraftRowProps) {
   }, [source.id, source.updated_at]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || readOnly) return;
     const patch = buildSourcePatch(source, sourceTitle, relevanceNote, sourceUrl);
     if (!patch) return;
 
@@ -87,6 +88,7 @@ export function SourceDraftRow(props: SourceDraftRowProps) {
     onPatched,
     onVersionConflict,
     onSaveError,
+    readOnly,
   ]);
 
   return (
@@ -104,6 +106,7 @@ export function SourceDraftRow(props: SourceDraftRowProps) {
           onChange={(ev) => setSourceUrl(ev.target.value)}
           autoComplete="off"
           maxLength={8000}
+          disabled={readOnly}
         />
       </label>
       <label className="field">
@@ -116,6 +119,7 @@ export function SourceDraftRow(props: SourceDraftRowProps) {
           onChange={(ev) => setSourceTitle(ev.target.value)}
           autoComplete="off"
           maxLength={2000}
+          disabled={readOnly}
         />
       </label>
       <label className="field">
@@ -129,6 +133,7 @@ export function SourceDraftRow(props: SourceDraftRowProps) {
           onChange={(ev) => setRelevanceNote(ev.target.value)}
           rows={2}
           maxLength={100000}
+          disabled={readOnly}
         />
       </label>
     </div>
