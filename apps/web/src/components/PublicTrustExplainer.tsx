@@ -2,7 +2,11 @@ import { Link } from "react-router-dom";
 
 export function PublicTrustExplainer() {
   return (
-    <aside className="public-trust-explainer" aria-labelledby="public-trust-explainer-title">
+    <aside
+      className="public-trust-explainer"
+      aria-labelledby="public-trust-explainer-title"
+      data-testid="public-trust-explainer"
+    >
       <h2 id="public-trust-explainer-title" className="public-trust-explainer__title">
         How Storywall shows this publication
       </h2>

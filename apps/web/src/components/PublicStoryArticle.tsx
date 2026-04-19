@@ -248,6 +248,7 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
           className="public-story-block public-story-block--timeline"
           aria-labelledby="public-story-timeline-label"
           aria-describedby="public-story-timeline-intro"
+          data-testid="public-story-timeline-section"
         >
           <h2 id="public-story-timeline-label" className="public-story-block__title">
             Timeline

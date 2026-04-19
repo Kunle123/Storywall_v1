@@ -61,6 +61,7 @@ export function HomePage() {
         className="card homepage-discover-strip"
         style={{ marginTop: "1.25rem" }}
         data-testid="homepage-discover-strip"
+        data-sw-parity="m5-t30-v1"
         aria-labelledby="homepage-discover-heading"
       >
         <h2 id="homepage-discover-heading" className="page-title" style={{ fontSize: "1.15rem", marginBottom: "0.35rem" }}>
