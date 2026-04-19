@@ -21,6 +21,7 @@
     "verify:staging:creator-baseline": "node ./scripts/verify-staging-creator-baseline.mjs",
     "verify:staging:research-entry": "node ./scripts/verify-staging-research-entry.mjs",
     "verify:staging:cors-idempotency-header": "node ./scripts/verify-staging-cors-idempotency-header.mjs",
+    "verify:staging:framing-generation": "node ./scripts/verify-staging-cors-idempotency-header.mjs",
     "verify:staging:research-status": "node ./scripts/verify-staging-research-status.mjs",
     "verify:staging:framing-selection": "node ./scripts/verify-staging-framing-selection.mjs",
     "verify:staging:draft-assembly": "node ./scripts/verify-staging-draft-assembly.mjs",
