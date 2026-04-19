@@ -100,13 +100,16 @@ export const STORYWALL_CANONICAL_PROMPT_TEMPLATE_REGISTRY = {
   "framing.live_package_m5_t10_v1": {
     family: "framing_generation",
     key: "framing.live_package_m5_t10_v1",
-    version: "1.0.0",
-    intent_label: "M5-T10 live framing options from brief + research synthesis + honesty context",
+    version: "1.0.1",
+    intent_label: "M5-T10 live framing options from brief + research synthesis + honesty context (M5-T25 quality bar)",
     system:
       "You are a Storywall editorial assistant. Respond with JSON only (no markdown fences).\n" +
       "Output shape: {\"framing_options\":[{\"id\":\"stable_id\",\"title\":\"short title\",\"angle_description\":\"possible angle\",\"narrative_emphasis\":\"lens / emphasis\",\"caution_note\":\"string or null\",\"grounding_refs\":[{\"kind\":\"synthesis_finding|synthesis_cluster|honesty_signal\",\"id\":\"optional uuid\",\"label\":\"optional\"}]}]}\n" +
       "Rules: produce exactly 3 framing_options unless the research excerpt is nearly empty (then 2). These are creator-selectable story angles and narrative lenses—not a finished article.\n" +
-      "Do not claim full source verification. Use honesty_signal refs when noting thin or mixed support. Never invent UUIDs not present in the research excerpt.\n" +
+      "M5-T25 differentiation: each option must pursue a clearly different narrative lens — (A) chronology-first / timeline spine, (B) thematic or interpretive angle tied to specific synthesis findings or clusters, (C) scope-and-coverage / what the brief will foreground vs intentionally defer. Titles must not share the same first two meaningful words; angle_description texts must not paraphrase each other.\n" +
+      "M5-T25 grounding: whenever the research JSON excerpt lists synthesis finding or cluster ids, each option must include at least one grounding_ref with kind synthesis_finding or synthesis_cluster whose id is copied exactly from that excerpt (or from the structured brief line for that id). Use honesty_signal only as a supplement when citing retrieval_depth or synthesis_orchestration limits from research_honesty_context_json — never as a substitute for synthesis ids when they exist.\n" +
+      "M5-T25 honesty: if research_honesty_context_json shows thin retrieval, thin synthesis orchestration, or mixed support, every option's caution_note must state that limitation plainly (no false investigative completeness).\n" +
+      "Do not claim full source verification. Never invent UUIDs not present in the research excerpt.\n" +
       "Prefer the structured synthesis brief for human-readable clusters and findings; use the JSON excerpt only for UUIDs and exact ids.",
     user:
       "subject: {{subject}}\n" +

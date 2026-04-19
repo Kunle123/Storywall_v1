@@ -13,6 +13,7 @@ import {
 } from "@prisma/client";
 import {
   AI_FRAMING_GENERATION_SCHEMA_VERSION,
+  assessAiFramingGenerationQuality,
   type AiFramingGenerationOption,
   type AiFramingGenerationPackageV1,
   applyPromptAuditToInvocationContext,
@@ -548,7 +549,7 @@ export class FramesService {
     > => ({
       schema_version: AI_FRAMING_GENERATION_SCHEMA_VERSION,
       prompt_template_key: FRAMING_PROMPT_TEMPLATE_KEY,
-      prompt_version: "1.0.0",
+      prompt_version: "1.0.1",
       provider: cfg.provider === "none" ? "none" : cfg.provider,
       story_id: params.storyId,
       research_job_id: grounding.research_job_id,
@@ -595,33 +596,45 @@ export class FramesService {
         throw new Error("llm_insufficient_framing_options");
       }
       const seeds = this.mapAiOptionsToSeeds(picked, params.startRank);
+      const partialPackage: AiFramingGenerationPackageV1 = {
+        ...base(),
+        generation_mode: "live_ai_backed",
+        status: "succeeded",
+        model: completion.providerModelLabel ?? null,
+        framing_options: picked,
+        failure: null,
+      };
+      const framing_quality_assessment = assessAiFramingGenerationQuality({
+        pkg: partialPackage,
+        researchSynthesisExcerpt: grounding.research_synthesis_excerpt,
+        researchBriefText: params.brief.researchBrief,
+      });
       return {
         seeds,
-        package: {
-          ...base(),
-          generation_mode: "live_ai_backed",
-          status: "succeeded",
-          model: completion.providerModelLabel ?? null,
-          framing_options: picked,
-          failure: null,
-        },
+        package: { ...partialPackage, framing_quality_assessment },
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const options = this.mapDeterministicSeedsToFramingOptions(detSeeds, params.startRank);
+      const partialPackage: AiFramingGenerationPackageV1 = {
+        ...base(),
+        generation_mode: "deterministic_scaffolding_fallback",
+        status: "fallback_deterministic",
+        model: null,
+        framing_options: options,
+        failure: {
+          code: "framing_live_generation_unavailable",
+          message: msg.slice(0, 2000),
+        },
+      };
+      const framing_quality_assessment = assessAiFramingGenerationQuality({
+        pkg: partialPackage,
+        researchSynthesisExcerpt: grounding.research_synthesis_excerpt,
+        researchBriefText: params.brief.researchBrief,
+      });
       return {
         seeds: detSeeds,
-        package: {
-          ...base(),
-          generation_mode: "deterministic_scaffolding_fallback",
-          status: "fallback_deterministic",
-          model: null,
-          framing_options: options,
-          failure: {
-            code: "framing_live_generation_unavailable",
-            message: msg.slice(0, 2000),
-          },
-        },
+        package: { ...partialPackage, framing_quality_assessment },
       };
     }
   }

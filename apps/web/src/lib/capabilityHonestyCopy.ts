@@ -8,6 +8,14 @@ export type FramingGenerationPackageLike = {
   generation_mode?: string;
   status?: string;
   failure?: { code?: string; message?: string } | null;
+  framing_quality_assessment?: {
+    schema_version?: string;
+    overall?: string;
+    distinctness_risk?: string;
+    headline?: string;
+    next_action?: string;
+    synthesis_grounding?: { grounding_tier?: string; options_with_synthesis_ref?: number; extractable_synthesis_ids?: number };
+  } | null;
 };
 
 export function framingCapabilitySummary(pkg: unknown): { title: string; body: string } | null {
@@ -35,6 +43,28 @@ export function framingCapabilitySummary(pkg: unknown): { title: string; body: s
     title: "Framing batch: mixed or incomplete",
     body: "Check the framing audit package on the server if you need details; do not assume live model authorship.",
   };
+}
+
+/** M5-T25 — deterministic framing batch quality from persisted audit (when API includes it). */
+export function framingQualityHonesty(pkg: unknown): { title: string; body: string } | null {
+  if (!pkg || typeof pkg !== "object" || Array.isArray(pkg)) return null;
+  const p = pkg as FramingGenerationPackageLike;
+  if (p.schema_version !== "m5-t10-v1") return null;
+  const q = p.framing_quality_assessment;
+  if (!q || typeof q !== "object" || q.schema_version !== "m5-t25-v1") return null;
+  const overall = String(q.overall ?? "");
+  const risk = String(q.distinctness_risk ?? "");
+  const head = typeof q.headline === "string" ? q.headline : "";
+  const next = typeof q.next_action === "string" ? q.next_action : "";
+  const gt = q.synthesis_grounding?.grounding_tier ?? "—";
+  const title =
+    overall === "production_usable"
+      ? "Framing quality: differentiated batch"
+      : overall === "weak_set"
+        ? "Framing quality: weak or near-duplicate set"
+        : "Framing quality: usable with caveats";
+  const body = `${head} Distinctness risk: ${risk}. Synthesis grounding tier: ${gt}. Next: ${next}`;
+  return { title, body };
 }
 
 export type EditorialReviewPackageLike = {

@@ -4,7 +4,7 @@ import type { CreatorWorkflowState } from "@storywall/shared";
 import { ApiRequestError, listFrames, selectFrame } from "../api/creatorClient";
 import type { FrameDraftResponse, StoryBriefResponse } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { framingCapabilitySummary } from "../lib/capabilityHonestyCopy";
+import { framingCapabilitySummary, framingQualityHonesty } from "../lib/capabilityHonestyCopy";
 import { cacheBriefWorkspace, loadBriefCache } from "../lib/briefCache";
 
 export function FramingChoosePage() {
@@ -98,6 +98,7 @@ export function FramingChoosePage() {
   const proposedFrames = frames.filter((f) => f.status === "proposed");
   const canChoose = storyState === "awaiting_framing_choice" && proposedFrames.length > 0;
   const framingCaps = framingCapabilitySummary(aiFraming);
+  const framingQuality = framingQualityHonesty(aiFraming);
 
   return (
     <div className="page">
@@ -121,6 +122,24 @@ export function FramingChoosePage() {
           <strong>{framingCaps.title}</strong>
           <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
             {framingCaps.body}
+          </p>
+        </div>
+      ) : null}
+
+      {framingQuality ? (
+        <div
+          className="banner"
+          style={{
+            background: framingQuality.title.includes("weak") ? "#fff5f5" : "#f6faf6",
+            borderColor: framingQuality.title.includes("weak") ? "#e8b4b4" : "#b8d4be",
+            marginBottom: "1rem",
+          }}
+          role="status"
+          data-testid="framing-quality-honesty"
+        >
+          <strong>{framingQuality.title}</strong>
+          <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
+            {framingQuality.body}
           </p>
         </div>
       ) : null}
