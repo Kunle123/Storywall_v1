@@ -8,7 +8,8 @@ const LABELS: Record<CreatorWorkflowState, string> = {
   ready_for_edit: "Editing draft",
   needs_validation: "Checks required",
   blocked: "Blocked on checks",
-  ready_to_publish: "Ready to publish",
+  /** Workflow gate only — not a claim the manuscript is factually complete or endorsed for release. */
+  ready_to_publish: "Publish step open (workflow)",
   published: "Published",
 };
 

@@ -110,7 +110,8 @@ function PublishedReferencesIndexCard({ slug }: { slug: string }) {
         <>
           <p className="muted small">
             <strong>{st.storySourceCount}</strong> story-level source{st.storySourceCount === 1 ? "" : "s"} and{" "}
-            <strong>{st.timelineRefCount}</strong> timeline inline reference row{st.timelineRefCount === 1 ? "" : "s"}.
+            <strong>{st.timelineRefCount}</strong> timeline inline reference row{st.timelineRefCount === 1 ? "" : "s"}{" "}
+            as the creator attached them for this published snapshot — density here is not a trust score.
           </p>
           <p>
             <Link to={`/stories/${encodeURIComponent(slug)}/references`}>Open full references index</Link>

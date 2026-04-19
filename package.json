@@ -31,6 +31,7 @@
     "verify:staging:canonical-event-draft-enrichment": "node ./scripts/verify-staging-canonical-event-draft-enrichment.mjs",
     "verify:staging:canonical-provenance-truthfulness": "node ./scripts/verify-staging-canonical-provenance-truthfulness.mjs",
     "verify:staging:canonical-fallback-semantics": "node ./scripts/verify-staging-canonical-fallback-semantics.mjs",
+    "verify:staging:canonical-ux-copy-honesty": "node ./scripts/verify-staging-canonical-ux-copy-honesty.mjs",
     "verify:staging:draft-editing": "node ./scripts/verify-staging-draft-editing.mjs",
     "verify:staging:validation-checks": "node ./scripts/verify-staging-validation-checks.mjs",
     "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs",

@@ -3,7 +3,7 @@ import type { ValidationAssistSummaryV1 } from "../lib/validationAssist";
 function postureLabel(p: ValidationAssistSummaryV1["overall_confidence_posture"]): string {
   switch (p) {
     case "strong_enough_to_continue":
-      return "Looks strong enough to move forward with normal caution";
+      return "Enough signal to keep editing — still verify claims against sources";
     case "usable_with_caveats":
       return "Usable — proceed with documented caveats";
     case "weakly_supported_needs_research":

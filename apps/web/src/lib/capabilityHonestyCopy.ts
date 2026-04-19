@@ -59,11 +59,11 @@ export function framingQualityHonesty(pkg: unknown): { title: string; body: stri
   const gt = q.synthesis_grounding?.grounding_tier ?? "—";
   const title =
     overall === "production_usable"
-      ? "Framing quality: differentiated batch"
+      ? "Framing quality: differentiated batch (still guidance)"
       : overall === "weak_set"
         ? "Framing quality: weak or near-duplicate set"
         : "Framing quality: usable with caveats";
-  const body = `${head} Distinctness risk: ${risk}. Synthesis grounding tier: ${gt}. Next: ${next}`;
+  const body = `${head} Distinctness risk: ${risk}. Synthesis grounding tier: ${gt}. "Production usable" here means batch structure for picking an angle — not publish-ready narrative. Next: ${next}`;
   return { title, body };
 }
 
@@ -92,9 +92,9 @@ export function editorialReviewCapabilitySummary(pkg: unknown): { modeLabel: str
 
   const statusLabel =
     p.status === "succeeded"
-      ? "Completed"
+      ? "Saved (live or fallback path finished)"
       : p.status === "fallback_deterministic"
-        ? "Completed with fallback"
+        ? "Saved using deterministic fallback"
         : String(p.status ?? "unknown");
 
   const fallbackNote = p.failure

@@ -110,8 +110,9 @@ export function FramingChoosePage() {
         <p className="hint" style={{ marginTop: "-0.25rem", marginBottom: "1rem" }}>
           Picking one option calls <code className="inline-code">POST …/frames/select</code> (mutation §10.2). The server
           creates your <strong>story draft shell</strong> from that frame and sets workflow to{" "}
-          <code className="inline-code">ready_for_edit</code>. Next: refine the brief if needed, then run{" "}
-          <strong>Assemble full draft</strong> from the brief workspace when you want the starter manuscript structure.
+          <code className="inline-code">ready_for_edit</code>. Candidates are angles to choose from — not final public copy.
+          Next: refine the brief if needed, then run <strong>Assemble full draft</strong> from the brief workspace when you
+          want the starter manuscript structure.
         </p>
       ) : null}
 

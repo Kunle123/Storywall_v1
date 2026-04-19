@@ -11,7 +11,7 @@ type DiscoverLoadState = "loading" | "ready" | "empty" | "error";
 const DISCOVER_LIMIT = 12;
 
 /**
- * M5-T28 — minimal anonymous discover strip (GET /api/v1/stories/discover). `data-testid` is probed by staging verify.
+ * M5-T28 discover API + M5-T29 copy honesty note on the strip. `data-testid` values are probed by staging verify scripts.
  */
 export function HomePage() {
   const { token, creator } = useAuth();
@@ -66,13 +66,14 @@ export function HomePage() {
         <h2 id="homepage-discover-heading" className="page-title" style={{ fontSize: "1.15rem", marginBottom: "0.35rem" }}>
           Recently published
         </h2>
-        <p className="muted small" style={{ marginBottom: "0.75rem" }}>
+        <p className="muted small" style={{ marginBottom: "0.75rem" }} data-testid="homepage-discover-honesty-note">
           Public discovery from <code className="inline-code">GET /api/v1/stories/discover</code>
           {discoverLimit !== null ? (
             <>
               {" "}
               (up to <strong>{discoverLimit}</strong> newest live-<code className="inline-code">public</code> stories).
-              Unlisted and private are not listed here; unlisted stays readable by direct slug.
+              Unlisted and private are not listed here; unlisted stays readable by direct slug. This strip is an editorial
+              discovery list — not ranked for accuracy and not an endorsement by Storywall.
             </>
           ) : (
             <> — limit loads with the list.</>

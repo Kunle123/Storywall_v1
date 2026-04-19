@@ -18,6 +18,10 @@ export function PublicTrustExplainer() {
         This is the reader-facing snapshot for this story, not a window into private editorial tooling or unreleased
         material.
       </p>
+      <p className="public-trust-explainer__p muted small">
+        Storywall does not independently verify every claim in this edition — treat references and narrative as
+        creator-attributed, and consult originals when accuracy matters.
+      </p>
       <p className="public-trust-explainer__more muted small">
         <Link to="/about/sourcing">Reader help: sourcing FAQ</Link>
       </p>

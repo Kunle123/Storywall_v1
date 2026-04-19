@@ -194,7 +194,7 @@ function PublishReadinessBlock(props: {
       <div className="editor-publish-readiness">
         <p className="editor-panel__eyebrow">Publish</p>
         <p className="editor-publish-readiness__status">
-          {republish ? "Ready to update the live story" : "Ready for publish"}
+          {republish ? "May update the live reader snapshot" : "Workflow allows publish (not a quality seal)"}
         </p>
         {hasRun && report ? (
           <p className="editor-publish-readiness__detail muted small">
@@ -218,13 +218,13 @@ function PublishReadinessBlock(props: {
         )}
         {needsRerunNote && !validationLoading ? (
           <p className="editor-publish-readiness__detail muted small">
-            There is no completed check on file—run <strong>Run checks</strong> above again to confirm nothing changed
+            There is no stored validation run on file — run <strong>Run checks</strong> above again to confirm nothing changed
             since your workflow advanced.
           </p>
         ) : null}
         {warnRemaining ? (
           <p className="editor-publish-readiness__detail muted small">
-            Warnings still appear in the list below; they do not block publishing when your workflow is ready.
+            Warnings still appear in the list below; they do not block publishing when workflow is already in this publish-allowed state.
           </p>
         ) : null}
         {validationLoading ? (
@@ -1005,7 +1005,7 @@ export function DraftReadyPage() {
 
   return (
     <div className="page draft-workspace-page">
-      <h2 className="page-title">Draft ready</h2>
+      <h2 className="page-title">Draft workspace</h2>
       <p className="page-lead muted">
         Main composition and checks — story <code className="inline-code">{storyId}</code>
       </p>
@@ -1117,7 +1117,7 @@ export function DraftReadyPage() {
               <strong>Story draft</strong> (title, lens, summary below) comes from your selected framing.{" "}
               <strong>Timeline events</strong> are listed <strong>first in this workspace</strong> as{" "}
               <code className="inline-code">event_draft</code> rows from research + assembly — editable beats, not
-              publish-ready prose. <strong>Narrative sections</strong> follow as ordered body blocks;{" "}
+              polished public prose. <strong>Narrative sections</strong> follow as ordered body blocks;{" "}
               <strong>Sources &amp; coverage</strong> ties evidence to events.{" "}
               {workflow === "assembling_draft" ? (
                 <>

@@ -243,11 +243,11 @@ export function JobStatusPage() {
 
       {terminal?.kind === "research_done" ? (
         <div className="card gen-terminal">
-          <h2 className="gen-card-title">Research job complete</h2>
+          <h2 className="gen-card-title">Research job finished</h2>
           <p>
-            Workflow is now <strong>{terminal.workflow}</strong>. The research package you just built is mostly{" "}
+            Workflow is now <strong>{terminal.workflow}</strong>. The research package from this job is{" "}
             <strong>deterministic scaffolding</strong> (retrieval when enabled, then synthesis + chronology + enrichment rules)
-            with honesty signals — not a single live-authored story.
+            plus honesty and fallback signals — not a single live-authored story and not implied publish-ready coverage.
           </p>
           <p className="muted small" style={{ marginTop: "0.5rem" }}>
             Optional <strong>live</strong> steps (framing, event/section enrichment, editorial review) only run when your host

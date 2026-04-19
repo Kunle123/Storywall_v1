@@ -41,7 +41,7 @@ export function PostAssemblyDepthNudge(props: PostAssemblyDepthNudgeProps) {
     >
       <p className="post-assembly-depth-nudge__eyebrow">After assembly</p>
       <h3 id="post-assembly-depth-nudge-title" className="post-assembly-depth-nudge__title">
-        {attention ? "Your draft is a scaffold — plan the next edits" : "First pass assembled — keep strengthening"}
+        {attention ? "Your draft is a scaffold — plan the next edits" : "First pass assembled — keep editing before publish"}
       </h3>
       <p className="post-assembly-depth-nudge__lead muted small">
         Full draft assembly produces a <strong>usable first structure</strong> (framing shell, a starter timeline, and
@@ -69,7 +69,7 @@ export function PostAssemblyDepthNudge(props: PostAssemblyDepthNudgeProps) {
           <span className="post-assembly-depth-nudge__signal-value">{eventCount}</span>
           {thinTimeline ? (
             <span className="post-assembly-depth-nudge__signal-flag">
-              Very few events is common right after assembly — add beats until the arc feels complete
+              Very few events is common right after assembly — add beats until the arc feels sufficient for readers
             </span>
           ) : modestTimeline ? (
             <span className="post-assembly-depth-nudge__signal-flag muted small">
@@ -82,7 +82,7 @@ export function PostAssemblyDepthNudge(props: PostAssemblyDepthNudgeProps) {
         <li>
           <span className="post-assembly-depth-nudge__signal-label">“When” lines on timeline</span>
           <span className="post-assembly-depth-nudge__signal-value">
-            {eventsMissingDisplayWhen === 0 ? "All set" : `${eventsMissingDisplayWhen} missing`}
+            {eventsMissingDisplayWhen === 0 ? "Filled in" : `${eventsMissingDisplayWhen} missing`}
           </span>
           {needsWhenLines ? (
             <span className="post-assembly-depth-nudge__signal-flag">
@@ -91,7 +91,7 @@ export function PostAssemblyDepthNudge(props: PostAssemblyDepthNudgeProps) {
           ) : eventCount === 0 ? (
             <span className="post-assembly-depth-nudge__signal-flag muted small">—</span>
           ) : (
-            <span className="post-assembly-depth-nudge__signal-ok muted small">Each event has a when line</span>
+            <span className="post-assembly-depth-nudge__signal-ok muted small">Each event has a reader-visible when line</span>
           )}
         </li>
         <li>

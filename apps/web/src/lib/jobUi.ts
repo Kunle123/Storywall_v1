@@ -9,7 +9,7 @@ export function describeJobLifecycle(status: string): string {
     case "running":
       return "Running — this can take a minute or more.";
     case "succeeded":
-      return "Finished successfully.";
+      return "Worker reported succeeded — review package or draft outputs; job success is not the same as publish-ready coverage.";
     case "failed":
       return "Failed — see the error below.";
     case "cancelled":
