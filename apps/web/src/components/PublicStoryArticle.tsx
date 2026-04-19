@@ -3,6 +3,10 @@ import { Link } from "react-router-dom";
 import { ApiRequestError } from "../api/creatorClient";
 import { getPublicStoryReferences } from "../api/publicClient";
 import type { PublicStoryData, PublicStoryReferencesData } from "../api/publicTypes";
+import {
+  splitConclusionForPresentation,
+  splitSectionSummaryForPresentation,
+} from "../lib/assemblyHonestyPresentation";
 import { computeBeatPresentations } from "../lib/publicStoryBeatPresentation";
 import { PublicTrustExplainer } from "./PublicTrustExplainer";
 
@@ -153,6 +157,10 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
   const orderedEvents = useMemo(() => sortEvents(story.events), [story.events]);
   const orderedSections = useMemo(() => sortSections(story.sections), [story.sections]);
   const beatPresentation = useMemo(() => computeBeatPresentations(orderedEvents), [orderedEvents]);
+  const conclusionPresentation = useMemo(
+    () => splitConclusionForPresentation(story.conclusion),
+    [story.conclusion],
+  );
   const chronology = formatChronologySpan(story);
 
   return (
@@ -230,15 +238,28 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
             signposts before the dated timeline below.
           </p>
           <ol className="public-story-section-list public-story-section-list--editorial">
-            {orderedSections.map((s) => (
-              <li key={`${s.position_index}-${s.label}`} className="public-story-section-list__item">
-                <div className="public-story-section-list__marker" aria-hidden />
-                <div className="public-story-section-list__body">
-                  <h3 className="public-story-section-list__heading">{s.label}</h3>
-                  {s.summary ? <div className="public-story-prose public-story-prose--compact">{s.summary}</div> : null}
-                </div>
-              </li>
-            ))}
+            {orderedSections.map((s) => {
+              const sec = splitSectionSummaryForPresentation(s.summary);
+              return (
+                <li key={`${s.position_index}-${s.label}`} className="public-story-section-list__item">
+                  <div className="public-story-section-list__marker" aria-hidden />
+                  <div className="public-story-section-list__body">
+                    <h3 className="public-story-section-list__heading">{s.label}</h3>
+                    {sec.body ? (
+                      <div className="public-story-prose public-story-prose--compact">{sec.body}</div>
+                    ) : null}
+                    {sec.researchDepthNote ? (
+                      <aside className="public-story-assembly-honesty" aria-label="Research depth note">
+                        <p className="public-story-assembly-honesty__label">Research &amp; sourcing depth</p>
+                        <div className="public-story-prose public-story-prose--compact public-story-assembly-honesty__text">
+                          {sec.researchDepthNote}
+                        </div>
+                      </aside>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         </section>
       ) : null}
@@ -377,7 +398,20 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
           <h2 id="public-story-conclusion-label" className="public-story-block__title">
             Closing
           </h2>
-          <div className="public-story-prose">{story.conclusion}</div>
+          {conclusionPresentation.body ? (
+            <div className="public-story-prose">{conclusionPresentation.body}</div>
+          ) : null}
+          {conclusionPresentation.editorialReadiness ? (
+            <aside
+              className="public-story-assembly-honesty public-story-assembly-honesty--readiness"
+              aria-label="Editorial readiness"
+            >
+              <p className="public-story-assembly-honesty__label">Editorial readiness</p>
+              <div className="public-story-prose public-story-prose--compact public-story-assembly-honesty__text">
+                {conclusionPresentation.editorialReadiness}
+              </div>
+            </aside>
+          ) : null}
         </section>
       ) : null}
 

@@ -39,29 +39,28 @@ export function ChronologyFirstArtifactCard(props: ChronologyFirstArtifactCardPr
   return (
     <section
       id="canonical-chronology-first-surfacing"
-      className="card"
-      style={{ marginBottom: "1rem", borderLeft: "4px solid var(--accent, #2563eb)" }}
+      className="chronology-first-callout card"
       data-testid="canonical-chronology-first-surfacing"
       aria-labelledby="canonical-chronology-first-heading"
     >
-      <h3 id="canonical-chronology-first-heading" className="draft-ready-title" style={{ fontSize: "1.1rem" }}>
+      <h3 id="canonical-chronology-first-heading" className="chronology-first-callout__title">
         Chronology-first timeline
       </h3>
-      <p className="muted small">
-        M5-T22 — Storywall surfaces <strong>timeline events</strong> as a first-class artifact: each row is an{" "}
+      <p className="chronology-first-callout__lede muted small">
+        Storywall surfaces <strong>timeline events</strong> as a first-class artifact: each row is an{" "}
         <code className="inline-code">event_draft</code> materialized from research chronology through draft assembly (or
         added by you), read via <code className="inline-code">GET /api/v1/creator/stories/&lt;id&gt;/events</code>.{" "}
         <strong>Narrative sections</strong> are separate <code className="inline-code">section_draft</code> blocks — the
         ordered story body — not interchangeable with dated beats.
       </p>
-      <p className="muted small" style={{ marginTop: "0.35rem" }}>
+      <p className="chronology-first-callout__stats muted small">
         Loaded <strong>{n}</strong> event(s).{" "}
         <span data-chronology-strength={strength}>
           Shape: <strong>{strength}</strong> — {strengthNote}
         </span>
       </p>
       {workflow === "assembling_draft" ? (
-        <p className="muted small" role="status" style={{ marginTop: "0.35rem" }}>
+        <p className="chronology-first-callout__status muted small" role="status">
           While <code className="inline-code">draft_assemble</code> runs, the timeline editor may be read-only — reload
           after the job succeeds to edit beats.
         </p>

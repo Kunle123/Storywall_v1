@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { splitSectionSummaryForPresentation } from "../lib/assemblyHonestyPresentation";
 import { ApiRequestError, extractConflictSection, patchSection } from "../api/creatorClient";
 import type { PatchSectionBody, SectionDraftResponse } from "../api/types";
 
@@ -97,6 +98,8 @@ function NarrativeSectionDraftRow(props: {
     readOnly,
   ]);
 
+  const sectionHonesty = useMemo(() => splitSectionSummaryForPresentation(summary), [summary]);
+
   return (
     <article className="narrative-section-card editor-block editor-card">
       <header className="narrative-section-card__head">
@@ -135,6 +138,19 @@ function NarrativeSectionDraftRow(props: {
             disabled={readOnly}
           />
         </label>
+        {sectionHonesty.researchDepthNote ? (
+          <aside
+            className="editor-assembly-honesty-callout"
+            aria-label="Research depth note from draft assembly"
+          >
+            <p className="editor-assembly-honesty-callout__label">Research depth note</p>
+            <p className="editor-assembly-honesty-callout__hint muted small">
+              Same text appears after the <code className="inline-code">---</code> block in Body — edit there; this
+              panel is for readability only.
+            </p>
+            <div className="editor-assembly-honesty-callout__text">{sectionHonesty.researchDepthNote}</div>
+          </aside>
+        ) : null}
       </div>
 
       <div className="editor-regenerate-bar">

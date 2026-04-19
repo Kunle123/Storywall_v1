@@ -39,6 +39,7 @@ import { HeroMediaWorkflowPanel } from "../components/HeroMediaWorkflowPanel";
 import { PostAssemblyDepthNudge } from "../components/PostAssemblyDepthNudge";
 import { PrePublishReflectionPanel } from "../components/PrePublishReflectionPanel";
 import { TimelineEventsManagementPanel } from "../components/TimelineEventsManagement";
+import { splitConclusionForPresentation } from "../lib/assemblyHonestyPresentation";
 import { readActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
@@ -534,6 +535,8 @@ export function DraftReadyPage() {
     () => (draft ? mergeDraftWithLocalForPreview(draft, localFields) : null),
     [draft, title, subtitle, summary, lens, conclusion, imageryMode, visibilityTarget],
   );
+
+  const conclusionPresentation = useMemo(() => splitConclusionForPresentation(conclusion), [conclusion]);
 
   const ingestFramesData = useCallback((data: ListFramesSuccess["data"]) => {
     setWorkflow(data.story_state);
@@ -1602,6 +1605,21 @@ export function DraftReadyPage() {
                         disabled={compositionReadOnly}
                       />
                     </label>
+                    {conclusionPresentation.editorialReadiness ? (
+                      <aside
+                        className="editor-assembly-honesty-callout editor-assembly-honesty-callout--readiness"
+                        aria-label="Editorial readiness from draft assembly"
+                      >
+                        <p className="editor-assembly-honesty-callout__label">Editorial readiness</p>
+                        <p className="editor-assembly-honesty-callout__hint muted small">
+                          Mirrored for legibility; edit the same block after the <code className="inline-code">---</code>{" "}
+                          divider in the field above.
+                        </p>
+                        <div className="editor-assembly-honesty-callout__text">
+                          {conclusionPresentation.editorialReadiness}
+                        </div>
+                      </aside>
+                    ) : null}
                   </div>
                 </div>
               </section>
