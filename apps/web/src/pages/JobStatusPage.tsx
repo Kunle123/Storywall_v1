@@ -253,7 +253,12 @@ export function JobStatusPage() {
             Optional <strong>live</strong> steps (framing, event/section enrichment, editorial review) only run when your host
             enables the AI runtime and you trigger those actions separately.
           </p>
-          <ResearchPackageHonestyPanel summary={honestySummary} loading={honestyLoading} error={honestyError} />
+          <ResearchPackageHonestyPanel
+            summary={honestySummary}
+            enrichmentMaterializationQuality={packageSnapshot?.enrichment_materialization_quality}
+            loading={honestyLoading}
+            error={honestyError}
+          />
           <div style={{ marginTop: "1rem" }}>
             <ValidationAssistPanel summary={validationAssist} loading={honestyLoading && !packageSnapshot} />
           </div>

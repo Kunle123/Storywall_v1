@@ -307,6 +307,20 @@ export class ResearchService {
     candidateSources: ResearchCandidateSource[];
     /** M5-T24 — persisted chronology row count for synthesis orchestration / honesty. */
     chronologyEventCount: number;
+    /** M5-T26 — lite chronology rows for enrichment materialization assessment (same assembly as M2-T03 GET). */
+    chronologyEventsLite: Array<{
+      id: string;
+      headline: string;
+      summary: string;
+      contextLabel: string | null;
+      eventType: string;
+      positionIndex: number;
+    }>;
+    /** M5-T26 — current story draft shell when present (optional; null before draft exists). */
+    manuscriptLite: {
+      events: Array<{ headline: string; summary: string; eventType: string }>;
+      sections: Array<{ label: string; summary: string | null }>;
+    } | null;
     /** M5-T11 — persisted live enrichment when its `research_job_id` matches this job. */
     liveEventDraftEnrichment: unknown | null;
     /** M5-T12 — persisted editorial review when its `research_job_id` matches this job. */
@@ -357,7 +371,22 @@ export class ResearchService {
 
     const briefRow = await this.prisma.storyBrief.findUnique({
       where: { storyId },
-      select: { aiEventDraftEnrichmentPackage: true, aiEditorialReviewPackage: true },
+      select: {
+        aiEventDraftEnrichmentPackage: true,
+        aiEditorialReviewPackage: true,
+        storyDraft: {
+          select: {
+            eventDrafts: {
+              orderBy: { positionIndex: "asc" },
+              select: { headline: true, summary: true, eventType: true },
+            },
+            sectionDrafts: {
+              orderBy: { positionIndex: "asc" },
+              select: { label: true, summary: true },
+            },
+          },
+        },
+      },
     });
     let liveEventDraftEnrichment: unknown | null = null;
     const stored = briefRow?.aiEventDraftEnrichmentPackage;
@@ -378,11 +407,45 @@ export class ResearchService {
 
     const chronologyEventCount = job.chronologyAssembly?._count.events ?? 0;
 
+    const chronologyEventsLite = await this.prisma.chronologyExtractedEvent.findMany({
+      where: { chronologyAssembly: { researchJobId: jobId } },
+      orderBy: { positionIndex: "asc" },
+      select: {
+        id: true,
+        headline: true,
+        summary: true,
+        contextLabel: true,
+        eventType: true,
+        positionIndex: true,
+      },
+    });
+
+    let manuscriptLite: {
+      events: Array<{ headline: string; summary: string; eventType: string }>;
+      sections: Array<{ label: string; summary: string | null }>;
+    } | null = null;
+    const sd = briefRow?.storyDraft;
+    if (sd && (sd.eventDrafts.length > 0 || sd.sectionDrafts.length > 0)) {
+      manuscriptLite = {
+        events: sd.eventDrafts.map((e) => ({
+          headline: e.headline,
+          summary: e.summary,
+          eventType: e.eventType,
+        })),
+        sections: sd.sectionDrafts.map((s) => ({
+          label: s.label,
+          summary: s.summary,
+        })),
+      };
+    }
+
     return {
       jobStatus: job.status,
       artifact: job.artifact,
       candidateSources: job.candidateSources,
       chronologyEventCount,
+      chronologyEventsLite,
+      manuscriptLite,
       liveEventDraftEnrichment,
       aiEditorialReview,
     };

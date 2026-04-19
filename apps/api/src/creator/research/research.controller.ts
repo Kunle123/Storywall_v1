@@ -12,6 +12,7 @@ import { AuthGuard } from "@nestjs/passport";
 import { randomUUID } from "node:crypto";
 import {
   API_CONTRACT_VERSION,
+  assessEnrichmentMaterializationQuality,
   buildDraftEnrichmentProvenanceIndex,
   buildResearchPackageHonestySummary,
 } from "@storywall/shared";
@@ -109,6 +110,33 @@ export class ResearchController {
       creatorId: creator.id,
     });
     const draftEnrichmentProvenance = buildDraftEnrichmentProvenanceIndex(pkg.artifact.draftEnrichmentPackage);
+    const chronology_events_lite = pkg.chronologyEventsLite.map((e) => ({
+      id: e.id,
+      headline: e.headline,
+      summary: e.summary,
+      context_label: e.contextLabel,
+      event_type: e.eventType,
+      position_index: e.positionIndex,
+    }));
+    const manuscriptInput =
+      pkg.manuscriptLite && (pkg.manuscriptLite.events.length > 0 || pkg.manuscriptLite.sections.length > 0)
+        ? {
+            events: pkg.manuscriptLite.events.map((ev) => ({
+              headline: ev.headline,
+              summary: ev.summary,
+              event_type: ev.eventType,
+            })),
+            sections: pkg.manuscriptLite.sections.map((sec) => ({
+              label: sec.label,
+              summary: sec.summary,
+            })),
+          }
+        : null;
+    const enrichment_materialization_quality = assessEnrichmentMaterializationQuality({
+      chronologyEvents: chronology_events_lite,
+      draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
+      manuscript: manuscriptInput,
+    });
     return {
       ok: true,
       request_id: randomUUID(),
@@ -128,6 +156,10 @@ export class ResearchController {
             draft_enrichment_package_present: Boolean(pkg.artifact.draftEnrichmentPackage),
           },
         }),
+        /** M5-T26 — inspectable chronology rows backing enrichment materialization (separate from M5-T23–T25). */
+        chronology_events_lite,
+        /** M5-T26 — deterministic event/draft/manuscript materialization tiering (payload-derived; not a model score). */
+        enrichment_materialization_quality,
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
         /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */
         live_event_draft_enrichment: pkg.liveEventDraftEnrichment,

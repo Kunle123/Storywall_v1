@@ -294,3 +294,15 @@ export {
   stableAssembleDraftPayload,
 } from "./assemble-draft-payload";
 export type { AssembleDraftPayloadInput } from "./assemble-draft-payload";
+
+// --- M5-T26 — deterministic event/draft/manuscript materialization quality (payload-derived) ---
+export {
+  assessEnrichmentMaterializationQuality,
+  ENRICHMENT_MATERIALIZATION_QUALITY_VERSION,
+} from "./enrichment-materialization-quality";
+export type {
+  AssessEnrichmentMaterializationInput,
+  ChronologyEventLite,
+  EnrichmentMaterializationQualityV1,
+  EnrichmentMaterializationTier,
+} from "./enrichment-materialization-quality";

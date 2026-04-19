@@ -473,6 +473,56 @@ export interface ResearchPackageHonestySummary {
   ui_hints: readonly string[];
 }
 
+/** M5-T26 — tiers from real payload shape (separate from M5-T23–T25). */
+export type EnrichmentMaterializationTier = "production_usable" | "usable_with_caveats" | "scaffold_thin";
+
+/** M5-T26 — GET …/package `enrichment_materialization_quality` (snake_case layers; API-aligned). */
+export interface EnrichmentMaterializationQualityApi {
+  schema_version: string;
+  combined_overall: EnrichmentMaterializationTier;
+  ui_hint_line: string;
+  chronology_layer: {
+    event_total: number;
+    non_preamble_count: number;
+    substantive_event_count: number;
+    substantive_event_ratio: number;
+    average_summary_chars_substantive: number;
+    sourced_claim_row_count: number;
+    overall: EnrichmentMaterializationTier;
+    headline: string;
+    next_action: string;
+  };
+  draft_enrichment_layer: {
+    has_m5_t08_package: boolean;
+    summary_spine_chars: number;
+    rich_key_event_count: number;
+    rich_suggested_section_count: number;
+    major_arc_count: number;
+    overall: EnrichmentMaterializationTier;
+    headline: string;
+    next_action: string;
+  };
+  manuscript_shell: {
+    event_draft_count: number;
+    substantive_event_draft_count: number;
+    narrative_section_count: number;
+    sections_with_substantive_summary: number;
+    overall: EnrichmentMaterializationTier;
+    headline: string;
+    next_action: string;
+  } | null;
+}
+
+/** M5-T26 — lite chronology rows on GET package (for audit; same rows as M2-T03 chronology). */
+export interface ChronologyEventLiteApiRow {
+  id: string;
+  headline: string;
+  summary: string;
+  context_label: string | null;
+  event_type: string;
+  position_index: number;
+}
+
 /** GET …/research/jobs/:jobId/package (M2-T02 + M5-T08/09 extensions). */
 export interface GetResearchPackageSuccess {
   ok: true;
@@ -482,6 +532,9 @@ export interface GetResearchPackageSuccess {
     draft_enrichment_provenance: unknown;
     honesty_summary: ResearchPackageHonestySummary;
     candidate_sources: unknown[];
+    /** M5-T26 — optional until API deploy; separate honesty rail from M5-T23–T25. */
+    chronology_events_lite?: ChronologyEventLiteApiRow[];
+    enrichment_materialization_quality?: EnrichmentMaterializationQualityApi;
     /** M5-T11 — when persisted for this job id. */
     live_event_draft_enrichment?: unknown | null;
     /** M5-T12 — when persisted for this job id. */

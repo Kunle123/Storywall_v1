@@ -1,7 +1,9 @@
-import type { ResearchPackageHonestySummary } from "../api/types";
+import type { EnrichmentMaterializationQualityApi, ResearchPackageHonestySummary } from "../api/types";
 
 export type ResearchPackageHonestyPanelProps = {
   summary: ResearchPackageHonestySummary | null;
+  /** M5-T26 — optional; sibling to honesty_summary, not merged into M5-T23–T25 blocks. */
+  enrichmentMaterializationQuality?: EnrichmentMaterializationQualityApi | null;
   loading: boolean;
   error: string | null;
 };
@@ -23,7 +25,7 @@ function provenanceLabel(trace: string): string {
  * M5-T09 — compact creator honesty rail for deterministic research + enrichment (no broad workspace redesign).
  */
 export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelProps) {
-  const { summary, loading, error } = props;
+  const { summary, enrichmentMaterializationQuality, loading, error } = props;
 
   if (error) {
     return (
@@ -189,6 +191,93 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
         <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
           Synthesis orchestration (M5-T24) is not in this API response yet — redeploy the API to separate retrieval depth
           from structured-package readiness.
+        </p>
+      )}
+      {enrichmentMaterializationQuality ? (
+        <div
+          className="research-enrichment-materialization"
+          data-testid="research-enrichment-materialization-rail"
+          role="region"
+          aria-label="Event and draft enrichment materialization"
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.65rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-muted, rgba(0,0,0,0.12))",
+            background: "var(--panel-subtle, rgba(0,0,0,0.03))",
+          }}
+        >
+          <p className="muted small" style={{ margin: 0, fontWeight: 600 }}>
+            Event &amp; draft materialization (M5-T26)
+          </p>
+          <p className="small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <span
+              className={`research-honesty-badge${
+                enrichmentMaterializationQuality.combined_overall === "scaffold_thin"
+                  ? " research-honesty-badge--warn"
+                  : enrichmentMaterializationQuality.combined_overall === "usable_with_caveats"
+                    ? ""
+                    : ""
+              }`}
+            >
+              {enrichmentMaterializationQuality.combined_overall}
+            </span>{" "}
+            {enrichmentMaterializationQuality.ui_hint_line}
+          </p>
+          <ul className="muted small" style={{ margin: "0.5rem 0 0", paddingLeft: "1.1rem" }}>
+            <li>
+              Chronology rows (materialized): <strong>{enrichmentMaterializationQuality.chronology_layer.event_total}</strong>{" "}
+              · substantive (non-preamble):{" "}
+              <strong>{enrichmentMaterializationQuality.chronology_layer.substantive_event_count}</strong> · tier:{" "}
+              <strong>{enrichmentMaterializationQuality.chronology_layer.overall}</strong>
+            </li>
+            <li>
+              Draft enrichment package: spine chars{" "}
+              <strong>{enrichmentMaterializationQuality.draft_enrichment_layer.summary_spine_chars}</strong> · rich key events:{" "}
+              <strong>{enrichmentMaterializationQuality.draft_enrichment_layer.rich_key_event_count}</strong> · rich
+              suggested sections:{" "}
+              <strong>{enrichmentMaterializationQuality.draft_enrichment_layer.rich_suggested_section_count}</strong> · tier:{" "}
+              <strong>{enrichmentMaterializationQuality.draft_enrichment_layer.overall}</strong>
+            </li>
+            {enrichmentMaterializationQuality.manuscript_shell ? (
+              <li>
+                Manuscript shell (when draft exists): events <strong>{enrichmentMaterializationQuality.manuscript_shell.event_draft_count}</strong>{" "}
+                · substantive event drafts:{" "}
+                <strong>{enrichmentMaterializationQuality.manuscript_shell.substantive_event_draft_count}</strong> · sections{" "}
+                <strong>{enrichmentMaterializationQuality.manuscript_shell.narrative_section_count}</strong> · tier:{" "}
+                <strong>{enrichmentMaterializationQuality.manuscript_shell.overall}</strong>
+              </li>
+            ) : (
+              <li>Manuscript shell: not evaluated (no draft rows on story yet — normal right after research before assembly).</li>
+            )}
+          </ul>
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Chronology layer:</strong> {enrichmentMaterializationQuality.chronology_layer.headline}
+          </p>
+          <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <strong>Next:</strong> {enrichmentMaterializationQuality.chronology_layer.next_action}
+          </p>
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Draft enrichment layer:</strong> {enrichmentMaterializationQuality.draft_enrichment_layer.headline}
+          </p>
+          <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <strong>Next:</strong> {enrichmentMaterializationQuality.draft_enrichment_layer.next_action}
+          </p>
+          {enrichmentMaterializationQuality.manuscript_shell ? (
+            <>
+              <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+                <strong>Manuscript shell:</strong> {enrichmentMaterializationQuality.manuscript_shell.headline}
+              </p>
+              <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+                <strong>Next:</strong> {enrichmentMaterializationQuality.manuscript_shell.next_action}
+              </p>
+            </>
+          ) : null}
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+          Event &amp; draft materialization (M5-T26) is not in this API response yet — redeploy the API to see chronology/draft
+          materialization tiers separate from retrieval, synthesis orchestration, and framing quality.
         </p>
       )}
       <p className="muted small" style={{ marginTop: "0.35rem" }}>

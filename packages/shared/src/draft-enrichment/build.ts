@@ -275,7 +275,10 @@ function suggestedSectionsFromSynthesis(
         const row: Omit<DraftEnrichmentSuggestedSection, "support_status" | "weak_support_explanation"> = {
           id: `sec:synthesis:${f.id}`,
           title: "Structured overview (synthesis)",
-          rationale: clip(`Grounded in synthesis finding ${f.id} (deterministic M5-T05).`, 400),
+          rationale: clip(
+            `Editorial overview from M5-T05 synthesis_summary ${f.id} (excerpt from finding text): ${clip(f.text, 280)}`,
+            520,
+          ),
           linked_synthesis_finding_ids: [f.id],
           linked_chronology_position_indexes: positions,
           provenance: prov,
