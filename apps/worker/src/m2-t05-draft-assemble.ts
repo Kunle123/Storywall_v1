@@ -20,6 +20,7 @@ function eventDraftDataFromChronology(
   ce: ChronologyExtractedEvent,
   storyDraftId: string,
   assemblyJobId: string,
+  sectionDraftId: string | null,
 ): Prisma.EventDraftUncheckedCreateInput {
   return {
     storyDraftId,
@@ -52,9 +53,66 @@ function eventDraftDataFromChronology(
     status: "draft",
     slug: null,
     dek: null,
-    sectionDraftId: null,
+    sectionDraftId,
     mediaPrimaryCandidateId: null,
   };
+}
+
+type StoryDraftForAssembly = {
+  id: string;
+  title: string;
+  summary: string | null;
+  selectedFrame: { titleCandidate: string; summaryCandidate: string } | null;
+};
+
+/**
+ * Ensures at least one narrative `section_draft` exists and returns the id to attach assembled
+ * chronology rows. Copy is grounded in the existing story draft / selected framing (no new factual claims).
+ */
+async function resolveSpineSectionIdForFullAssembly(
+  tx: Prisma.TransactionClient,
+  storyDraft: StoryDraftForAssembly,
+): Promise<string | null> {
+  const existing = await tx.sectionDraft.findFirst({
+    where: { storyDraftId: storyDraft.id },
+    orderBy: { positionIndex: "asc" },
+    select: { id: true },
+  });
+  if (existing) {
+    return existing.id;
+  }
+
+  const labelBase =
+    storyDraft.title.trim() ||
+    storyDraft.selectedFrame?.titleCandidate?.trim() ||
+    "Narrative spine";
+  const label = labelBase.slice(0, 200);
+
+  const framingSummary = storyDraft.selectedFrame?.summaryCandidate?.trim() ?? "";
+  const draftSummary = storyDraft.summary?.trim() ?? "";
+  const baseBody =
+    draftSummary.length > 0
+      ? draftSummary.slice(0, 4000)
+      : framingSummary.length > 0
+        ? framingSummary.slice(0, 4000)
+        : null;
+
+  const guidance =
+    "This section groups the timeline rows materialized from your latest successful research pass. Edit freely; evidence stays on each event.";
+  const summary =
+    baseBody && baseBody.length > 0 ? `${baseBody}\n\n${guidance}`.slice(0, 8000) : guidance;
+
+  const created = await tx.sectionDraft.create({
+    data: {
+      storyDraftId: storyDraft.id,
+      label,
+      summary,
+      positionIndex: 0,
+      sectionOrigin: "ai_generated",
+      status: "draft",
+    },
+  });
+  return created.id;
 }
 
 function chronologyToEventUpdateData(
@@ -494,9 +552,21 @@ export async function runDraftAssemblyJob(
 
   await tx.eventDraft.deleteMany({ where: { storyDraftId: storyDraft.id } });
 
+  const spineSectionId = await resolveSpineSectionIdForFullAssembly(tx, {
+    id: storyDraft.id,
+    title: storyDraft.title,
+    summary: storyDraft.summary,
+    selectedFrame: storyDraft.selectedFrame
+      ? {
+          titleCandidate: storyDraft.selectedFrame.titleCandidate,
+          summaryCandidate: storyDraft.selectedFrame.summaryCandidate,
+        }
+      : null,
+  });
+
   for (const ce of chronologyEvents as ChronologyEventWithLinks[]) {
     const ed = await tx.eventDraft.create({
-      data: eventDraftDataFromChronology(ce, storyDraft.id, draftJob.id),
+      data: eventDraftDataFromChronology(ce, storyDraft.id, draftJob.id, spineSectionId),
     });
 
     const srcCount = await recreateSourcesForChronologyEvent(tx, ed.id, ce, draftJob.creatorId);

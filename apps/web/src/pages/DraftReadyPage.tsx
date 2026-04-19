@@ -42,6 +42,8 @@ import { TimelineEventsManagementPanel } from "../components/TimelineEventsManag
 import { readActiveJob, rememberActiveJob } from "../lib/activeJobStorage";
 
 const AUTOSAVE_MS = 600;
+/** Aligns with JobStatusPage — refresh draft shell while `assembling_draft` so timeline/sections appear without a full reload. */
+const ASSEMBLY_POLL_MS = 2000;
 
 /** M5-T26 — matches API `story_draft.visibility_target` / `stories.visibility` enum. */
 const STORY_VISIBILITY_TARGETS = ["public", "unlisted", "private"] as const;
@@ -809,6 +811,28 @@ export function DraftReadyPage() {
       cancelled = true;
     };
   }, [token, storyId, ingestFramesData]);
+
+  /** While draft assembly runs, keep framing + lists in sync (Draft tab can stay mounted; deps above omit pathname). */
+  useEffect(() => {
+    if (!token || !storyId || workflow !== "assembling_draft") return;
+    const tick = () => {
+      void (async () => {
+        try {
+          const r = await listFrames(token, storyId);
+          ingestFramesData(r.data);
+          if (r.data.story_state !== "assembling_draft") {
+            await refreshSections();
+            await refreshEvents();
+          }
+        } catch {
+          /* ignore transient poll errors */
+        }
+      })();
+    };
+    tick();
+    const id = window.setInterval(tick, ASSEMBLY_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [token, storyId, workflow, ingestFramesData, refreshSections, refreshEvents]);
 
   useEffect(() => {
     if (!token || !storyId || !draft || !isDraftReviewShellWorkflow(workflow)) return;

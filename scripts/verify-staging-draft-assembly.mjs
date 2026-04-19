@@ -528,6 +528,32 @@ async function main() {
     );
   }
 
+  // 12b GET sections — narrative spine materialized with assembly (M2-T05 worker)
+  {
+    const url = `${STAGING_BASE}/api/v1/creator/stories/${encodeURIComponent(storyId)}/sections`;
+    let status = null;
+    let body = null;
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      status = res.status;
+      const rb = await readBody(res);
+      body = rb.parsed ?? rb.raw;
+    } catch (e) {
+      body = { error: String(e) };
+    }
+    const sections = body?.data?.sections ?? [];
+    const ok = isHttpSuccess(status) && body?.ok === true && Array.isArray(sections) && sections.length > 0;
+    record(
+      "12b — GET sections (narrative spine after assembly)",
+      "GET",
+      url,
+      status,
+      ok ? "passed on staging" : "attempted on staging but failed",
+      body,
+      ok ? `section_draft count: ${sections.length}` : "Expected at least one section_draft after successful assembly.",
+    );
+  }
+
   // 13 GET framing — workflow restored + draft shell still present
   {
     const url = `${STAGING_BASE}/api/v1/creator/stories/${encodeURIComponent(storyId)}/framing`;
