@@ -257,6 +257,7 @@ export function JobStatusPage() {
             summary={honestySummary}
             enrichmentMaterializationQuality={packageSnapshot?.enrichment_materialization_quality}
             provenanceTruthfulness={packageSnapshot?.provenance_truthfulness}
+            workflowFallbackSemantics={packageSnapshot?.workflow_fallback_semantics}
             loading={honestyLoading}
             error={honestyError}
           />

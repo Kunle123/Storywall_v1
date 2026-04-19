@@ -314,3 +314,14 @@ export type {
   ProvenanceTruthfulnessAssessmentV1,
   ProvenanceTruthfulnessOriginPosture,
 } from "./provenance-truthfulness";
+
+// --- M5-T28 — workflow fallback semantics (deterministic composite of M5-T23–T27 rails) ---
+export { assessWorkflowFallbackSemantics, WORKFLOW_FALLBACK_SEMANTICS_VERSION } from "./workflow-fallback-semantics";
+export type {
+  AssessWorkflowFallbackSemanticsInput,
+  HonestySliceForWorkflowFallback,
+  WorkflowCompositePosture,
+  WorkflowFallbackSemanticsV1,
+  WorkflowFallbackSignalCode,
+  WorkflowGroundingBand,
+} from "./workflow-fallback-semantics";

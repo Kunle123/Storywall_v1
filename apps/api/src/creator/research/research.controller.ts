@@ -14,6 +14,7 @@ import {
   API_CONTRACT_VERSION,
   assessEnrichmentMaterializationQuality,
   assessProvenanceTruthfulness,
+  assessWorkflowFallbackSemantics,
   buildDraftEnrichmentProvenanceIndex,
   buildResearchPackageHonestySummary,
 } from "@storywall/shared";
@@ -152,6 +153,26 @@ export class ResearchController {
       manuscript: manuscriptTruthfulnessInput,
       candidateSourceCount: pkg.candidateSources.length,
     });
+    const honesty_summary = buildResearchPackageHonestySummary({
+      draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
+      researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
+      candidateSources: pkg.candidateSources.map((s) => ({ source_url: s.sourceUrl })),
+      synthesisOrchestrationSupplement: {
+        chronology_event_count: pkg.chronologyEventCount,
+        draft_enrichment_package_present: Boolean(pkg.artifact.draftEnrichmentPackage),
+      },
+    });
+    const workflow_fallback_semantics = assessWorkflowFallbackSemantics({
+      honestySummary: {
+        retrieval_depth: honesty_summary.retrieval_depth,
+        synthesis_orchestration: honesty_summary.synthesis_orchestration,
+        has_mixed_or_weak_support: honesty_summary.has_mixed_or_weak_support,
+        provenance_traceability: honesty_summary.provenance_traceability,
+        synthesis_retrieval_partial: honesty_summary.synthesis_retrieval_partial,
+      },
+      enrichmentMaterialization: enrichment_materialization_quality,
+      provenanceTruthfulness: provenance_truthfulness,
+    });
     return {
       ok: true,
       request_id: randomUUID(),
@@ -162,21 +183,15 @@ export class ResearchController {
         /** M5-T08 — flat provenance index for creator audit (null when enrichment predates m5-t08-v1). */
         draft_enrichment_provenance: draftEnrichmentProvenance,
         /** M5-T09 — compact honesty signals for deterministic enrichment (always present). */
-        honesty_summary: buildResearchPackageHonestySummary({
-          draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
-          researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
-          candidateSources: pkg.candidateSources.map((s) => ({ source_url: s.sourceUrl })),
-          synthesisOrchestrationSupplement: {
-            chronology_event_count: pkg.chronologyEventCount,
-            draft_enrichment_package_present: Boolean(pkg.artifact.draftEnrichmentPackage),
-          },
-        }),
+        honesty_summary,
         /** M5-T26 — inspectable chronology rows backing enrichment materialization (separate from M5-T23–T25). */
         chronology_events_lite,
         /** M5-T26 — deterministic event/draft/manuscript materialization tiering (payload-derived; not a model score). */
         enrichment_materialization_quality,
         /** M5-T27 — content-origin truthfulness (synthesis vs enrichment trace vs manuscript modes); separate from M5-T23–T26. */
         provenance_truthfulness,
+        /** M5-T28 — explicit degraded-state composite + next actions (payload-derived; not a model score). */
+        workflow_fallback_semantics,
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
         /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */
         live_event_draft_enrichment: pkg.liveEventDraftEnrichment,

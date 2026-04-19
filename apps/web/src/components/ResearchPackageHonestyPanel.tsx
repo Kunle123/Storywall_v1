@@ -2,6 +2,7 @@ import type {
   EnrichmentMaterializationQualityApi,
   ProvenanceTruthfulnessApi,
   ResearchPackageHonestySummary,
+  WorkflowFallbackSemanticsApi,
 } from "../api/types";
 
 export type ResearchPackageHonestyPanelProps = {
@@ -10,6 +11,8 @@ export type ResearchPackageHonestyPanelProps = {
   enrichmentMaterializationQuality?: EnrichmentMaterializationQualityApi | null;
   /** M5-T27 — optional; content-origin vs M5-T23–T26 pipeline-quality rails. */
   provenanceTruthfulness?: ProvenanceTruthfulnessApi | null;
+  /** M5-T28 — optional; explicit degraded-state composite + next actions. */
+  workflowFallbackSemantics?: WorkflowFallbackSemanticsApi | null;
   loading: boolean;
   error: string | null;
 };
@@ -31,7 +34,8 @@ function provenanceLabel(trace: string): string {
  * M5-T09 — compact creator honesty rail for deterministic research + enrichment (no broad workspace redesign).
  */
 export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelProps) {
-  const { summary, enrichmentMaterializationQuality, provenanceTruthfulness, loading, error } = props;
+  const { summary, enrichmentMaterializationQuality, provenanceTruthfulness, workflowFallbackSemantics, loading, error } =
+    props;
 
   if (error) {
     return (
@@ -68,6 +72,69 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
         This package is <strong>deterministic research scaffolding</strong> (retrieval when enabled, then synthesis + chronology +
         enrichment rules). It is <strong>not</strong> implied live-authored narrative prose.
       </p>
+      {workflowFallbackSemantics ? (
+        <div
+          className="research-workflow-fallback"
+          data-testid="research-workflow-fallback-semantics-rail"
+          role="region"
+          aria-label="Workflow fallback semantics"
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.65rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-muted, rgba(0,0,0,0.12))",
+            background: "var(--panel-subtle, rgba(0,0,0,0.03))",
+          }}
+        >
+          <p className="muted small" style={{ margin: 0, fontWeight: 600 }}>
+            Workflow fallback (M5-T28)
+          </p>
+          <p className="small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <span
+              className={`research-honesty-badge${
+                workflowFallbackSemantics.composite_workflow_posture === "thin_or_risky_guidance_only" ||
+                workflowFallbackSemantics.composite_workflow_posture === "degraded_partial_package"
+                  ? " research-honesty-badge--warn"
+                  : ""
+              }`}
+            >
+              {workflowFallbackSemantics.composite_workflow_posture}
+            </span>{" "}
+            <span className="muted small">grounding_band={workflowFallbackSemantics.grounding_band}</span>
+          </p>
+          <p className="small" style={{ marginTop: "0.45rem", marginBottom: 0 }}>
+            {workflowFallbackSemantics.headline}
+          </p>
+          {workflowFallbackSemantics.signal_codes.length > 0 ? (
+            <p className="muted small" style={{ marginTop: "0.45rem", marginBottom: 0 }}>
+              <strong>Signals:</strong>{" "}
+              <code className="inline-code">{workflowFallbackSemantics.signal_codes.join(", ")}</code>
+            </p>
+          ) : (
+            <p className="muted small" style={{ marginTop: "0.45rem", marginBottom: 0 }}>
+              <strong>Signals:</strong> none (stacked M5-T23–T27 rails nominal for this payload).
+            </p>
+          )}
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Next actions:</strong>
+          </p>
+          <ol className="small" style={{ margin: "0.35rem 0 0", paddingLeft: "1.25rem" }}>
+            {workflowFallbackSemantics.creator_next_actions.map((line, i) => (
+              <li key={i} style={{ marginBottom: "0.25rem" }}>
+                {line}
+              </li>
+            ))}
+          </ol>
+          <p className="muted small" style={{ marginTop: "0.45rem", marginBottom: 0 }}>
+            {workflowFallbackSemantics.ui_hint_line}
+          </p>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+          Workflow fallback semantics (M5-T28) are not in this API response yet — redeploy the API with the latest
+          @storywall/shared to see explicit degraded-state posture and next actions here.
+        </p>
+      )}
       {summary.retrieval_depth ? (
         <div
           className="research-retrieval-depth"

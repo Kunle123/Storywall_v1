@@ -530,6 +530,37 @@ export type ProvenanceTruthfulnessOriginPostureApi =
   | "scaffold_and_model_led"
   | "thin_or_unclassified";
 
+/** M5-T28 — GET …/package `workflow_fallback_semantics` (sibling to M5-T23–T27). */
+export type WorkflowFallbackSignalCodeApi =
+  | "enrichment_materialization_scaffold_thin"
+  | "enrichment_materialization_usable_with_caveats"
+  | "honesty_support_rollup_mixed_or_weak"
+  | "pipeline_materialization_incoherent"
+  | "provenance_legacy_or_limited_trace"
+  | "provenance_truthfulness_mixed_evidence_and_model"
+  | "provenance_truthfulness_scaffold_or_thin"
+  | "retrieval_depth_partial_or_thin"
+  | "synthesis_orchestration_thin_or_partial"
+  | "synthesis_retrieval_partial_flag";
+
+export type WorkflowGroundingBandApi = "strong_guidance" | "mixed_guidance" | "thin_guidance" | "scaffold_only_guidance";
+
+export type WorkflowCompositePostureApi =
+  | "healthy_grounded_package"
+  | "usable_with_explicit_limits"
+  | "degraded_partial_package"
+  | "thin_or_risky_guidance_only";
+
+export interface WorkflowFallbackSemanticsApi {
+  schema_version: string;
+  signal_codes: readonly WorkflowFallbackSignalCodeApi[];
+  grounding_band: WorkflowGroundingBandApi;
+  composite_workflow_posture: WorkflowCompositePostureApi;
+  headline: string;
+  creator_next_actions: readonly string[];
+  ui_hint_line: string;
+}
+
 /** M5-T27 — GET …/package `provenance_truthfulness` (sibling to M5-T23–T26). */
 export interface ProvenanceTruthfulnessApi {
   schema_version: string;
@@ -590,6 +621,8 @@ export interface GetResearchPackageSuccess {
     enrichment_materialization_quality?: EnrichmentMaterializationQualityApi;
     /** M5-T27 — optional until API deploy; content-origin truthfulness. */
     provenance_truthfulness?: ProvenanceTruthfulnessApi;
+    /** M5-T28 — explicit degraded-state composite + next actions. */
+    workflow_fallback_semantics?: WorkflowFallbackSemanticsApi;
     /** M5-T11 — when persisted for this job id. */
     live_event_draft_enrichment?: unknown | null;
     /** M5-T12 — when persisted for this job id. */
