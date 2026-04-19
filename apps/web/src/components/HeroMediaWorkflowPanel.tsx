@@ -73,6 +73,15 @@ export function HeroMediaWorkflowPanel(props: HeroMediaWorkflowPanelProps) {
           ))}
         </select>
       </label>
+
+      <figure className="hero-media-editorial-frame" aria-label="Hero imagery composition placeholder">
+        <div className="hero-media-editorial-frame__canvas" aria-hidden />
+        <figcaption className="hero-media-editorial-frame__caption muted small">
+          No upload surface in this release — this frame shows how a wide hero treatment will anchor the page once
+          media is wired. Policy above still governs how strongly imagery appears.
+        </figcaption>
+      </figure>
+
       {disabled ? (
         <p className="hero-media-panel__note" role="status">
           Imagery policy saves with the story draft. Finish framing and draft assembly from the brief workspace so this

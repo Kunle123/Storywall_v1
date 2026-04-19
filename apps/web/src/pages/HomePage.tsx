@@ -52,22 +52,21 @@ export function HomePage() {
 
   return (
     <div className="page narrow">
-      <h1 className="page-title">Storywall</h1>
+      <h1 className="page-title page-title--editorial">Storywall</h1>
       <p className="page-lead">
         Mobile-first non-fiction story workspace. Contract baseline: <code className="inline-code">{API_CONTRACT_VERSION}</code>
       </p>
 
       <section
-        className="card homepage-discover-strip"
-        style={{ marginTop: "1.25rem" }}
+        className="card homepage-discover-strip homepage-discover-strip--spaced"
         data-testid="homepage-discover-strip"
         data-sw-parity="m5-t30-v1"
         aria-labelledby="homepage-discover-heading"
       >
-        <h2 id="homepage-discover-heading" className="page-title" style={{ fontSize: "1.15rem", marginBottom: "0.35rem" }}>
+        <h2 id="homepage-discover-heading" className="homepage-discover-strip__heading page-title--editorial">
           Recently published
         </h2>
-        <p className="muted small" style={{ marginBottom: "0.75rem" }} data-testid="homepage-discover-honesty-note">
+        <p className="muted small homepage-discover-strip__intro" data-testid="homepage-discover-honesty-note">
           Public discovery from <code className="inline-code">GET /api/v1/stories/discover</code>
           {discoverLimit !== null ? (
             <>
@@ -96,13 +95,9 @@ export function HomePage() {
           </p>
         ) : null}
         {discoverState === "ready" && discoverStories.length > 0 ? (
-          <ul className="homepage-discover-strip__list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className="homepage-discover-strip__list">
             {discoverStories.map((s) => (
-              <li
-                key={s.slug}
-                style={{ padding: "0.65rem 0", borderTop: "1px solid var(--border-subtle, #e5e7eb)" }}
-                data-discover-slug={s.slug}
-              >
+              <li key={s.slug} className="homepage-discover-strip__item" data-discover-slug={s.slug}>
                 <Link to={`/stories/${encodeURIComponent(s.slug)}`} className="homepage-discover-strip__link">
                   <strong>{s.title}</strong>
                 </Link>
@@ -117,7 +112,7 @@ export function HomePage() {
       </section>
 
       {token ? (
-        <div className="card" style={{ marginTop: "1.25rem" }}>
+        <div className="card homepage-auth-card">
           <p>
             Signed in as <strong>{creator?.email}</strong>
           </p>
@@ -128,7 +123,7 @@ export function HomePage() {
           </p>
         </div>
       ) : (
-        <div className="card" style={{ marginTop: "1.25rem" }}>
+        <div className="card homepage-auth-card">
           <p>
             <Link to="/login" className="btn primary inline">
               Sign in
