@@ -146,6 +146,10 @@ export interface StoryDraftResponse {
   story_status: string;
   visibility_target: string;
   imagery_mode: string;
+  /** Approved story_cover https URL when present (creator framing/draft payloads). */
+  hero_image_url?: string | null;
+  hero_image_alt?: string | null;
+  hero_image_credit?: string | null;
   generation_mode: string;
   needs_human_review?: boolean;
   editorial_review_status: string;
@@ -210,6 +214,13 @@ export type PatchSectionBody = Partial<{
   summary: string | null;
 }>;
 
+/** Approved primary image for preview (same shape as public `primary_image`). */
+export interface EventDraftPrimaryImage {
+  url: string;
+  alt: string | null;
+  credit: string | null;
+}
+
 /** Event draft — mutation §14, editor §12. */
 export interface EventDraftResponse {
   id: string;
@@ -226,6 +237,10 @@ export interface EventDraftResponse {
   status: string;
   created_at: string;
   updated_at: string;
+  /** Present on list/patch payloads — drives preview parity with publish snapshot. */
+  media_kind?: string;
+  /** Present when API resolves an approved primary image candidate (https URL). */
+  primary_image?: EventDraftPrimaryImage | null;
   /** Present on some API list/patch payloads — used for reader-aligned timeline preview. */
   display_date?: string | null;
   location_name?: string | null;

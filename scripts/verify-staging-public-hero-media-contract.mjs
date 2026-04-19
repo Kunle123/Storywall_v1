@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Post-canonical — Staging: public story JSON includes frozen hero/media fields; live reader exposes `data-hero-state`
- * and optional timeline figure hooks.
+ * and optional timeline figure hooks. When any discoverable public story has `hero_image_url` (https), asserts the
+ * **image** hero branch (`data-hero-state="image"`). Override slug with `STORYWALL_STAGING_HERO_IMAGE_SLUG` if needed.
  *
  * Usage: pnpm verify:staging:public-hero-media-contract
  */
@@ -42,6 +43,34 @@ function assertMediaContract(data) {
   return errs;
 }
 
+async function findPublicSlugWithHttpsHero(limit) {
+  const envSlug = typeof process.env.STORYWALL_STAGING_HERO_IMAGE_SLUG === "string"
+    ? process.env.STORYWALL_STAGING_HERO_IMAGE_SLUG.trim()
+    : "";
+  if (envSlug) {
+    const res = await fetch(`${STAGING_API}/api/v1/stories/${encodeURIComponent(envSlug)}`);
+    const body = await res.json().catch(() => ({}));
+    const url = body?.data?.hero_image_url;
+    if (res.status === 200 && body?.ok === true && typeof url === "string" && url.startsWith("https://")) {
+      return { slug: envSlug, source: "env:STORYWALL_STAGING_HERO_IMAGE_SLUG" };
+    }
+  }
+  const dr = await fetch(`${STAGING_API}/api/v1/stories/discover?limit=${limit}`);
+  const dj = await dr.json().catch(() => ({}));
+  const stories = Array.isArray(dj?.data?.stories) ? dj.data.stories : [];
+  for (const s of stories) {
+    const slug = typeof s?.slug === "string" ? s.slug.trim() : "";
+    if (!slug) continue;
+    const sr = await fetch(`${STAGING_API}/api/v1/stories/${encodeURIComponent(slug)}`);
+    const sj = await sr.json().catch(() => ({}));
+    const u = sj?.data?.hero_image_url;
+    if (sr.status === 200 && sj?.ok === true && typeof u === "string" && u.startsWith("https://")) {
+      return { slug, source: "discover+GET" };
+    }
+  }
+  return null;
+}
+
 async function playwrightHeroState(webOrigin, slug) {
   let chromiumMod;
   try {
@@ -62,6 +91,32 @@ async function playwrightHeroState(webOrigin, slug) {
     const ok = typeof heroState === "string" && allowed.has(heroState);
     const rendition = await page.locator(".public-story-hero-band").first().getAttribute("data-hero-rendition");
     return { ok, blocked: false, heroState, rendition, url };
+  } finally {
+    await browser.close();
+  }
+}
+
+/** Requires `hero_image_url` on the public JSON for this slug (https). */
+async function playwrightImageHeroBranch(webOrigin, slug) {
+  let chromiumMod;
+  try {
+    chromiumMod = await import("playwright");
+  } catch (e) {
+    return { ok: false, blocked: true, reason: "pnpm exec playwright install chromium", error: String(e?.message ?? e) };
+  }
+  const { chromium } = chromiumMod;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const url = `${webOrigin.replace(/\/$/, "")}/stories/${encodeURIComponent(slug)}`;
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+    await page.waitForSelector('[data-testid="public-story-article"]', { state: "visible", timeout: 60_000 });
+    const article = page.locator('[data-testid="public-story-article"]');
+    const heroState = await article.getAttribute("data-hero-state");
+    const rendition = await page.locator(".public-story-hero-band").first().getAttribute("data-hero-rendition");
+    const imgCount = await page.locator(".public-story-hero-img").count();
+    const ok = heroState === "image" && rendition === "image" && imgCount >= 1;
+    return { ok, blocked: false, heroState, rendition, imgCount, url };
   } finally {
     await browser.close();
   }
@@ -139,8 +194,34 @@ async function main() {
     }
   }
 
+  {
+    const found = await findPublicSlugWithHttpsHero(40);
+    if (!found) {
+      steps.push({
+        step: "3 — Real image hero branch (`data-hero-state=image`)",
+        target: `${STAGING_API}/api/v1/stories/discover`,
+        verdict: "passed on staging (skipped — no public story with https hero_image_url; set STORYWALL_STAGING_HERO_IMAGE_SLUG to force)",
+        detail: { hint: "Republish a story with an approved story_cover https URL to exercise this branch automatically." },
+      });
+    } else {
+      const r = await playwrightImageHeroBranch(web, found.slug);
+      const verdict = r.blocked ? "blocked on staging" : r.ok ? "passed on staging" : "failed";
+      steps.push({
+        step: "3 — Real image hero branch (`data-hero-state=image`)",
+        target: `${web}/stories/${encodeURIComponent(found.slug)}`,
+        verdict,
+        detail: { ...r, fixture_source: found.source },
+      });
+      if (r.blocked || !r.ok) {
+        console.error(JSON.stringify(steps[steps.length - 1].detail, null, 2));
+        printTable(steps);
+        process.exit(1);
+      }
+    }
+  }
+
   steps.push({
-    step: "3 — Staging web origin",
+    step: "4 — Staging web origin",
     target: "meta",
     verdict: "passed on staging",
     detail: meta,

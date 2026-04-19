@@ -1,8 +1,12 @@
 import type { StoryDraft } from "@prisma/client";
+import type { PublishedPublicPrimaryImageV1 } from "../../published-body-snapshot";
 
 /** Minimal story_draft fragment for mutation responses (editor §10.1). */
-export function storyDraftToApi(d: StoryDraft): Record<string, unknown> {
-  return {
+export function storyDraftToApi(
+  d: StoryDraft,
+  heroPreview?: PublishedPublicPrimaryImageV1 | null,
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
     id: d.id,
     story_brief_id: d.storyBriefId,
     selected_frame_id: d.selectedFrameId,
@@ -28,4 +32,10 @@ export function storyDraftToApi(d: StoryDraft): Record<string, unknown> {
     created_at: d.createdAt.toISOString(),
     last_edited_at: d.lastEditedAt.toISOString(),
   };
+  if (heroPreview !== undefined) {
+    base.hero_image_url = heroPreview?.url ?? null;
+    base.hero_image_alt = heroPreview?.alt ?? null;
+    base.hero_image_credit = heroPreview?.credit ?? null;
+  }
+  return base;
 }

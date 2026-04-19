@@ -22,6 +22,7 @@ import {
   summarizeStoryPatchFields,
 } from "../revision/revision-recorder";
 import { buildPublishedBodySnapshotV1, pickStoryHeroFromProposals } from "../../published-body-snapshot";
+import { loadStoryCoverHeroPreviewForDraft } from "../story-draft-hero-preview";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
@@ -191,9 +192,10 @@ export class StoriesService {
     return storyBriefToApi(brief);
   }
 
-  /** Serialize story draft for API envelope (mutation contract §12.1). */
-  draftToResponsePayload(draft: StoryDraft): Record<string, unknown> {
-    return storyDraftToApi(draft);
+  /** Serialize story draft for API envelope (mutation contract §12.1) + approved story_cover hero preview. */
+  async draftToResponsePayload(draft: StoryDraft): Promise<Record<string, unknown>> {
+    const hero = await loadStoryCoverHeroPreviewForDraft(this.prisma, draft);
+    return storyDraftToApi(draft, hero);
   }
 
   /**

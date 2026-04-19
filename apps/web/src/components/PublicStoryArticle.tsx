@@ -20,8 +20,9 @@ function CreatorPreviewDisclaimer() {
         Same reader layout as the published Storywall, fed from your <strong>current draft</strong> (title, overview,
         lens, sections, timeline, sources, closing). It is <strong>not</strong> the live publish snapshot: trust copy,
         share metadata, and the standalone references index apply only on the public reader after publish. The{" "}
-        <strong>opening composition band</strong> above reflects your imagery policy; a photograph appears only when a
-        URL is present on the draft.
+        <strong>opening composition band</strong> follows your working <strong>imagery mode</strong>; an approved{" "}
+        <strong>story cover</strong> https URL on the draft renders here, and timeline rows show approved primary images
+        the same way they will after publish.
       </p>
     </aside>
   );

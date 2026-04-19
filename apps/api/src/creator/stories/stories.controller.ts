@@ -135,12 +135,13 @@ export class StoriesController {
       ifMatchRaw: ifMatch,
       dto: body,
     });
+    const storyDraftPayload = await this.stories.draftToResponsePayload(storyDraft);
     return {
       ok: true,
       request_id: randomUUID(),
       api_version: API_CONTRACT_VERSION,
       data: {
-        story_draft: this.stories.draftToResponsePayload(storyDraft),
+        story_draft: storyDraftPayload,
         story_state: storyState,
       },
       meta: {

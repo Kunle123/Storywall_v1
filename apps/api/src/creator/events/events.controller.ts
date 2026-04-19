@@ -35,7 +35,7 @@ export class EventsController {
     @CurrentCreator() creator: AuthenticatedCreator,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
-    const { events, storyState, listMeta } = await this.events.listEvents({
+    const { events, storyState, listMeta, draftImageryMode } = await this.events.listEvents({
       storyId,
       creatorId: creator.id,
     });
@@ -44,7 +44,7 @@ export class EventsController {
       request_id: randomUUID(),
       api_version: API_CONTRACT_VERSION,
       data: {
-        events: events.map((e) => this.events.eventToResponsePayload(e)),
+        events: events.map((e) => this.events.eventToResponsePayload(e, draftImageryMode)),
         story_state: storyState,
       },
       ...(listMeta ? { meta: listMeta } : {}),
@@ -58,7 +58,7 @@ export class EventsController {
     @Body() body: CreateEventDto,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
-    const { event, storyState } = await this.events.createEvent({
+    const { event, storyState, draftImageryMode } = await this.events.createEvent({
       storyId,
       creatorId: creator.id,
       dto: body,
@@ -68,7 +68,7 @@ export class EventsController {
       request_id: randomUUID(),
       api_version: API_CONTRACT_VERSION,
       data: {
-        event_draft: this.events.eventToResponsePayload(event),
+        event_draft: this.events.eventToResponsePayload(event, draftImageryMode),
         story_state: storyState,
       },
     };
@@ -83,7 +83,7 @@ export class EventsController {
     @Body() body: PatchEventDto,
   ) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
-    const { event, storyState } = await this.events.patchEvent({
+    const { event, storyState, draftImageryMode } = await this.events.patchEvent({
       storyId,
       creatorId: creator.id,
       eventId,
@@ -95,7 +95,7 @@ export class EventsController {
       request_id: randomUUID(),
       api_version: API_CONTRACT_VERSION,
       data: {
-        event_draft: this.events.eventToResponsePayload(event),
+        event_draft: this.events.eventToResponsePayload(event, draftImageryMode),
         story_state: storyState,
       },
       meta: {

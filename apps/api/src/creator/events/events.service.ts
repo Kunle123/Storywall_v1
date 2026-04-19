@@ -13,6 +13,7 @@ import {
   buildEventRecoverySnapshot,
   insertRevisionEntry,
 } from "../revision/revision-recorder";
+import { primaryImageFromApprovedCandidate } from "../../published-body-snapshot";
 import { eventDraftToApi } from "./event-draft-to-api";
 
 const ALLOWED_EVENT_EDIT_STATES: CreatorWorkflowState[] = [
@@ -103,8 +104,22 @@ export class EventsService {
     storyId: string;
     creatorId: string;
   }): Promise<{
-    events: EventDraft[];
+    events: Array<
+      Prisma.EventDraftGetPayload<{
+        include: {
+          mediaPrimaryCandidate: {
+            select: {
+              assetUrl: true;
+              assetAlt: true;
+              assetCredit: true;
+              approvalStatus: true;
+            };
+          };
+        };
+      }>
+    >;
     storyState: CreatorWorkflowState;
+    draftImageryMode: string;
     listMeta?: { event_list_scope: "no_story_draft" };
   }> {
     const { storyState, storyDraftId } = await this.resolveStoryForEventList(params);
@@ -112,21 +127,47 @@ export class EventsService {
       return {
         events: [],
         storyState,
+        draftImageryMode: "no_imagery",
         listMeta: { event_list_scope: "no_story_draft" },
       };
     }
+    const draftRow = await this.prisma.storyDraft.findUnique({
+      where: { id: storyDraftId },
+      select: { imageryMode: true },
+    });
+    const draftImageryMode = draftRow?.imageryMode ?? "selective_editorial";
     const events = await this.prisma.eventDraft.findMany({
       where: { storyDraftId, status: { not: "removed" } },
       orderBy: { positionIndex: "asc" },
+      include: {
+        mediaPrimaryCandidate: {
+          select: {
+            assetUrl: true,
+            assetAlt: true,
+            assetCredit: true,
+            approvalStatus: true,
+          },
+        },
+      },
     });
-    return { events, storyState };
+    return { events, storyState, draftImageryMode };
   }
 
   async createEvent(params: {
     storyId: string;
     creatorId: string;
     dto: CreateEventDto;
-  }): Promise<{ event: EventDraft; storyState: CreatorWorkflowState }> {
+  }): Promise<{
+    event: Prisma.EventDraftGetPayload<{
+      include: {
+        mediaPrimaryCandidate: {
+          select: { assetUrl: true; assetAlt: true; assetCredit: true; approvalStatus: true };
+        };
+      };
+    }>;
+    storyState: CreatorWorkflowState;
+    draftImageryMode: string;
+  }> {
     const ctx = await this.getStoryDraftContext(params);
     const { dto } = params;
 
@@ -190,7 +231,24 @@ export class EventsService {
         },
       });
 
-      return { event, storyState: ctx.workflowState };
+      const imageryRow = await tx.storyDraft.findUniqueOrThrow({
+        where: { id: ctx.storyDraftId },
+        select: { imageryMode: true },
+      });
+      const fresh = await tx.eventDraft.findUniqueOrThrow({
+        where: { id: event.id },
+        include: {
+          mediaPrimaryCandidate: {
+            select: {
+              assetUrl: true,
+              assetAlt: true,
+              assetCredit: true,
+              approvalStatus: true,
+            },
+          },
+        },
+      });
+      return { event: fresh, storyState: ctx.workflowState, draftImageryMode: imageryRow.imageryMode };
     });
   }
 
@@ -200,7 +258,17 @@ export class EventsService {
     eventId: string;
     ifMatchRaw: string | undefined;
     dto: PatchEventDto;
-  }): Promise<{ event: EventDraft; storyState: CreatorWorkflowState }> {
+  }): Promise<{
+    event: Prisma.EventDraftGetPayload<{
+      include: {
+        mediaPrimaryCandidate: {
+          select: { assetUrl: true; assetAlt: true; assetCredit: true; approvalStatus: true };
+        };
+      };
+    }>;
+    storyState: CreatorWorkflowState;
+    draftImageryMode: string;
+  }> {
     const { storyId, creatorId, eventId, ifMatchRaw, dto } = params;
 
     if (!this.patchEventDtoHasContent(dto)) {
@@ -308,13 +376,49 @@ export class EventsService {
 
       const fresh = await tx.eventDraft.findUniqueOrThrow({
         where: { id: event.id },
+        include: {
+          mediaPrimaryCandidate: {
+            select: {
+              assetUrl: true,
+              assetAlt: true,
+              assetCredit: true,
+              approvalStatus: true,
+            },
+          },
+        },
       });
-      return { event: fresh, storyState: ctx.workflowState };
+      const imageryRow = await tx.storyDraft.findUniqueOrThrow({
+        where: { id: ctx.storyDraftId },
+        select: { imageryMode: true },
+      });
+      return { event: fresh, storyState: ctx.workflowState, draftImageryMode: imageryRow.imageryMode };
     });
   }
 
-  eventToResponsePayload(event: EventDraft): Record<string, unknown> {
-    return eventDraftToApi(event);
+  eventToResponsePayload(
+    event: Prisma.EventDraftGetPayload<{
+      include: {
+        mediaPrimaryCandidate: {
+          select: {
+            assetUrl: true;
+            assetAlt: true;
+            assetCredit: true;
+            approvalStatus: true;
+          };
+        };
+      };
+    }>,
+    draftImageryMode: string,
+  ): Record<string, unknown> {
+    const primary_image = primaryImageFromApprovedCandidate(
+      draftImageryMode,
+      event.mediaKind,
+      event.mediaPrimaryCandidate,
+    );
+    return {
+      ...eventDraftToApi(event),
+      primary_image,
+    };
   }
 
   private patchEventDtoHasContent(dto: PatchEventDto): boolean {

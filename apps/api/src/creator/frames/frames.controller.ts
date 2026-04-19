@@ -8,7 +8,6 @@ import { OwnershipService } from "../ownership.service";
 import { GenerateFramesDto } from "./dto/generate-frames.dto";
 import { SelectFrameDto } from "./dto/select-frame.dto";
 import { storyFrameDraftToApi } from "./frame-draft-to-api";
-import { storyDraftToApi } from "./story-draft-to-api";
 import { FramesService } from "./frames.service";
 
 const IDEMPOTENCY_KEY_MAX = 255;
@@ -80,6 +79,7 @@ export class FramesController {
   private async buildFramesListResponse(storyId: string, creator: AuthenticatedCreator) {
     await this.ownership.assertOwnsStory(storyId, creator.id);
     const result = await this.frames.listFrames(storyId, creator.id);
+    const storyDraftPayload = await this.frames.storyDraftToApiWithHeroPreview(result.storyDraft);
     return {
       ok: true,
       request_id: randomUUID(),
@@ -92,7 +92,7 @@ export class FramesController {
         published_at: result.publishedAt ? result.publishedAt.toISOString() : null,
         story_slug: result.storySlug,
         frame_drafts: result.frameDrafts.map((f) => storyFrameDraftToApi(f)),
-        story_draft: result.storyDraft ? storyDraftToApi(result.storyDraft) : null,
+        story_draft: storyDraftPayload,
         ai_framing_generation: result.aiFramingGeneration ?? null,
       },
     };
@@ -143,6 +143,7 @@ export class FramesController {
       dto: body,
       idempotencyKey,
     });
+    const storyDraftPayload = await this.frames.storyDraftToApiWithHeroPreview(result.storyDraft);
     return {
       ok: true,
       request_id: randomUUID(),
@@ -152,7 +153,7 @@ export class FramesController {
         story_state: result.storyState,
         selected_frame_id: result.selectedFrame.id,
         story_brief: result.storyBrief,
-        story_draft: storyDraftToApi(result.storyDraft),
+        story_draft: storyDraftPayload,
         frame_draft: storyFrameDraftToApi(result.selectedFrame),
       },
       meta: {

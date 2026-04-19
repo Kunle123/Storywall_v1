@@ -28,6 +28,8 @@ import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { GenerateFramesDto } from "./dto/generate-frames.dto";
 import type { SelectFrameDto } from "./dto/select-frame.dto";
 import { loadFramingResearchGrounding } from "./framing-ai-context";
+import { storyDraftToApi } from "./story-draft-to-api";
+import { loadStoryCoverHeroPreviewForDraft } from "../story-draft-hero-preview";
 
 const ALLOWED_WORKFLOW_FOR_GENERATE: CreatorWorkflowState[] = [
   "drafting_brief",
@@ -52,6 +54,13 @@ export class FramesService {
     private readonly aiRuntime: AiRuntimeService,
     private readonly stories: StoriesService,
   ) {}
+
+  /** Creator draft JSON + approved story_cover hero preview (same rules as publish snapshot). */
+  async storyDraftToApiWithHeroPreview(draft: StoryDraft | null): Promise<Record<string, unknown> | null> {
+    if (!draft) return null;
+    const hero = await loadStoryCoverHeroPreviewForDraft(this.prisma, draft);
+    return storyDraftToApi(draft, hero);
+  }
 
   /** GET list — minimal read for framing chooser (M1-T12); not full workspace. */
   async listFrames(storyId: string, creatorId: string): Promise<{
