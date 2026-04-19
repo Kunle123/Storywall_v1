@@ -72,12 +72,12 @@ export function HomePage() {
             <>
               {" "}
               (up to <strong>{discoverLimit}</strong> newest live-<code className="inline-code">public</code> stories).
-              Unlisted and private are not listed here; unlisted stays readable by direct slug. This strip is an editorial
-              discovery list — not ranked for accuracy and not an endorsement by Storywall.
+              Unlisted and private are not listed here; unlisted stays readable by direct slug.
             </>
           ) : (
             <> — limit loads with the list.</>
-          )}
+          )}{" "}
+          This strip is an editorial discovery list — not ranked for accuracy and not an endorsement by Storywall.
         </p>
         {discoverState === "loading" ? (
           <p className="muted small" role="status">
