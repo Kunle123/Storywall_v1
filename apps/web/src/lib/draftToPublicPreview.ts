@@ -84,5 +84,9 @@ export function buildPublicPreviewFromDraft(params: {
     sections: publicSections,
     events: publicEvents,
     sources: flatSources,
+    imagery_mode: draft.imagery_mode ?? null,
+    hero_image_url: null,
+    hero_image_alt: null,
+    hero_image_credit: null,
   };
 }

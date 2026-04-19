@@ -45,6 +45,12 @@ export interface PublicStoryData {
   sections: PublicStorySection[];
   events: PublicStoryEvent[];
   sources: PublicStorySource[];
+  /** Creator preview: `story_draft.imagery_mode`. Omitted on anonymous public read until API surfaces it. */
+  imagery_mode?: string | null;
+  /** When a future pipeline exposes a URL, reader/preview render editorial hero treatment. */
+  hero_image_url?: string | null;
+  hero_image_alt?: string | null;
+  hero_image_credit?: string | null;
 }
 
 export interface GetPublicStorySuccess {

@@ -19,10 +19,85 @@ function CreatorPreviewDisclaimer() {
       <p className="creator-preview-disclaimer__p muted small">
         Same reader layout as the published Storywall, fed from your <strong>current draft</strong> (title, overview,
         lens, sections, timeline, sources, closing). It is <strong>not</strong> the live publish snapshot: trust copy,
-        share metadata, and the standalone references index apply only on the public reader after publish. Hero imagery
-        policy is set in the draft workspace but is not drawn in this text-first preview.
+        share metadata, and the standalone references index apply only on the public reader after publish. The{" "}
+        <strong>opening composition band</strong> above reflects your imagery policy; a photograph appears only when a
+        URL is present on the draft.
       </p>
     </aside>
+  );
+}
+
+const IMAGERY_MODE_LABEL: Record<string, string> = {
+  selective_editorial: "Selective editorial imagery",
+  minimal: "Minimal imagery",
+  sourced_only: "Sourced imagery only",
+  no_imagery: "No story imagery",
+};
+
+function labelImageryMode(mode: string | null | undefined): string {
+  if (!mode) return "Imagery policy";
+  return IMAGERY_MODE_LABEL[mode] ?? mode.replace(/_/g, " ");
+}
+
+function PublicStoryHeroBand(props: {
+  story: PublicStoryData;
+  variant: "published" | "creator_preview";
+}) {
+  const { story, variant } = props;
+  const url = story.hero_image_url?.trim();
+  const alt = (story.hero_image_alt?.trim() || story.title || "Story hero").trim();
+
+  if (url) {
+    return (
+      <div className="public-story-hero-band public-story-hero-band--image" data-hero-rendition="image">
+        <figure className="public-story-hero-figure">
+          <img src={url} alt={alt} className="public-story-hero-img" loading="eager" decoding="async" />
+          {story.hero_image_credit?.trim() ? (
+            <figcaption className="public-story-hero-credit muted small">{story.hero_image_credit.trim()}</figcaption>
+          ) : null}
+        </figure>
+      </div>
+    );
+  }
+
+  const mode = story.imagery_mode ?? null;
+  const typographicOnly = mode === "no_imagery";
+
+  return (
+    <div
+      className={`public-story-hero-band public-story-hero-band--empty public-story-hero-band--variant-${variant}${
+        typographicOnly ? " public-story-hero-band--typographic-only" : ""
+      }`}
+      data-hero-rendition="empty"
+      role="region"
+      aria-label="Hero composition"
+    >
+      <div className="public-story-hero-empty__inner">
+        <p className="public-story-hero-empty__eyebrow">Opening composition</p>
+        {variant === "creator_preview" && typographicOnly ? (
+          <>
+            <p className="public-story-hero-empty__policy">{labelImageryMode(mode)}</p>
+            <p className="public-story-hero-empty__honest muted small">
+              This draft is set to publish without story photography. The opening stays typographic so chronology and
+              prose lead — no stock placeholder is shown.
+            </p>
+          </>
+        ) : variant === "creator_preview" ? (
+          <>
+            {mode ? <p className="public-story-hero-empty__policy">{labelImageryMode(mode)}</p> : null}
+            <p className="public-story-hero-empty__honest muted small">
+              No hero image URL is on this working draft yet. When a media pipeline attaches one, it will render here
+              full-bleed — typography, overview, and chronology still carry the opening today.
+            </p>
+          </>
+        ) : (
+          <p className="public-story-hero-empty__honest muted small">
+            This published edition does not include a Storywall-managed hero photograph — the story opens in editorial
+            text and chronology.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -163,32 +238,49 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
   );
   const chronology = formatChronologySpan(story);
 
-  return (
-    <article className="page public-story-page" data-testid="public-story-article" data-public-story-slug={slug}>
-      <header className="public-story-header">
-        <p className="public-story-eyebrow muted small">Storywall</p>
-        <h1 className="public-story-title">{story.title}</h1>
-        {story.subtitle ? <p className="public-story-subtitle">{story.subtitle}</p> : null}
-        {chronology ? (
-          <p className="public-story-header__chronology">
-            <span className="public-story-header__chronology-label">Chronology in this edition</span>
-            <span className="public-story-header__chronology-value">{chronology}</span>
-          </p>
-        ) : null}
-        <p className="public-story-meta muted small">
-          {variant === "creator_preview" ? (
-            <>
-              Draft as of{" "}
-              {story.published_at ? new Date(story.published_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"}
-            </>
-          ) : story.published_at ? (
-            new Date(story.published_at).toLocaleDateString(undefined, { dateStyle: "medium" })
-          ) : null}
-          {story.time_display && !chronology ? ` · ${story.time_display}` : null}
-        </p>
-      </header>
+  const heroState = story.hero_image_url?.trim()
+    ? "image"
+    : story.imagery_mode === "no_imagery"
+      ? "typographic"
+      : "empty";
 
-      {variant === "published" ? <PublicTrustExplainer /> : <CreatorPreviewDisclaimer />}
+  return (
+    <article
+      className="page public-story-page"
+      data-testid="public-story-article"
+      data-public-story-slug={slug}
+      data-hero-state={heroState}
+    >
+      <div className="public-story-hero-region">
+        <PublicStoryHeroBand story={story} variant={variant} />
+        <header className="public-story-header">
+          <p className="public-story-eyebrow muted small">Storywall</p>
+          <h1 className="public-story-title">{story.title}</h1>
+          {story.subtitle ? <p className="public-story-subtitle">{story.subtitle}</p> : null}
+          {chronology ? (
+            <p className="public-story-header__chronology">
+              <span className="public-story-header__chronology-label">Chronology in this edition</span>
+              <span className="public-story-header__chronology-value">{chronology}</span>
+            </p>
+          ) : null}
+          <p className="public-story-meta muted small">
+            {variant === "creator_preview" ? (
+              <>
+                Draft as of{" "}
+                {story.published_at
+                  ? new Date(story.published_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                  : "—"}
+              </>
+            ) : story.published_at ? (
+              new Date(story.published_at).toLocaleDateString(undefined, { dateStyle: "medium" })
+            ) : null}
+            {story.time_display && !chronology ? ` · ${story.time_display}` : null}
+          </p>
+        </header>
+      </div>
+
+      <div className="public-story-entry-body">
+        {variant === "published" ? <PublicTrustExplainer /> : <CreatorPreviewDisclaimer />}
 
       {story.summary && story.lens ? (
         <section className="public-story-block public-story-open-dual" aria-labelledby="public-story-summary-label">
@@ -415,15 +507,16 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
         </section>
       ) : null}
 
-      <footer className="public-story-footer">
-        {variant === "published" ? (
-          <Link to="/" className="public-story-back">
-            Home
-          </Link>
-        ) : (
-          <p className="muted small public-story-footer__preview-note">End of preview — reader layout, draft content.</p>
-        )}
-      </footer>
+        <footer className="public-story-footer">
+          {variant === "published" ? (
+            <Link to="/" className="public-story-back">
+              Home
+            </Link>
+          ) : (
+            <p className="muted small public-story-footer__preview-note">End of preview — reader layout, draft content.</p>
+          )}
+        </footer>
+      </div>
     </article>
   );
 }
