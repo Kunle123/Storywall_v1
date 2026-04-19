@@ -547,8 +547,19 @@ async function main() {
     const sections = body?.data?.sections ?? [];
     const multiArc =
       postAssemblyEventCount >= 6 ? sections.length >= 2 : sections.length >= 1;
-    const ok =
-      isHttpSuccess(status) && body?.ok === true && Array.isArray(sections) && sections.length > 0 && multiArc;
+    const genericOrdinalLabel = (label) =>
+      /^(Opening|Middle|Late) beats:/i.test(String(label ?? "").trim());
+    const hasGenericBucketPrefix = Array.isArray(sections) && sections.some((s) => genericOrdinalLabel(s?.label));
+    const firstSummary = String(sections[0]?.summary ?? "");
+    const thinHonestyWhenSparse =
+      postAssemblyEventCount <= 4 ? firstSummary.includes("Research depth note") : true;
+    const structureOk =
+      Array.isArray(sections) &&
+      sections.length > 0 &&
+      multiArc &&
+      !hasGenericBucketPrefix &&
+      thinHonestyWhenSparse;
+    const ok = isHttpSuccess(status) && body?.ok === true && structureOk;
     record(
       "12b — GET sections (narrative spine after assembly)",
       "GET",
@@ -557,10 +568,14 @@ async function main() {
       ok ? "passed on staging" : "attempted on staging but failed",
       body,
       ok
-        ? `section_draft count: ${sections.length} (expect ≥2 arcs when events≥6; got ${postAssemblyEventCount} events)`
-        : postAssemblyEventCount >= 6 && sections.length < 2
-          ? "Expected at least two editorial arc sections when chronology has six or more rows."
-          : "Expected at least one section_draft after successful assembly.",
+        ? `section_draft count: ${sections.length} (events=${postAssemblyEventCount}); arc labels from grounded beats; thin honesty when ≤4 rows.`
+        : hasGenericBucketPrefix
+          ? "Arc labels must not use generic Opening/Middle/Late beats: prefixes (post-canonical arc titling)."
+          : !thinHonestyWhenSparse
+            ? "When chronology has ≤4 rows, first section summary should include Research depth note (thin-job honesty)."
+            : postAssemblyEventCount >= 6 && sections.length < 2
+              ? "Expected at least two editorial arc sections when chronology has six or more rows."
+              : "Expected at least one section_draft after successful assembly.",
     );
   }
 

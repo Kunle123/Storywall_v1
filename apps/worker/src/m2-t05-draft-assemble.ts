@@ -8,6 +8,16 @@ import type {
   CreatorWorkflowState,
   Prisma,
 } from "@prisma/client";
+import {
+  assessThinAssemblySignals,
+  buildFirstPassConclusion,
+  computeArcRanges,
+  deriveArcLabel,
+  formatThinHonestyBlock,
+  parseSynthesisFromArtifact,
+  shouldAttachThinHonestyBlock,
+  type ThinAssemblySignals,
+} from "./draft-assembly-arc-plan.js";
 
 /** Chronology row as loaded for draft assembly (includes source link edges). */
 type ChronologyEventWithLinks = Prisma.ChronologyExtractedEventGetPayload<{
@@ -74,31 +84,6 @@ function planNarrativeSectionCount(eventCount: number): number {
   return 3;
 }
 
-/** Inclusive-exclusive ranges covering all indices with sizes differing by at most one. */
-function splitEvenBucketRanges(n: number, k: number): [number, number][] {
-  if (k <= 1) return [[0, n]];
-  const base = Math.floor(n / k);
-  const rem = n % k;
-  const ranges: [number, number][] = [];
-  let start = 0;
-  for (let i = 0; i < k; i++) {
-    const size = base + (i < rem ? 1 : 0);
-    const end = Math.min(n, start + size);
-    ranges.push([start, end]);
-    start = end;
-  }
-  return ranges;
-}
-
-function firstPassClosingFromChronology(lens: string | null, events: ChronologyEventWithLinks[]): string {
-  const material = events.filter((e) => e.eventType === "standard" || e.eventType === "turning_point");
-  const src = material.length > 0 ? material : events;
-  const tail = src.slice(-Math.min(4, src.length));
-  const bullets = tail.map((e) => `• ${e.headline.trim().slice(0, 240)}`).join("\n");
-  const lensBlock = lens?.trim() ? `Working lens:\n${lens.trim().slice(0, 1500)}\n\n` : "";
-  return `${lensBlock}First-pass close (assembly scaffold — rewrite before publish)\n\nHighlights carried from the materialized chronology:\n${bullets}\n\nThis recap lists staged beats only; it introduces no new factual claims beyond the timeline entries above.`;
-}
-
 /**
  * Replaces prior `ai_generated` sections with editorial arc rows, sized from chronology depth.
  * Preserves creator-added sections; assigns each chronology beat to the arc that contains its index.
@@ -107,14 +92,15 @@ async function materializeEditorialSectionsForFullAssembly(
   tx: Prisma.TransactionClient,
   storyDraft: StoryDraftAssemblyShape,
   chronologyEvents: ChronologyEventWithLinks[],
+  ranges: [number, number][],
+  thinSignals: ThinAssemblySignals,
 ): Promise<string[]> {
   await tx.sectionDraft.deleteMany({
     where: { storyDraftId: storyDraft.id, sectionOrigin: "ai_generated" },
   });
 
   const n = chronologyEvents.length;
-  const k = planNarrativeSectionCount(n);
-  const ranges = splitEvenBucketRanges(n, k);
+  const k = ranges.length;
 
   const maxPosRow = await tx.sectionDraft.aggregate({
     where: { storyDraftId: storyDraft.id },
@@ -122,16 +108,12 @@ async function materializeEditorialSectionsForFullAssembly(
   });
   let positionIndex = (maxPosRow._max.positionIndex ?? -1) + 1;
 
-  const ORDINAL = ["Opening beats", "Middle beats", "Late beats"];
   const sectionIds: string[] = [];
 
   for (let c = 0; c < k; c++) {
     const [a, z] = ranges[c] ?? [0, n];
     const slice = chronologyEvents.slice(a, z);
-    const first = slice[0];
-    const head = (first?.headline ?? "Timeline arc").trim().slice(0, 80);
-    const ordinal = ORDINAL[c] ?? `Arc ${c + 1}`;
-    const label = `${ordinal}: ${head}`.slice(0, 200);
+    const label = deriveArcLabel(slice, storyDraft.title);
 
     const summaryParts = slice
       .slice(0, 4)
@@ -139,8 +121,11 @@ async function materializeEditorialSectionsForFullAssembly(
       .filter((t) => t.length > 0);
     const stitched = summaryParts.join("\n\n").slice(0, 4500);
     const guidance =
-      "This editorial arc groups adjoining chronology rows from the latest successful research assembly. Split, rename, or merge in the editor as the manuscript firms up.";
-    const summary = stitched.length > 0 ? `${stitched}\n\n${guidance}`.slice(0, 8000) : guidance;
+      "This arc groups chronology rows from your latest successful research assembly — titles come from the strongest beat in each group (turning point / major beat when present). Split or rename freely as the manuscript firms up.";
+    let summary = stitched.length > 0 ? `${stitched}\n\n${guidance}`.slice(0, 8000) : guidance;
+    if (c === 0 && shouldAttachThinHonestyBlock(thinSignals)) {
+      summary = `${summary}\n\n${formatThinHonestyBlock(thinSignals)}`.slice(0, 8000);
+    }
 
     const row = await tx.sectionDraft.create({
       data: {
@@ -162,11 +147,9 @@ async function materializeEditorialSectionsForFullAssembly(
 function sectionIdForChronologyPosition(
   eventIndex: number,
   sectionIds: string[],
-  n: number,
+  ranges: [number, number][],
 ): string | null {
   if (sectionIds.length === 0) return null;
-  const k = sectionIds.length;
-  const ranges = splitEvenBucketRanges(n, k);
   for (let b = 0; b < ranges.length; b++) {
     const [a, z] = ranges[b]!;
     if (eventIndex >= a && eventIndex < z) return sectionIds[b] ?? null;
@@ -507,6 +490,9 @@ export async function runDraftAssemblyJob(
   const research = await tx.researchJob.findUnique({
     where: { id: sourceRid },
     include: {
+      artifact: {
+        select: { researchSynthesisPackage: true },
+      },
       chronologyAssembly: {
         include: {
           events: {
@@ -626,12 +612,22 @@ export async function runDraftAssemblyJob(
       : null,
   };
 
-  const sectionIds = await materializeEditorialSectionsForFullAssembly(tx, assemblyDraftShape, chronologyList);
+  const synthesisPkg = parseSynthesisFromArtifact(research.artifact ?? null);
+  const thinSignals = assessThinAssemblySignals(chronologyList, synthesisPkg);
   const nChron = chronologyList.length;
+  const k = planNarrativeSectionCount(nChron);
+  const arcRanges = computeArcRanges(nChron, k, chronologyList);
+  const sectionIds = await materializeEditorialSectionsForFullAssembly(
+    tx,
+    assemblyDraftShape,
+    chronologyList,
+    arcRanges,
+    thinSignals,
+  );
 
   for (let i = 0; i < chronologyList.length; i++) {
     const ce = chronologyList[i]!;
-    const spineSectionId = sectionIdForChronologyPosition(i, sectionIds, nChron);
+    const spineSectionId = sectionIdForChronologyPosition(i, sectionIds, arcRanges);
     const ed = await tx.eventDraft.create({
       data: eventDraftDataFromChronology(ce, storyDraft.id, draftJob.id, spineSectionId),
     });
@@ -648,7 +644,7 @@ export async function runDraftAssemblyJob(
     await tx.storyDraft.update({
       where: { id: storyDraft.id },
       data: {
-        conclusion: firstPassClosingFromChronology(storyDraft.lens, chronologyList).slice(0, 8000),
+        conclusion: buildFirstPassConclusion(storyDraft.lens, chronologyList, thinSignals).slice(0, 8000),
       },
     });
   }
