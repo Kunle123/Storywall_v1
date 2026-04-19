@@ -26,6 +26,52 @@ const OPTION_COUNT = 3;
 
 /** Idempotency for `POST …/frames/select` is persisted in `creator_frame_select_idempotency` only (M1-T12). Other mutation commands do not share this mechanism yet. */
 
+type SectionCandidateSeed = {
+  label: string;
+  summary: string | null;
+};
+
+function normalizeSectionCandidates(raw: Prisma.JsonValue | null): SectionCandidateSeed[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const out: SectionCandidateSeed[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const label = typeof row.label === "string" ? row.label.trim() : "";
+    if (!label) continue;
+    const summary =
+      typeof row.summary === "string"
+        ? row.summary
+        : row.summary === null
+          ? null
+          : null;
+    out.push({ label: label.slice(0, 500), summary });
+  }
+  return out;
+}
+
+function normalizeCoverageLabels(raw: Prisma.JsonValue): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0)
+    .slice(0, 12);
+}
+
+function sectionSeedsForSelectedFrame(frame: StoryFrameDraft): SectionCandidateSeed[] {
+  const explicit = normalizeSectionCandidates(frame.sectionCandidates);
+  if (explicit.length > 0) {
+    return explicit;
+  }
+  const coverageLabels = normalizeCoverageLabels(frame.coverageImplications);
+  return coverageLabels.map((label) => ({ label: label.slice(0, 500), summary: null }));
+}
+
 @Injectable()
 export class FramesService {
   constructor(
@@ -234,6 +280,20 @@ export class FramesService {
           lastEditedBy: creatorId,
         },
       });
+
+      const sectionSeeds = sectionSeedsForSelectedFrame(selectedFrame);
+      if (sectionSeeds.length > 0) {
+        await tx.sectionDraft.createMany({
+          data: sectionSeeds.map((seed, idx) => ({
+            storyDraftId: storyDraft.id,
+            label: seed.label,
+            summary: seed.summary,
+            positionIndex: idx,
+            sectionOrigin: "ai_generated",
+            status: "draft",
+          })),
+        });
+      }
 
       const wfBeforeSelect = story.workflowState;
 
@@ -484,6 +544,7 @@ export class FramesService {
       lens: string;
       scope: string;
       coverage: string[];
+      sections: SectionCandidateSeed[];
       balance: string | null;
       confidence: "mostly_verified" | "mixed" | "emerging";
     }> = [
@@ -494,6 +555,11 @@ export class FramesService {
         lens: `Readers see how events unfold in sequence and how that sequence supports: ${angle.slice(0, 400)}${angle.length > 400 ? "…" : ""}.${noteSuffix}`,
         scope: `This frame prioritizes verifiable dates and developments; breadth follows the stated time scope (${String(brief.timeScopeMode)}).`,
         coverage: ["Chronology", "Major developments", "Supporting context"],
+        sections: [
+          { label: "Chronology", summary: "Foundational timeline and ordering of major developments." },
+          { label: "Major developments", summary: "The consequential events that moved the story forward." },
+          { label: "Supporting context", summary: "Contextual material needed to interpret the timeline accurately." },
+        ],
         balance:
           brief.storyType === "controversy" || brief.storyType === "issue_history"
             ? "Alternate viewpoints may need explicit treatment before publish."
@@ -507,6 +573,11 @@ export class FramesService {
         lens: `Centers interpretation on: ${angle.slice(0, 500)}${angle.length > 500 ? "…" : ""}.${noteSuffix}`,
         scope: "Selects developments that best explain outcomes and trade breadth for explanatory clarity where needed.",
         coverage: ["Causation", "Stakeholders", "Turning points"],
+        sections: [
+          { label: "Causation", summary: "What forces and decisions set later events in motion." },
+          { label: "Stakeholders", summary: "Key actors and institutions shaping the trajectory." },
+          { label: "Turning points", summary: "Moments where outcomes or expectations shifted materially." },
+        ],
         balance: null,
         confidence: "mixed",
       },
@@ -517,6 +588,11 @@ export class FramesService {
         lens: `Stress-tests the angle against what sources can support: ${angle.slice(0, 500)}${angle.length > 500 ? "…" : ""}.${noteSuffix}`,
         scope: "Prioritizes events and claims that can be tied to references; flags thin patches for later research.",
         coverage: ["Reference-ready beats", "Confidence posture", "Gaps to fill"],
+        sections: [
+          { label: "Reference-ready beats", summary: "Claims and events with the strongest available sourcing." },
+          { label: "Confidence posture", summary: "Where evidence is solid, mixed, or currently thin." },
+          { label: "Gaps to fill", summary: "Important unanswered questions and missing corroboration." },
+        ],
         balance: "Where accounts diverge, the draft should surface dispute explicitly.",
         confidence: "emerging",
       },
@@ -529,6 +605,7 @@ export class FramesService {
       lensCandidate: v.lens,
       scopeRationale: v.scope,
       coverageImplications: v.coverage,
+      sectionCandidates: v.sections as unknown as Prisma.InputJsonValue,
       balanceNote: v.balance,
       confidenceSummaryInitial: v.confidence,
       candidateRank: startRank + i,

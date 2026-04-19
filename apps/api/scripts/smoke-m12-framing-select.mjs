@@ -92,6 +92,14 @@ async function main() {
   assert(selJson.meta?.idempotency_key === idemKey, "echo idempotency key");
   assert(selJson.meta?.idempotency_replayed !== true, "first call is not replay");
 
+  const sections = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/sections`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const sectionsJson = await j(sections);
+  assert(sections.ok, `sections ${sections.status}`);
+  assert(Array.isArray(sectionsJson.data.sections), "sections array exists");
+  assert(sectionsJson.data.sections.length > 0, "frame select should materialize section scaffold");
+
   const replay = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/frames/select`, {
     method: "POST",
     headers: {

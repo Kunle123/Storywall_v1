@@ -144,6 +144,21 @@ async function main() {
   assert(polled.kind === "draft_assemble", "poll kind");
   assert(polled.status === "succeeded", "assemble succeeded");
 
+  const sections = await j(
+    await fetch(`${BASE}/api/v1/creator/stories/${storyId}/sections`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  );
+  const events = await j(
+    await fetch(`${BASE}/api/v1/creator/stories/${storyId}/events`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  );
+  assert(Array.isArray(sections.data.sections), "sections array after assembly");
+  assert(Array.isArray(events.data.events), "events array after assembly");
+  assert(sections.data.sections.length > 0, "non-empty section scaffold after assembly");
+  assert(events.data.events.length > 0, "non-empty timeline after assembly");
+
   const replay = await fetch(`${BASE}/api/v1/creator/stories/${storyId}/draft/assemble`, {
     method: "POST",
     headers: {
