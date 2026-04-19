@@ -58,61 +58,120 @@ function eventDraftDataFromChronology(
   };
 }
 
-type StoryDraftForAssembly = {
+type StoryDraftAssemblyShape = {
   id: string;
   title: string;
   summary: string | null;
+  lens: string | null;
+  conclusion: string | null;
   selectedFrame: { titleCandidate: string; summaryCandidate: string } | null;
 };
 
+/** Editorial arc count from chronology size (post-canonical richness; deterministic). */
+function planNarrativeSectionCount(eventCount: number): number {
+  if (eventCount <= 3) return 1;
+  if (eventCount <= 10) return 2;
+  return 3;
+}
+
+/** Inclusive-exclusive ranges covering all indices with sizes differing by at most one. */
+function splitEvenBucketRanges(n: number, k: number): [number, number][] {
+  if (k <= 1) return [[0, n]];
+  const base = Math.floor(n / k);
+  const rem = n % k;
+  const ranges: [number, number][] = [];
+  let start = 0;
+  for (let i = 0; i < k; i++) {
+    const size = base + (i < rem ? 1 : 0);
+    const end = Math.min(n, start + size);
+    ranges.push([start, end]);
+    start = end;
+  }
+  return ranges;
+}
+
+function firstPassClosingFromChronology(lens: string | null, events: ChronologyEventWithLinks[]): string {
+  const material = events.filter((e) => e.eventType === "standard" || e.eventType === "turning_point");
+  const src = material.length > 0 ? material : events;
+  const tail = src.slice(-Math.min(4, src.length));
+  const bullets = tail.map((e) => `• ${e.headline.trim().slice(0, 240)}`).join("\n");
+  const lensBlock = lens?.trim() ? `Working lens:\n${lens.trim().slice(0, 1500)}\n\n` : "";
+  return `${lensBlock}First-pass close (assembly scaffold — rewrite before publish)\n\nHighlights carried from the materialized chronology:\n${bullets}\n\nThis recap lists staged beats only; it introduces no new factual claims beyond the timeline entries above.`;
+}
+
 /**
- * Ensures at least one narrative `section_draft` exists and returns the id to attach assembled
- * chronology rows. Copy is grounded in the existing story draft / selected framing (no new factual claims).
+ * Replaces prior `ai_generated` sections with editorial arc rows, sized from chronology depth.
+ * Preserves creator-added sections; assigns each chronology beat to the arc that contains its index.
  */
-async function resolveSpineSectionIdForFullAssembly(
+async function materializeEditorialSectionsForFullAssembly(
   tx: Prisma.TransactionClient,
-  storyDraft: StoryDraftForAssembly,
-): Promise<string | null> {
-  const existing = await tx.sectionDraft.findFirst({
-    where: { storyDraftId: storyDraft.id },
-    orderBy: { positionIndex: "asc" },
-    select: { id: true },
+  storyDraft: StoryDraftAssemblyShape,
+  chronologyEvents: ChronologyEventWithLinks[],
+): Promise<string[]> {
+  await tx.sectionDraft.deleteMany({
+    where: { storyDraftId: storyDraft.id, sectionOrigin: "ai_generated" },
   });
-  if (existing) {
-    return existing.id;
+
+  const n = chronologyEvents.length;
+  const k = planNarrativeSectionCount(n);
+  const ranges = splitEvenBucketRanges(n, k);
+
+  const maxPosRow = await tx.sectionDraft.aggregate({
+    where: { storyDraftId: storyDraft.id },
+    _max: { positionIndex: true },
+  });
+  let positionIndex = (maxPosRow._max.positionIndex ?? -1) + 1;
+
+  const ORDINAL = ["Opening beats", "Middle beats", "Late beats"];
+  const sectionIds: string[] = [];
+
+  for (let c = 0; c < k; c++) {
+    const [a, z] = ranges[c] ?? [0, n];
+    const slice = chronologyEvents.slice(a, z);
+    const first = slice[0];
+    const head = (first?.headline ?? "Timeline arc").trim().slice(0, 80);
+    const ordinal = ORDINAL[c] ?? `Arc ${c + 1}`;
+    const label = `${ordinal}: ${head}`.slice(0, 200);
+
+    const summaryParts = slice
+      .slice(0, 4)
+      .map((e) => e.summary.trim())
+      .filter((t) => t.length > 0);
+    const stitched = summaryParts.join("\n\n").slice(0, 4500);
+    const guidance =
+      "This editorial arc groups adjoining chronology rows from the latest successful research assembly. Split, rename, or merge in the editor as the manuscript firms up.";
+    const summary = stitched.length > 0 ? `${stitched}\n\n${guidance}`.slice(0, 8000) : guidance;
+
+    const row = await tx.sectionDraft.create({
+      data: {
+        storyDraftId: storyDraft.id,
+        label,
+        summary,
+        positionIndex: positionIndex,
+        sectionOrigin: "ai_generated",
+        status: "draft",
+      },
+    });
+    sectionIds.push(row.id);
+    positionIndex += 1;
   }
 
-  const labelBase =
-    storyDraft.title.trim() ||
-    storyDraft.selectedFrame?.titleCandidate?.trim() ||
-    "Narrative spine";
-  const label = labelBase.slice(0, 200);
+  return sectionIds;
+}
 
-  const framingSummary = storyDraft.selectedFrame?.summaryCandidate?.trim() ?? "";
-  const draftSummary = storyDraft.summary?.trim() ?? "";
-  const baseBody =
-    draftSummary.length > 0
-      ? draftSummary.slice(0, 4000)
-      : framingSummary.length > 0
-        ? framingSummary.slice(0, 4000)
-        : null;
-
-  const guidance =
-    "This section groups the timeline rows materialized from your latest successful research pass. Edit freely; evidence stays on each event.";
-  const summary =
-    baseBody && baseBody.length > 0 ? `${baseBody}\n\n${guidance}`.slice(0, 8000) : guidance;
-
-  const created = await tx.sectionDraft.create({
-    data: {
-      storyDraftId: storyDraft.id,
-      label,
-      summary,
-      positionIndex: 0,
-      sectionOrigin: "ai_generated",
-      status: "draft",
-    },
-  });
-  return created.id;
+function sectionIdForChronologyPosition(
+  eventIndex: number,
+  sectionIds: string[],
+  n: number,
+): string | null {
+  if (sectionIds.length === 0) return null;
+  const k = sectionIds.length;
+  const ranges = splitEvenBucketRanges(n, k);
+  for (let b = 0; b < ranges.length; b++) {
+    const [a, z] = ranges[b]!;
+    if (eventIndex >= a && eventIndex < z) return sectionIds[b] ?? null;
+  }
+  return sectionIds[sectionIds.length - 1] ?? null;
 }
 
 function chronologyToEventUpdateData(
@@ -552,19 +611,27 @@ export async function runDraftAssemblyJob(
 
   await tx.eventDraft.deleteMany({ where: { storyDraftId: storyDraft.id } });
 
-  const spineSectionId = await resolveSpineSectionIdForFullAssembly(tx, {
+  const chronologyList = chronologyEvents as ChronologyEventWithLinks[];
+  const assemblyDraftShape: StoryDraftAssemblyShape = {
     id: storyDraft.id,
     title: storyDraft.title,
     summary: storyDraft.summary,
+    lens: storyDraft.lens,
+    conclusion: storyDraft.conclusion,
     selectedFrame: storyDraft.selectedFrame
       ? {
           titleCandidate: storyDraft.selectedFrame.titleCandidate,
           summaryCandidate: storyDraft.selectedFrame.summaryCandidate,
         }
       : null,
-  });
+  };
 
-  for (const ce of chronologyEvents as ChronologyEventWithLinks[]) {
+  const sectionIds = await materializeEditorialSectionsForFullAssembly(tx, assemblyDraftShape, chronologyList);
+  const nChron = chronologyList.length;
+
+  for (let i = 0; i < chronologyList.length; i++) {
+    const ce = chronologyList[i]!;
+    const spineSectionId = sectionIdForChronologyPosition(i, sectionIds, nChron);
     const ed = await tx.eventDraft.create({
       data: eventDraftDataFromChronology(ce, storyDraft.id, draftJob.id, spineSectionId),
     });
@@ -574,6 +641,15 @@ export async function runDraftAssemblyJob(
     await tx.eventDraft.update({
       where: { id: ed.id },
       data: { sourceCount: srcCount },
+    });
+  }
+
+  if (!storyDraft.conclusion?.trim()) {
+    await tx.storyDraft.update({
+      where: { id: storyDraft.id },
+      data: {
+        conclusion: firstPassClosingFromChronology(storyDraft.lens, chronologyList).slice(0, 8000),
+      },
     });
   }
 

@@ -72,6 +72,8 @@ async function main() {
   let jobId = null;
   let frameId = null;
   let assembleJobId = null;
+  /** Populated after step 12 for richer-structure assertions (post-canonical draft quality). */
+  let postAssemblyEventCount = 0;
 
   // 1 Register
   {
@@ -516,6 +518,7 @@ async function main() {
       body = { error: String(e) };
     }
     const events = body?.data?.events ?? [];
+    postAssemblyEventCount = Array.isArray(events) ? events.length : 0;
     const ok = isHttpSuccess(status) && body?.ok === true && Array.isArray(events) && events.length > 0;
     record(
       "12 — GET events (draft assembly artifact)",
@@ -542,7 +545,10 @@ async function main() {
       body = { error: String(e) };
     }
     const sections = body?.data?.sections ?? [];
-    const ok = isHttpSuccess(status) && body?.ok === true && Array.isArray(sections) && sections.length > 0;
+    const multiArc =
+      postAssemblyEventCount >= 6 ? sections.length >= 2 : sections.length >= 1;
+    const ok =
+      isHttpSuccess(status) && body?.ok === true && Array.isArray(sections) && sections.length > 0 && multiArc;
     record(
       "12b — GET sections (narrative spine after assembly)",
       "GET",
@@ -550,7 +556,11 @@ async function main() {
       status,
       ok ? "passed on staging" : "attempted on staging but failed",
       body,
-      ok ? `section_draft count: ${sections.length}` : "Expected at least one section_draft after successful assembly.",
+      ok
+        ? `section_draft count: ${sections.length} (expect ≥2 arcs when events≥6; got ${postAssemblyEventCount} events)`
+        : postAssemblyEventCount >= 6 && sections.length < 2
+          ? "Expected at least two editorial arc sections when chronology has six or more rows."
+          : "Expected at least one section_draft after successful assembly.",
     );
   }
 
@@ -568,8 +578,15 @@ async function main() {
       body = { error: String(e) };
     }
     const d = body?.data;
+    const conclusion = d?.story_draft?.conclusion;
+    const hasClosing =
+      typeof conclusion === "string" && conclusion.trim().length >= 40;
     const ok =
-      isHttpSuccess(status) && body?.ok === true && d?.story_state === "ready_for_edit" && d?.story_draft?.id;
+      isHttpSuccess(status) &&
+      body?.ok === true &&
+      d?.story_state === "ready_for_edit" &&
+      d?.story_draft?.id &&
+      hasClosing;
     record(
       "13 — GET framing (post-assembly)",
       "GET",
@@ -577,7 +594,9 @@ async function main() {
       status,
       ok ? "passed on staging" : "attempted on staging but failed",
       body,
-      ok ? "Next: open Draft tab in the app to edit event rows and manuscript structure." : undefined,
+      ok
+        ? "story_draft includes first-pass conclusion scaffold; open Draft tab to edit."
+        : "Expected non-empty story_draft.conclusion after assembly (first-pass editorial close).",
     );
   }
 

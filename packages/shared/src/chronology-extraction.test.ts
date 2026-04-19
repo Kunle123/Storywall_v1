@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { RESEARCH_SYNTHESIS_SCHEMA_VERSION } from "./research-synthesis/types";
 import { synthesizeResearchPackageV1 } from "./research-synthesis/synthesize";
-import { buildChronologyEventsFromResearchPackage } from "./chronology-extraction";
+import { buildChronologyEventsFromResearchPackage, inferHeuristicYearFromProse } from "./chronology-extraction";
+
+describe("inferHeuristicYearFromProse", () => {
+  it("surfaces the first plausible AD year for reader labels without inventing a calendar day", () => {
+    const h = inferHeuristicYearFromProse("Pressure builds through 1972 and into 1973.");
+    expect(h).not.toBeNull();
+    expect(h?.yearAnchor).toBe(1972);
+    expect(h?.displayDate).toContain("1972");
+    expect(h?.eventDatePrecision).toBe("year");
+  });
+
+  it("returns null when no year token is present", () => {
+    expect(inferHeuristicYearFromProse("No dates in this sentence.")).toBeNull();
+  });
+});
 
 describe("buildChronologyEventsFromResearchPackage", () => {
   it("derives one row per candidate hint with grounded source ids", () => {

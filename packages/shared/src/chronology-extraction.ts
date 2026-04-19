@@ -65,9 +65,10 @@ export type ChronologyExtractionRow = {
   eventDateStart: null;
   eventDateEnd: null;
   eventDatePrecision: EventDatePrecision;
-  displayDate: null;
-  yearAnchor: null;
-  intervalNote: null;
+  /** Reader-facing when-string; may be heuristically derived from prose (see `intervalNote`). */
+  displayDate: string | null;
+  yearAnchor: number | null;
+  intervalNote: string | null;
   locationName: null;
   mediaKind: EventMediaKind;
   sourceDensity: EventSourceDensity;
@@ -77,6 +78,32 @@ export type ChronologyExtractionRow = {
   supportingCandidateSourceIds: string[];
   ambiguityNote: string | null;
 };
+
+/** First plausible four-digit calendar year in AD range (deterministic; for reader labels only). */
+const HEURISTIC_YEAR_RE = /\b(1[0-9]{3}|20[0-2][0-9])\b/;
+
+/**
+ * Surfaces a year already present in synthesis/hint prose as `display_date` / `year_anchor`.
+ * Does not invent calendar days; precision stays `year`. Honest `interval_note` explains the heuristic.
+ */
+export function inferHeuristicYearFromProse(prose: string): {
+  displayDate: string;
+  yearAnchor: number;
+  eventDatePrecision: "year";
+  intervalNote: string;
+} | null {
+  const m = prose.match(HEURISTIC_YEAR_RE);
+  if (!m?.[1]) return null;
+  const year = Number(m[1]);
+  if (!Number.isFinite(year)) return null;
+  return {
+    yearAnchor: year,
+    eventDatePrecision: "year",
+    displayDate: `${year} (year visible in research text — verify full dates with sources)`,
+    intervalNote:
+      "Heuristic: first calendar year matched in finding or hint prose for reader-facing labels only; not an independently confirmed event date.",
+  };
+}
 
 function m5T06CreatorNote(parts: Record<string, string | undefined | null>): string {
   return JSON.stringify({ m5_t06: parts });
@@ -336,6 +363,8 @@ function buildRowForSynthesisFinding(
       ? ` Artifact flags: ${clip(risk.notes.join(" "), 400)}`
       : "";
 
+  const temporalHint = f.kind === "sourced_claim" ? inferHeuristicYearFromProse(`${headline}\n${summary}`) : null;
+
   let ambiguityNote: string | null;
   if (f.kind === "sourced_claim") {
     const missing =
@@ -344,7 +373,8 @@ function buildRowForSynthesisFinding(
         : filteredSupport.length === 0
           ? " No supporting candidate UUIDs on this finding."
           : "";
-    ambiguityNote = clip(`${temporalAmbiguityPrefix()}${missing}${riskTail}`, 2000);
+    const temporalTail = temporalHint ? `\n\n${temporalHint.intervalNote}` : "";
+    ambiguityNote = clip(`${temporalAmbiguityPrefix()}${missing}${riskTail}${temporalTail}`, 2000);
   } else if (f.kind === "synthesis_summary") {
     ambiguityNote = clip(
       `[non-event synthesis] This row reflects a deterministic package summary (M5-T05), not a dated historical event. ${temporalAmbiguityPrefix()}${riskTail}`,
@@ -370,10 +400,10 @@ function buildRowForSynthesisFinding(
     significanceLevel,
     eventDateStart: null,
     eventDateEnd: null,
-    eventDatePrecision: "unknown",
-    displayDate: null,
-    yearAnchor: null,
-    intervalNote: null,
+    eventDatePrecision: temporalHint?.eventDatePrecision ?? "unknown",
+    displayDate: temporalHint?.displayDate ?? null,
+    yearAnchor: temporalHint?.yearAnchor ?? null,
+    intervalNote: temporalHint?.intervalNote ?? null,
     locationName: null,
     mediaKind: "none",
     sourceDensity,
@@ -462,12 +492,21 @@ function buildLegacyChronologyRows(
     const sourceDensity = deriveSourceDensity(supportingCandidateSourceIds);
     const confidenceState = deriveConfidence(supportingCandidateSourceIds, sources);
     const claimRiskLevel = deriveClaimRisk(risk.hasHigh, supportingCandidateSourceIds);
-    const ambiguityNote =
+    let ambiguityNote: string | null =
       risk.notes.length > 0 && (claimRiskLevel === "high" || confidenceState === "emerging")
         ? clip(risk.notes.join(" "), 500)
         : supportingCandidateSourceIds.length === 0
           ? "No candidate sources were attached to this event; corroboration is required before publication."
           : null;
+
+    const prose = `${b.headline}\n${b.detail}`;
+    const temporalHint = inferHeuristicYearFromProse(prose);
+    if (temporalHint) {
+      ambiguityNote = clip(
+        `${ambiguityNote ? `${ambiguityNote}\n\n` : ""}${temporalHint.intervalNote}`,
+        2000,
+      );
+    }
 
     return {
       headline: b.headline || `Event ${index + 1}`,
@@ -478,10 +517,10 @@ function buildLegacyChronologyRows(
       significanceLevel: pickSignificance(n, index),
       eventDateStart: null,
       eventDateEnd: null,
-      eventDatePrecision: "unknown",
-      displayDate: null,
-      yearAnchor: null,
-      intervalNote: null,
+      eventDatePrecision: temporalHint?.eventDatePrecision ?? "unknown",
+      displayDate: temporalHint?.displayDate ?? null,
+      yearAnchor: temporalHint?.yearAnchor ?? null,
+      intervalNote: temporalHint?.intervalNote ?? null,
       locationName: null,
       mediaKind: "none",
       sourceDensity,

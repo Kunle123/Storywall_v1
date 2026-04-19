@@ -272,6 +272,7 @@ export type ImageApprovalStatus = "proposed" | "approved" | "rejected" | "supers
 export {
   buildChronologyEventsFromResearchPackage,
   CHRONOLOGY_EXTRACTION_VERSION,
+  inferHeuristicYearFromProse,
 } from "./chronology-extraction";
 export type {
   ChronologyExtractionRow,
