@@ -492,6 +492,10 @@ export async function runDraftAssemblyJob(
     return;
   }
 
+  const existingSectionCount = await tx.sectionDraft.count({
+    where: { storyDraftId: storyDraft.id },
+  });
+
   await tx.eventDraft.deleteMany({ where: { storyDraftId: storyDraft.id } });
 
   for (const ce of chronologyEvents as ChronologyEventWithLinks[]) {
@@ -505,6 +509,44 @@ export async function runDraftAssemblyJob(
       where: { id: ed.id },
       data: { sourceCount: srcCount },
     });
+  }
+
+  const eventCountAfter = await tx.eventDraft.count({
+    where: { storyDraftId: storyDraft.id, status: { not: "removed" } },
+  });
+  if (eventCountAfter === 0) {
+    await failJob(
+      "Draft assembly produced no timeline events despite chronology input; refusing success",
+    );
+    return;
+  }
+
+  if (existingSectionCount === 0) {
+    const selectedFrame = storyDraft.selectedFrame;
+    const rawSectionCandidates = selectedFrame?.sectionCandidates;
+    const sectionCandidates = Array.isArray(rawSectionCandidates) ? rawSectionCandidates : [];
+    for (const [idx, candidate] of sectionCandidates.entries()) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      const row = candidate as Record<string, unknown>;
+      const label = typeof row.label === "string" ? row.label.trim() : "";
+      if (!label) continue;
+      const summary =
+        typeof row.summary === "string"
+          ? row.summary
+          : row.summary === null
+            ? null
+            : null;
+      await tx.sectionDraft.create({
+        data: {
+          storyDraftId: storyDraft.id,
+          label: label.slice(0, 500),
+          summary,
+          positionIndex: idx,
+          sectionOrigin: "ai_generated",
+          status: "draft",
+        },
+      });
+    }
   }
 
   await recordAssemblyRevision(tx, {
