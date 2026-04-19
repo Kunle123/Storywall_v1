@@ -21,7 +21,8 @@ async function bootstrap() {
   app.enableCors({
     origin: corsAllowedOrigins(),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "If-Match"],
+    /** Include `Idempotency-Key` — browser preflight rejects it otherwise; creator `POST …/frames/generate` and other mutations send it from the web app. */
+    allowedHeaders: ["Content-Type", "Authorization", "If-Match", "Idempotency-Key"],
     credentials: true,
   });
   app.useGlobalPipes(

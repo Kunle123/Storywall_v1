@@ -21,6 +21,29 @@ type SaveUi = "idle" | "saving" | "saved" | "error" | "conflict";
 
 const DEBOUNCE_MS = 900;
 
+function formatCreatorActionError(err: unknown, fallback: string): string {
+  if (err instanceof ApiRequestError) {
+    const body = err.body;
+    if (body && typeof body === "object") {
+      const nested = body as { error?: { message?: string; code?: string } };
+      if (nested.error?.message) {
+        const { message, code } = nested.error;
+        return code ? `${message} (${code})` : message;
+      }
+      const top = body as { message?: string | string[] };
+      if (typeof top.message === "string") return top.message;
+      if (Array.isArray(top.message)) return top.message.join("; ");
+    }
+    try {
+      return JSON.stringify(body);
+    } catch {
+      return err.message;
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 export function EditBriefPage() {
   const { storyId } = useParams<{ storyId: string }>();
   const location = useLocation();
@@ -145,7 +168,7 @@ export function EditBriefPage() {
             }
           }
           setSaveUi("error");
-          setSaveMessage(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Save failed.");
+          setSaveMessage(formatCreatorActionError(err, "Save failed."));
         }
       })();
     }, DEBOUNCE_MS);
@@ -194,7 +217,7 @@ export function EditBriefPage() {
         });
       }
     } catch (err) {
-      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not generate framing candidates.");
+      setGenError(formatCreatorActionError(err, "Could not generate framing candidates."));
     } finally {
       setGenBusy(null);
     }
@@ -220,7 +243,7 @@ export function EditBriefPage() {
       rememberActiveJob(storyId, res.data.job_id);
       navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
     } catch (err) {
-      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not start research.");
+      setGenError(formatCreatorActionError(err, "Could not start research."));
     } finally {
       setGenBusy(null);
     }
@@ -246,7 +269,7 @@ export function EditBriefPage() {
       rememberActiveJob(storyId, res.data.job_id);
       navigate(`/creator/stories/${storyId}/jobs/${res.data.job_id}`);
     } catch (err) {
-      setGenError(err instanceof ApiRequestError ? JSON.stringify(err.body) : "Could not start draft assembly.");
+      setGenError(formatCreatorActionError(err, "Could not start draft assembly."));
     } finally {
       setGenBusy(null);
     }
