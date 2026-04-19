@@ -2515,6 +2515,33 @@ a:hover {
   color: var(--text);
 }
 
+/* Timeline beat — optional approved primary image from publish snapshot */
+.public-story-event-figure {
+  margin: 0.65rem 0 0.75rem;
+  padding: 0;
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--surface-muted);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+
+.public-story-event-figure__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(52vh, 22rem);
+  object-fit: cover;
+  object-position: center 38%;
+}
+
+.public-story-event-figure__credit {
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.55rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  line-height: 1.4;
+}
+
 .public-story-event-refs {
   margin-top: 0.65rem;
   padding-top: 0.5rem;

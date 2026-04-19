@@ -17,6 +17,13 @@ export type PublishedPublicEventRefV1 = {
   publisher_name: string | null;
 };
 
+/** Approved, https-only image row surfaced on the anonymous reader (hero or timeline figure). */
+export type PublishedPublicPrimaryImageV1 = {
+  url: string;
+  alt: string | null;
+  credit: string | null;
+};
+
 export type PublishedBodySnapshotV1 = {
   snapshot_version: typeof PUBLISHED_BODY_SNAPSHOT_VERSION;
   title: string;
@@ -27,6 +34,12 @@ export type PublishedBodySnapshotV1 = {
   time_display: string | null;
   time_start: string | null;
   time_end: string | null;
+  /** Frozen at publish from `story_draft.imagery_mode` (BriefImageryMode enum value, snake_case). */
+  imagery_mode: string | null;
+  /** Story-level hero: approved `story_cover` image proposal with https URL, or null. */
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  hero_image_credit: string | null;
   sections: Array<{
     label: string;
     summary: string | null;
@@ -41,6 +54,8 @@ export type PublishedBodySnapshotV1 = {
     context_label: string | null;
     position_index: number;
     references: PublishedPublicEventRefV1[];
+    /** Optional per-beat figure when an approved primary image exists at publish time. */
+    primary_image: PublishedPublicPrimaryImageV1 | null;
   }>;
   sources: PublishedPublicSourceRowV1[];
 };
@@ -65,6 +80,62 @@ export function publicOutboundUrl(raw: string): string | null {
 function publicPublisherName(raw: string): string | null {
   const t = raw.trim();
   return t.length > 0 ? t : null;
+}
+
+export function pickStoryHeroFromProposals(
+  imageryMode: string,
+  proposals: ReadonlyArray<{
+    targetType: string;
+    approvalStatus: string;
+    assetUrl: string | null;
+    assetAlt: string | null;
+    assetCredit: string | null;
+    isPublicSelected: boolean;
+  }>,
+): PublishedPublicPrimaryImageV1 | null {
+  if (imageryMode === "no_imagery") return null;
+  const covers = proposals.filter((p) => p.targetType === "story_cover" && p.approvalStatus === "approved");
+  const ranked = [...covers].sort((a, b) => Number(b.isPublicSelected) - Number(a.isPublicSelected));
+  for (const p of ranked) {
+    const url = p.assetUrl ? publicOutboundUrl(p.assetUrl) : null;
+    if (!url) continue;
+    return {
+      url,
+      alt: p.assetAlt?.trim() ? p.assetAlt.trim() : null,
+      credit: p.assetCredit?.trim() ? p.assetCredit.trim() : null,
+    };
+  }
+  return null;
+}
+
+export function primaryImageFromApprovedCandidate(
+  imageryMode: string,
+  mediaKind: string,
+  candidate:
+    | { assetUrl: string | null; assetAlt: string | null; assetCredit: string | null; approvalStatus: string }
+    | null
+    | undefined,
+): PublishedPublicPrimaryImageV1 | null {
+  if (imageryMode === "no_imagery") return null;
+  if (mediaKind !== "image") return null;
+  if (!candidate || candidate.approvalStatus !== "approved") return null;
+  const url = candidate.assetUrl ? publicOutboundUrl(candidate.assetUrl) : null;
+  if (!url) return null;
+  return {
+    url,
+    alt: candidate.assetAlt?.trim() ? candidate.assetAlt.trim() : null,
+    credit: candidate.assetCredit?.trim() ? candidate.assetCredit.trim() : null,
+  };
+}
+
+function parsePrimaryImage(raw: unknown): PublishedPublicPrimaryImageV1 | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.url !== "string") return null;
+  const url = publicOutboundUrl(raw.url);
+  if (!url) return null;
+  const alt = typeof raw.alt === "string" && raw.alt.trim().length > 0 ? raw.alt.trim() : null;
+  const credit = typeof raw.credit === "string" && raw.credit.trim().length > 0 ? raw.credit.trim() : null;
+  return { url, alt, credit };
 }
 
 function parseEventReferences(refRaw: unknown): PublishedPublicEventRefV1[] {
@@ -102,6 +173,10 @@ export function buildPublishedBodySnapshotV1(params: {
     timeStart: Date | null;
     timeEnd: Date | null;
   };
+  /** `story_draft.imagery_mode` at publish (BriefImageryMode). */
+  imagery_mode: string | null;
+  /** Approved story_cover proposal resolved by caller, or null. */
+  hero_image: PublishedPublicPrimaryImageV1 | null;
   sectionDrafts: Array<{ label: string; summary: string | null; positionIndex: number }>;
   eventDrafts: Array<{
     headline: string;
@@ -111,10 +186,18 @@ export function buildPublishedBodySnapshotV1(params: {
     locationName: string | null;
     contextLabel: string | null;
     positionIndex: number;
+    mediaKind: string;
+    mediaPrimaryCandidate: {
+      assetUrl: string | null;
+      assetAlt: string | null;
+      assetCredit: string | null;
+      approvalStatus: string;
+    } | null;
     sources: Array<{ sourceTitle: string; sourceUrl: string; publisherName: string }>;
   }>;
 }): Prisma.InputJsonValue {
-  const { story, sectionDrafts, eventDrafts } = params;
+  const { story, sectionDrafts, eventDrafts, imagery_mode, hero_image } = params;
+  const imageryModeStr = imagery_mode ?? "";
   const sections = [...sectionDrafts]
     .sort((a, b) => a.positionIndex - b.positionIndex)
     .map((s) => ({
@@ -137,6 +220,7 @@ export function buildPublishedBodySnapshotV1(params: {
         outbound_url: publicOutboundUrl(src.sourceUrl),
         publisher_name: publicPublisherName(src.publisherName),
       })),
+      primary_image: primaryImageFromApprovedCandidate(imageryModeStr, e.mediaKind, e.mediaPrimaryCandidate),
     }));
   const sources: PublishedPublicSourceRowV1[] = [];
   let sourcePosition = 0;
@@ -168,6 +252,10 @@ export function buildPublishedBodySnapshotV1(params: {
     time_display: story.timeDisplay,
     time_start: story.timeStart ? story.timeStart.toISOString() : null,
     time_end: story.timeEnd ? story.timeEnd.toISOString() : null,
+    imagery_mode: imagery_mode,
+    hero_image_url: hero_image?.url ?? null,
+    hero_image_alt: hero_image?.alt ?? null,
+    hero_image_credit: hero_image?.credit ?? null,
     sections,
     events,
     sources,
@@ -216,6 +304,7 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
           : null,
       position_index: row.position_index,
       references: parseEventReferences(row.references),
+      primary_image: parsePrimaryImage(row.primary_image),
     });
   }
   const sources: PublishedPublicSourceRowV1[] = [];
@@ -240,6 +329,26 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
       si += 1;
     }
   }
+  const imagery_mode: string | null =
+    typeof raw.imagery_mode === "string" && raw.imagery_mode.trim().length > 0 ? raw.imagery_mode.trim() : null;
+
+  const hero_image_url =
+    typeof raw.hero_image_url === "string" && raw.hero_image_url.trim().length > 0
+      ? publicOutboundUrl(raw.hero_image_url)
+      : null;
+  const hero_image_alt =
+    hero_image_url &&
+    typeof raw.hero_image_alt === "string" &&
+    raw.hero_image_alt.trim().length > 0
+      ? raw.hero_image_alt.trim()
+      : null;
+  const hero_image_credit =
+    hero_image_url &&
+    typeof raw.hero_image_credit === "string" &&
+    raw.hero_image_credit.trim().length > 0
+      ? raw.hero_image_credit.trim()
+      : null;
+
   return {
     title: raw.title as string,
     subtitle: typeof raw.subtitle === "string" || raw.subtitle === null ? (raw.subtitle as string | null) : null,
@@ -252,6 +361,10 @@ export function parsePublishedBodySnapshotV1(raw: unknown): Omit<
     time_start:
       typeof raw.time_start === "string" || raw.time_start === null ? (raw.time_start as string | null) : null,
     time_end: typeof raw.time_end === "string" || raw.time_end === null ? (raw.time_end as string | null) : null,
+    imagery_mode,
+    hero_image_url,
+    hero_image_alt,
+    hero_image_credit,
     sections,
     events,
     sources,

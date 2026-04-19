@@ -20,6 +20,13 @@ export interface PublicEventReference {
   publisher_name: string | null;
 }
 
+/** Approved https image attached to a timeline beat in the published snapshot (optional). */
+export interface PublicStoryPrimaryImage {
+  url: string;
+  alt: string | null;
+  credit: string | null;
+}
+
 export interface PublicStoryEvent {
   headline: string;
   dek: string | null;
@@ -29,6 +36,8 @@ export interface PublicStoryEvent {
   context_label: string | null;
   position_index: number;
   references: PublicEventReference[];
+  /** Present when publish snapshot froze an approved primary image for this beat. */
+  primary_image?: PublicStoryPrimaryImage | null;
 }
 
 export interface PublicStoryData {
@@ -45,9 +54,9 @@ export interface PublicStoryData {
   sections: PublicStorySection[];
   events: PublicStoryEvent[];
   sources: PublicStorySource[];
-  /** Creator preview: `story_draft.imagery_mode`. Omitted on anonymous public read until API surfaces it. */
+  /** `story_draft.imagery_mode` at publish (or live draft fallback when no snapshot). */
   imagery_mode?: string | null;
-  /** When a future pipeline exposes a URL, reader/preview render editorial hero treatment. */
+  /** Approved story_cover proposal with https URL, or null. */
   hero_image_url?: string | null;
   hero_image_alt?: string | null;
   hero_image_credit?: string | null;

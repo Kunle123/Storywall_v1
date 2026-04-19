@@ -62,13 +62,14 @@ function PublicStoryHeroBand(props: {
 
   const mode = story.imagery_mode ?? null;
   const typographicOnly = mode === "no_imagery";
+  const emptyRendition = typographicOnly ? "typographic" : "empty";
 
   return (
     <div
       className={`public-story-hero-band public-story-hero-band--empty public-story-hero-band--variant-${variant}${
         typographicOnly ? " public-story-hero-band--typographic-only" : ""
       }`}
-      data-hero-rendition="empty"
+      data-hero-rendition={emptyRendition}
       role="region"
       aria-label="Hero composition"
     >
@@ -88,6 +89,14 @@ function PublicStoryHeroBand(props: {
             <p className="public-story-hero-empty__honest muted small">
               No hero image URL is on this working draft yet. When a media pipeline attaches one, it will render here
               full-bleed — typography, overview, and chronology still carry the opening today.
+            </p>
+          </>
+        ) : typographicOnly ? (
+          <>
+            <p className="public-story-hero-empty__policy">{labelImageryMode(mode)}</p>
+            <p className="public-story-hero-empty__honest muted small">
+              This published edition is set without story photography — the opening stays typographic so chronology and
+              prose lead. No stock placeholder is shown.
             </p>
           </>
         ) : (
@@ -395,6 +404,22 @@ export function PublicStoryArticle(props: PublicStoryArticleProps) {
                     <h3 className="public-story-event-list__headline">{ev.headline}</h3>
                     {ev.context_label && !rail ? <p className="public-story-event-list__context muted small">{ev.context_label}</p> : null}
                     {ev.dek ? <p className="public-story-event-list__dek">{ev.dek}</p> : null}
+                    {ev.primary_image?.url ? (
+                      <figure className="public-story-event-figure" data-testid="public-story-event-figure">
+                        <img
+                          src={ev.primary_image.url}
+                          alt={(ev.primary_image.alt?.trim() || ev.headline || "Timeline image").trim()}
+                          className="public-story-event-figure__img"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        {ev.primary_image.credit?.trim() ? (
+                          <figcaption className="public-story-event-figure__credit muted small">
+                            {ev.primary_image.credit.trim()}
+                          </figcaption>
+                        ) : null}
+                      </figure>
+                    ) : null}
                     <div className="public-story-prose public-story-prose--compact">{ev.summary}</div>
                     {(ev.references ?? []).length > 0 ? (
                       <div className="public-story-event-refs" aria-label="References for this event">

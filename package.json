@@ -35,6 +35,7 @@
     "verify:staging:canonical-fallback-semantics": "node ./scripts/verify-staging-canonical-fallback-semantics.mjs",
     "verify:staging:canonical-ux-copy-honesty": "node ./scripts/verify-staging-canonical-ux-copy-honesty.mjs",
     "verify:staging:canonical-ui-parity": "node ./scripts/verify-staging-canonical-ui-parity.mjs",
+    "verify:staging:public-hero-media-contract": "node ./scripts/verify-staging-public-hero-media-contract.mjs",
     "verify:staging:draft-editing": "node ./scripts/verify-staging-draft-editing.mjs",
     "verify:staging:validation-checks": "node ./scripts/verify-staging-validation-checks.mjs",
     "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs",

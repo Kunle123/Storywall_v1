@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { parsePublishedBodySnapshotV1 } from "../published-body-snapshot";
+import {
+  parsePublishedBodySnapshotV1,
+  pickStoryHeroFromProposals,
+  primaryImageFromApprovedCandidate,
+  type PublishedPublicPrimaryImageV1,
+} from "../published-body-snapshot";
 
 export type PublicStoryPayload = {
   slug: string;
@@ -14,6 +19,10 @@ export type PublicStoryPayload = {
   time_start: string | null;
   time_end: string | null;
   published_at: string;
+  imagery_mode: string | null;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  hero_image_credit: string | null;
   sections: Array<{
     label: string;
     summary: string | null;
@@ -32,6 +41,7 @@ export type PublicStoryPayload = {
       outbound_url: string | null;
       publisher_name: string | null;
     }>;
+    primary_image: PublishedPublicPrimaryImageV1 | null;
   }>;
   sources: Array<{
     title: string;
@@ -94,6 +104,27 @@ const publicStoryInclude = {
               locationName: true,
               contextLabel: true,
               positionIndex: true,
+              mediaKind: true,
+              mediaPrimaryCandidate: {
+                select: {
+                  assetUrl: true,
+                  assetAlt: true,
+                  assetCredit: true,
+                  approvalStatus: true,
+                },
+              },
+            },
+          },
+          imageProposals: {
+            where: { targetType: "story_cover", approvalStatus: "approved" },
+            orderBy: [{ isPublicSelected: "desc" }, { updatedAt: "desc" }],
+            select: {
+              targetType: true,
+              approvalStatus: true,
+              assetUrl: true,
+              assetAlt: true,
+              assetCredit: true,
+              isPublicSelected: true,
             },
           },
         },
@@ -192,6 +223,8 @@ export class PublicStoriesService {
     }
 
     const draft = story.storyBrief?.storyDraft;
+    const imageryMode = draft?.imageryMode ?? null;
+    const heroPick = draft ? pickStoryHeroFromProposals(draft.imageryMode, draft.imageProposals ?? []) : null;
     const sections =
       draft?.sectionDrafts.map((s) => ({
         label: s.label,
@@ -208,6 +241,9 @@ export class PublicStoriesService {
         context_label: e.contextLabel,
         position_index: e.positionIndex,
         references: [],
+        primary_image: draft
+          ? primaryImageFromApprovedCandidate(draft.imageryMode, e.mediaKind, e.mediaPrimaryCandidate)
+          : null,
       })) ?? [];
 
     return {
@@ -221,6 +257,10 @@ export class PublicStoriesService {
       time_start: story.timeStart?.toISOString() ?? null,
       time_end: story.timeEnd?.toISOString() ?? null,
       published_at: publishedAtIso,
+      imagery_mode: imageryMode,
+      hero_image_url: heroPick?.url ?? null,
+      hero_image_alt: heroPick?.alt ?? null,
+      hero_image_credit: heroPick?.credit ?? null,
       sections,
       events,
       sources: [],

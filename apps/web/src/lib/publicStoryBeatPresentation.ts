@@ -16,6 +16,7 @@ function materialScore(ev: PublicStoryEvent): number {
   if ((ev.context_label ?? "").trim()) s += 35;
   if ((ev.location_name ?? "").trim()) s += 20;
   s += (ev.references?.length ?? 0) * 30;
+  if (ev.primary_image?.url) s += 42;
   return s;
 }
 

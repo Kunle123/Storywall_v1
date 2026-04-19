@@ -21,7 +21,7 @@ import {
   isMaterialStoryPatch,
   summarizeStoryPatchFields,
 } from "../revision/revision-recorder";
-import { buildPublishedBodySnapshotV1 } from "../../published-body-snapshot";
+import { buildPublishedBodySnapshotV1, pickStoryHeroFromProposals } from "../../published-body-snapshot";
 import { WorkflowTransitionService } from "../workflow-transition.service";
 import type { CreateStoryDto } from "./dto/create-story.dto";
 import type { PatchStoryBriefDto } from "./dto/patch-story-brief.dto";
@@ -528,11 +528,32 @@ export class StoriesService {
                       locationName: true,
                       contextLabel: true,
                       positionIndex: true,
+                      mediaKind: true,
+                      mediaPrimaryCandidate: {
+                        select: {
+                          assetUrl: true,
+                          assetAlt: true,
+                          assetCredit: true,
+                          approvalStatus: true,
+                        },
+                      },
                       sources: {
                         where: { isPublic: true, status: { not: "rejected" } },
                         orderBy: { createdAt: "asc" },
                         select: { sourceTitle: true, sourceUrl: true, publisherName: true },
                       },
+                    },
+                  },
+                  imageProposals: {
+                    where: { targetType: "story_cover", approvalStatus: "approved" },
+                    orderBy: [{ isPublicSelected: "desc" }, { updatedAt: "desc" }],
+                    select: {
+                      targetType: true,
+                      approvalStatus: true,
+                      assetUrl: true,
+                      assetAlt: true,
+                      assetCredit: true,
+                      isPublicSelected: true,
                     },
                   },
                 },
@@ -615,6 +636,7 @@ export class StoriesService {
       const fromWf = storyRow.workflowState;
       const draftForSnap = storyRow.storyBrief.storyDraft;
       /** Reader snapshot follows the editable draft shell (title, lens, conclusion, etc.), not stale `stories.*` copies. */
+      const heroPick = pickStoryHeroFromProposals(draftForSnap.imageryMode, draftForSnap.imageProposals ?? []);
       const publishedBodySnapshot = buildPublishedBodySnapshotV1({
         story: {
           title: draftForSnap.title,
@@ -626,6 +648,8 @@ export class StoriesService {
           timeStart: draftForSnap.timeStart,
           timeEnd: draftForSnap.timeEnd,
         },
+        imagery_mode: draftForSnap.imageryMode,
+        hero_image: heroPick,
         sectionDrafts: draftForSnap.sectionDrafts,
         eventDrafts: draftForSnap.eventDrafts,
       });
