@@ -29,6 +29,7 @@
     "verify:staging:canonical-synthesis-orchestration": "node ./scripts/verify-staging-canonical-synthesis-orchestration.mjs",
     "verify:staging:canonical-framing-quality": "node ./scripts/verify-staging-canonical-framing-quality.mjs",
     "verify:staging:canonical-event-draft-enrichment": "node ./scripts/verify-staging-canonical-event-draft-enrichment.mjs",
+    "verify:staging:canonical-provenance-truthfulness": "node ./scripts/verify-staging-canonical-provenance-truthfulness.mjs",
     "verify:staging:draft-editing": "node ./scripts/verify-staging-draft-editing.mjs",
     "verify:staging:validation-checks": "node ./scripts/verify-staging-validation-checks.mjs",
     "verify:staging:publish-flow": "node ./scripts/verify-staging-publish-flow.mjs",

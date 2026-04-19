@@ -306,3 +306,11 @@ export type {
   EnrichmentMaterializationQualityV1,
   EnrichmentMaterializationTier,
 } from "./enrichment-materialization-quality";
+
+// --- M5-T27 — provenance & generation truthfulness (content-origin; payload-derived) ---
+export { assessProvenanceTruthfulness, PROVENANCE_TRUTHFULNESS_VERSION } from "./provenance-truthfulness";
+export type {
+  AssessProvenanceTruthfulnessInput,
+  ProvenanceTruthfulnessAssessmentV1,
+  ProvenanceTruthfulnessOriginPosture,
+} from "./provenance-truthfulness";

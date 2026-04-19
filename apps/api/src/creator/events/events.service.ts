@@ -259,6 +259,14 @@ export class EventsService {
       }
 
       const data = this.buildEventPatchInput(dto);
+      const touchesNarrative =
+        dto.headline !== undefined || dto.summary !== undefined || dto.dek !== undefined;
+      if (
+        touchesNarrative &&
+        (event.generationMode === "ai_draft" || event.generationMode === "ai_assisted")
+      ) {
+        data.generationMode = "manual_after_ai";
+      }
       const updated = await tx.eventDraft.updateMany({
         where: {
           id: event.id,

@@ -256,6 +256,7 @@ export function JobStatusPage() {
           <ResearchPackageHonestyPanel
             summary={honestySummary}
             enrichmentMaterializationQuality={packageSnapshot?.enrichment_materialization_quality}
+            provenanceTruthfulness={packageSnapshot?.provenance_truthfulness}
             loading={honestyLoading}
             error={honestyError}
           />

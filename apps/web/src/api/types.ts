@@ -523,6 +523,59 @@ export interface ChronologyEventLiteApiRow {
   position_index: number;
 }
 
+/** M5-T27 — content-origin posture (API-aligned). */
+export type ProvenanceTruthfulnessOriginPostureApi =
+  | "evidence_first"
+  | "mixed_evidence_and_model"
+  | "scaffold_and_model_led"
+  | "thin_or_unclassified";
+
+/** M5-T27 — GET …/package `provenance_truthfulness` (sibling to M5-T23–T26). */
+export interface ProvenanceTruthfulnessApi {
+  schema_version: string;
+  combined_origin_posture: ProvenanceTruthfulnessOriginPostureApi;
+  headline: string;
+  next_action: string;
+  ui_hint_line: string;
+  research_origin: {
+    candidate_source_rows: number;
+    synthesis_parseable: boolean;
+    synthesis_retrieval_mode: "stub" | "live" | null;
+    synthesis_finding_counts: {
+      sourced_claim: number;
+      synthesis_summary: number;
+      gap_note: number;
+      total: number;
+    };
+    chronology_rows_with_candidate_sourced_claim_trace: number;
+    chronology_rows_other_profile: number;
+  };
+  draft_enrichment_origin: {
+    trace_index_present: boolean;
+    support_status_counts: {
+      fully_source_backed: number;
+      partially_source_backed: number;
+      chronology_thin_sources: number;
+      unresolved_weak: number;
+      total_nodes: number;
+    };
+    fully_source_backed_share: number | null;
+    headline: string;
+    next_action: string;
+  };
+  manuscript_origin: {
+    event_generation_modes: Record<string, number>;
+    section_origins: Record<string, number>;
+    creator_touch_signals: {
+      manual_after_ai_events: number;
+      manual_events: number;
+      creator_edited_sections: number;
+    };
+    headline: string;
+    next_action: string;
+  } | null;
+}
+
 /** GET …/research/jobs/:jobId/package (M2-T02 + M5-T08/09 extensions). */
 export interface GetResearchPackageSuccess {
   ok: true;
@@ -535,6 +588,8 @@ export interface GetResearchPackageSuccess {
     /** M5-T26 — optional until API deploy; separate honesty rail from M5-T23–T25. */
     chronology_events_lite?: ChronologyEventLiteApiRow[];
     enrichment_materialization_quality?: EnrichmentMaterializationQualityApi;
+    /** M5-T27 — optional until API deploy; content-origin truthfulness. */
+    provenance_truthfulness?: ProvenanceTruthfulnessApi;
     /** M5-T11 — when persisted for this job id. */
     live_event_draft_enrichment?: unknown | null;
     /** M5-T12 — when persisted for this job id. */

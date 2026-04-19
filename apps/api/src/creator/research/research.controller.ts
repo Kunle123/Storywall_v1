@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import {
   API_CONTRACT_VERSION,
   assessEnrichmentMaterializationQuality,
+  assessProvenanceTruthfulness,
   buildDraftEnrichmentProvenanceIndex,
   buildResearchPackageHonestySummary,
 } from "@storywall/shared";
@@ -137,6 +138,20 @@ export class ResearchController {
       draftEnrichmentPackage: pkg.artifact.draftEnrichmentPackage,
       manuscript: manuscriptInput,
     });
+    const manuscriptTruthfulnessInput =
+      pkg.manuscriptLite && (pkg.manuscriptLite.events.length > 0 || pkg.manuscriptLite.sections.length > 0)
+        ? {
+            events: pkg.manuscriptLite.events.map((e) => ({ generation_mode: e.generationMode })),
+            sections: pkg.manuscriptLite.sections.map((s) => ({ section_origin: s.sectionOrigin })),
+          }
+        : null;
+    const provenance_truthfulness = assessProvenanceTruthfulness({
+      researchSynthesisPackage: pkg.artifact.researchSynthesisPackage,
+      draftEnrichmentProvenanceNodes: draftEnrichmentProvenance?.nodes ?? null,
+      chronologyEvents: chronology_events_lite,
+      manuscript: manuscriptTruthfulnessInput,
+      candidateSourceCount: pkg.candidateSources.length,
+    });
     return {
       ok: true,
       request_id: randomUUID(),
@@ -160,6 +175,8 @@ export class ResearchController {
         chronology_events_lite,
         /** M5-T26 — deterministic event/draft/manuscript materialization tiering (payload-derived; not a model score). */
         enrichment_materialization_quality,
+        /** M5-T27 — content-origin truthfulness (synthesis vs enrichment trace vs manuscript modes); separate from M5-T23–T26. */
+        provenance_truthfulness,
         candidate_sources: pkg.candidateSources.map((s) => researchCandidateSourceToApi(s)),
         /** M5-T11 — live AI event/draft enrichment package when stored for this job (null otherwise). */
         live_event_draft_enrichment: pkg.liveEventDraftEnrichment,

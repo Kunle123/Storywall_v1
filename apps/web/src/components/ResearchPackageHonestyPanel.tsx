@@ -1,9 +1,15 @@
-import type { EnrichmentMaterializationQualityApi, ResearchPackageHonestySummary } from "../api/types";
+import type {
+  EnrichmentMaterializationQualityApi,
+  ProvenanceTruthfulnessApi,
+  ResearchPackageHonestySummary,
+} from "../api/types";
 
 export type ResearchPackageHonestyPanelProps = {
   summary: ResearchPackageHonestySummary | null;
   /** M5-T26 — optional; sibling to honesty_summary, not merged into M5-T23–T25 blocks. */
   enrichmentMaterializationQuality?: EnrichmentMaterializationQualityApi | null;
+  /** M5-T27 — optional; content-origin vs M5-T23–T26 pipeline-quality rails. */
+  provenanceTruthfulness?: ProvenanceTruthfulnessApi | null;
   loading: boolean;
   error: string | null;
 };
@@ -25,7 +31,7 @@ function provenanceLabel(trace: string): string {
  * M5-T09 — compact creator honesty rail for deterministic research + enrichment (no broad workspace redesign).
  */
 export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelProps) {
-  const { summary, enrichmentMaterializationQuality, loading, error } = props;
+  const { summary, enrichmentMaterializationQuality, provenanceTruthfulness, loading, error } = props;
 
   if (error) {
     return (
@@ -278,6 +284,79 @@ export function ResearchPackageHonestyPanel(props: ResearchPackageHonestyPanelPr
         <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
           Event &amp; draft materialization (M5-T26) is not in this API response yet — redeploy the API to see chronology/draft
           materialization tiers separate from retrieval, synthesis orchestration, and framing quality.
+        </p>
+      )}
+      {provenanceTruthfulness ? (
+        <div
+          className="research-provenance-truthfulness"
+          data-testid="research-provenance-truthfulness-rail"
+          role="region"
+          aria-label="Provenance and generation truthfulness"
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.65rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-muted, rgba(0,0,0,0.12))",
+            background: "var(--panel-subtle, rgba(0,0,0,0.03))",
+          }}
+        >
+          <p className="muted small" style={{ margin: 0, fontWeight: 600 }}>
+            Provenance &amp; generation truthfulness (M5-T27)
+          </p>
+          <p className="small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <span className="research-honesty-badge">{provenanceTruthfulness.combined_origin_posture}</span>{" "}
+            {provenanceTruthfulness.ui_hint_line}
+          </p>
+          <ul className="muted small" style={{ margin: "0.5rem 0 0", paddingLeft: "1.1rem" }}>
+            <li>
+              Research spine: candidate rows <strong>{provenanceTruthfulness.research_origin.candidate_source_rows}</strong> ·
+              synthesis parseable: <strong>{String(provenanceTruthfulness.research_origin.synthesis_parseable)}</strong> ·
+              retrieval mode: <code className="inline-code">
+                {provenanceTruthfulness.research_origin.synthesis_retrieval_mode ?? "—"}
+              </code>{" "}
+              · sourced_claim findings:{" "}
+              <strong>{provenanceTruthfulness.research_origin.synthesis_finding_counts.sourced_claim}</strong>
+            </li>
+            <li>
+              Chronology trace: sourced_claim-labeled rows{" "}
+              <strong>{provenanceTruthfulness.research_origin.chronology_rows_with_candidate_sourced_claim_trace}</strong> ·
+              other profiles: <strong>{provenanceTruthfulness.research_origin.chronology_rows_other_profile}</strong>
+            </li>
+            <li>
+              Draft enrichment (M5-T08 index): trace present{" "}
+              <strong>{String(provenanceTruthfulness.draft_enrichment_origin.trace_index_present)}</strong> · nodes{" "}
+              <strong>{provenanceTruthfulness.draft_enrichment_origin.support_status_counts.total_nodes}</strong> · fully
+              backed share:{" "}
+              <strong>
+                {provenanceTruthfulness.draft_enrichment_origin.fully_source_backed_share === null
+                  ? "—"
+                  : provenanceTruthfulness.draft_enrichment_origin.fully_source_backed_share}
+              </strong>
+            </li>
+            {provenanceTruthfulness.manuscript_origin ? (
+              <li>
+                Manuscript modes:{" "}
+                <code className="inline-code">{JSON.stringify(provenanceTruthfulness.manuscript_origin.event_generation_modes)}</code>{" "}
+                · section origins:{" "}
+                <code className="inline-code">{JSON.stringify(provenanceTruthfulness.manuscript_origin.section_origins)}</code>{" "}
+                · manual_after_ai events:{" "}
+                <strong>{provenanceTruthfulness.manuscript_origin.creator_touch_signals.manual_after_ai_events}</strong>
+              </li>
+            ) : (
+              <li>Manuscript origin trace: not available until a story draft exists (after framing / assembly).</li>
+            )}
+          </ul>
+          <p className="muted small" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            <strong>Summary:</strong> {provenanceTruthfulness.headline}
+          </p>
+          <p className="muted small" style={{ marginTop: "0.35rem", marginBottom: 0 }}>
+            <strong>Next:</strong> {provenanceTruthfulness.next_action}
+          </p>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: "0.75rem" }} role="status">
+          Provenance truthfulness (M5-T27) is not in this API response yet — redeploy the API for the content-origin rail
+          alongside M5-T23–T26.
         </p>
       )}
       <p className="muted small" style={{ marginTop: "0.35rem" }}>

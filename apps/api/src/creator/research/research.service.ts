@@ -318,8 +318,8 @@ export class ResearchService {
     }>;
     /** M5-T26 — current story draft shell when present (optional; null before draft exists). */
     manuscriptLite: {
-      events: Array<{ headline: string; summary: string; eventType: string }>;
-      sections: Array<{ label: string; summary: string | null }>;
+      events: Array<{ headline: string; summary: string; eventType: string; generationMode: string }>;
+      sections: Array<{ label: string; summary: string | null; sectionOrigin: string }>;
     } | null;
     /** M5-T11 — persisted live enrichment when its `research_job_id` matches this job. */
     liveEventDraftEnrichment: unknown | null;
@@ -378,11 +378,11 @@ export class ResearchService {
           select: {
             eventDrafts: {
               orderBy: { positionIndex: "asc" },
-              select: { headline: true, summary: true, eventType: true },
+              select: { headline: true, summary: true, eventType: true, generationMode: true },
             },
             sectionDrafts: {
               orderBy: { positionIndex: "asc" },
-              select: { label: true, summary: true },
+              select: { label: true, summary: true, sectionOrigin: true },
             },
           },
         },
@@ -421,8 +421,8 @@ export class ResearchService {
     });
 
     let manuscriptLite: {
-      events: Array<{ headline: string; summary: string; eventType: string }>;
-      sections: Array<{ label: string; summary: string | null }>;
+      events: Array<{ headline: string; summary: string; eventType: string; generationMode: string }>;
+      sections: Array<{ label: string; summary: string | null; sectionOrigin: string }>;
     } | null = null;
     const sd = briefRow?.storyDraft;
     if (sd && (sd.eventDrafts.length > 0 || sd.sectionDrafts.length > 0)) {
@@ -431,10 +431,12 @@ export class ResearchService {
           headline: e.headline,
           summary: e.summary,
           eventType: e.eventType,
+          generationMode: e.generationMode,
         })),
         sections: sd.sectionDrafts.map((s) => ({
           label: s.label,
           summary: s.summary,
+          sectionOrigin: s.sectionOrigin,
         })),
       };
     }
